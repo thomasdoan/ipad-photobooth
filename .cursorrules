@@ -1,0 +1,88 @@
+# FotoX Project Rules
+
+## Project Overview
+This is an iPad photobooth app built with Swift/SwiftUI that communicates with a Raspberry Pi backend.
+
+## Code Style
+
+### Swift
+- Use Swift 5.9+ features
+- Prefer `async/await` over completion handlers
+- Use `@Observable` for view models (iOS 17+)
+- Mark types as `Sendable` when needed for concurrency
+- Use `@MainActor` for UI-related code
+
+### SwiftUI
+- Use `@State` for local view state
+- Use `@Environment` for shared state
+- Prefer composition over inheritance
+- Keep views small and focused
+
+### Naming
+- Views: `FeatureNameView.swift`
+- ViewModels: `FeatureNameViewModel.swift`
+- Use camelCase for properties, PascalCase for types
+- Prefix private properties with context when needed
+
+## Architecture
+
+### State Management
+- Central `AppState` holds navigation and shared state
+- ViewModels hold screen-specific state
+- Services handle API calls and business logic
+
+### Navigation
+- Enum-based routing via `AppRoute`
+- Change `appState.currentRoute` to navigate
+- No UIKit navigation controllers
+
+### Dependency Injection
+- Services passed through `ServiceContainer`
+- `TestableServiceContainer` for mock injection
+- No singletons for testability
+
+## File Organization
+```
+Core/           - Shared code (models, networking, services)
+Features/       - Screen-specific code (view + viewmodel pairs)
+App/            - App-level state and configuration
+```
+
+## Testing
+- Unit tests in `fotoXTests/` using Swift Testing framework
+- UI tests in `fotoXUITests/` using XCUITest
+- Use `--use-mock-data` flag for deterministic UI tests
+- Test JSON parsing for all API models
+
+## API Integration
+- Base URL: `http://booth.local/api` (configurable)
+- All endpoints defined in `Endpoints.swift`
+- Use `APIClient` for all HTTP requests
+- Handle errors with `APIError` enum
+
+## Common Tasks
+
+### Adding a Feature
+1. Create View and ViewModel in `Features/`
+2. Add route to `AppRouter.swift`
+3. Handle route in `RootView` switch statement
+4. Wire up services via `ServiceContainer`
+
+### Adding an API Call
+1. Define endpoint in `Endpoints.swift`
+2. Add service method (e.g., in `SessionService`)
+3. Add mock in `TestableServiceContainer`
+4. Add unit test for response parsing
+
+### Debugging
+- Use `print()` for quick debugging (shows in Xcode console)
+- Use View Debugger for layout issues
+- Camera only works on physical device
+
+## Don'ts
+- Don't use `any` type if avoidable
+- Don't use force unwrap (`!`) except for known-safe cases
+- Don't create new singletons
+- Don't skip error handling
+- Don't hardcode URLs or secrets
+
