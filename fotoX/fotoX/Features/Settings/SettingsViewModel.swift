@@ -32,7 +32,12 @@ final class SettingsViewModel {
     
     private let healthCheck: @Sendable (URL) async throws -> Bool
     
-    init(healthCheck: @escaping @Sendable (URL) async throws -> Bool = SettingsViewModel.defaultHealthCheck) {
+    init() {
+        self.healthCheck = SettingsViewModel.defaultHealthCheck
+        loadCurrentSettings()
+    }
+
+    init(healthCheck: @escaping @Sendable (URL) async throws -> Bool) {
         self.healthCheck = healthCheck
         loadCurrentSettings()
     }
