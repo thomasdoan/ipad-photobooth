@@ -21,12 +21,9 @@ final class CaptureViewModel: @unchecked Sendable {
     
     /// Captured strips
     var capturedStrips: [CapturedStripMedia] = []
-    
-    /// Whether we're in review mode
-    var isReviewing: Bool = false
-    
-    /// Whether to show the summary
-    var showingSummary: Bool = false
+
+    /// Whether the session is complete
+    var isSessionComplete: Bool = false
     
     /// Error message
     var errorMessage: String?
@@ -91,9 +88,23 @@ final class CaptureViewModel: @unchecked Sendable {
     @MainActor
     func startCapture() {
         guard stripState == .ready || stripState == .complete else { return }
-        
-        stripState = .countdown(remaining: config.countdownSeconds)
-        startCountdownTimer()
+        guard currentStripIndex < config.stripCount else { return }
+
+        isSessionComplete = false
+        if config.countdownSeconds > 0 {
+            stripState = .countdown(remaining: config.countdownSeconds)
+            startCountdownTimer()
+        } else {
+            countdownComplete()
+        }
+    }
+
+    /// Resets state to retry the current strip
+    @MainActor
+    func retryCurrentStrip() {
+        currentVideoURL = nil
+        currentPhotoData = nil
+        stripState = .ready
     }
     
     /// Handles countdown completion
@@ -164,39 +175,13 @@ final class CaptureViewModel: @unchecked Sendable {
         currentVideoURL = nil
         currentPhotoData = nil
         stripState = .complete
-        isReviewing = true
-    }
-    
-    /// Proceeds to the next strip or summary
-    @MainActor
-    func continueToNext() {
-        isReviewing = false
-        
+
         if currentStripIndex < config.stripCount - 1 {
             currentStripIndex += 1
-            stripState = .ready
+            startCapture()
         } else {
-            showingSummary = true
+            isSessionComplete = true
         }
-    }
-    
-    /// Retakes the current strip
-    @MainActor
-    func retakeCurrentStrip() {
-        // Remove the strip if it was captured
-        capturedStrips.removeAll { $0.stripIndex == currentStripIndex }
-        
-        isReviewing = false
-        stripState = .ready
-    }
-    
-    /// Retakes a specific strip from summary
-    @MainActor
-    func retakeStrip(at index: Int) {
-        capturedStrips.removeAll { $0.stripIndex == index }
-        showingSummary = false
-        currentStripIndex = index
-        stripState = .ready
     }
     
     /// Converts captured strips to the model format

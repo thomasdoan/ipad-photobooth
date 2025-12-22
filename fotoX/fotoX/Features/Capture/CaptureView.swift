@@ -39,6 +39,11 @@ struct CaptureView: View {
         .onChange(of: viewModel.stripState) { oldState, newState in
             handleStateChange(from: oldState, to: newState)
         }
+        .onChange(of: viewModel.isSessionComplete) { _, isComplete in
+            if isComplete {
+                finishCapture()
+            }
+        }
     }
     
     // MARK: - Camera Layer
@@ -67,37 +72,7 @@ struct CaptureView: View {
     
     @ViewBuilder
     private func overlayLayer(geometry: GeometryProxy) -> some View {
-        if viewModel.showingSummary {
-            // Summary view
-            CaptureSummaryView(
-                strips: viewModel.getCapturedStrips(),
-                onRetake: { index in
-                    viewModel.retakeStrip(at: index)
-                },
-                onFinish: {
-                    finishCapture()
-                }
-            )
-            .transition(.opacity)
-        } else if viewModel.isReviewing, let lastStrip = viewModel.capturedStrips.last {
-            // Review view
-            StripReviewView(
-                stripIndex: lastStrip.stripIndex,
-                videoURL: lastStrip.videoURL,
-                photoData: lastStrip.photoData,
-                onRetake: {
-                    viewModel.retakeCurrentStrip()
-                },
-                onContinue: {
-                    viewModel.continueToNext()
-                },
-                isLastStrip: viewModel.currentStripIndex >= viewModel.config.stripCount - 1
-            )
-            .transition(.opacity)
-        } else {
-            // Capture UI
-            captureOverlay(geometry: geometry)
-        }
+        captureOverlay(geometry: geometry)
     }
     
     // MARK: - Capture Overlay
@@ -203,7 +178,7 @@ struct CaptureView: View {
                             .frame(width: 80, height: 80)
                     }
                     
-                    Text("Tap to Start Recording")
+                    Text("Tap to Start")
                         .font(.headline)
                         .foregroundStyle(.white)
                 }
@@ -276,7 +251,7 @@ struct CaptureView: View {
                     .multilineTextAlignment(.center)
                 
                 Button {
-                    viewModel.retakeCurrentStrip()
+                    viewModel.retryCurrentStrip()
                 } label: {
                     Text("Try Again")
                         .font(.headline)

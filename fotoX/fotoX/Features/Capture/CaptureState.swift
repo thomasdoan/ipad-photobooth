@@ -30,7 +30,7 @@ enum StripCaptureState: Equatable, Sendable {
     /// Processing photo
     case processingPhoto
     
-    /// Strip complete, ready for review
+    /// Strip complete
     case complete
     
     /// Error occurred
@@ -54,7 +54,7 @@ struct CaptureConfiguration: Sendable {
     /// Default configuration
     static let `default` = CaptureConfiguration(
         videoDuration: 10,
-        countdownSeconds: 3,
+        countdownSeconds: 0,
         photoCountdownSeconds: 1,
         stripCount: 3
     )
@@ -67,4 +67,3 @@ struct CapturedStripMedia: Sendable {
     let photoData: Data
     let thumbnailData: Data?
 }
-

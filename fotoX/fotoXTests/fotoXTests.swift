@@ -557,7 +557,7 @@ struct CaptureStateTests {
         let config = CaptureConfiguration.default
         
         #expect(config.videoDuration == 10)
-        #expect(config.countdownSeconds == 3)
+        #expect(config.countdownSeconds == 0)
         #expect(config.photoCountdownSeconds == 1)
         #expect(config.stripCount == 3)
     }

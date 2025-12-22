@@ -109,29 +109,6 @@ final class AppState {
     /// Adds a captured strip
     func addCapturedStrip(_ strip: CapturedStrip) {
         capturedStrips.append(strip)
-        
-        if capturedStrips.count < 3 {
-            currentRoute = .capture(.reviewingStrip(index: strip.stripIndex))
-        } else {
-            currentRoute = .capture(.summary)
-        }
-    }
-    
-    /// Proceeds to next strip after review
-    func proceedToNextStrip() {
-        let nextIndex = capturedStrips.count
-        if nextIndex < 3 {
-            currentRoute = .capture(.capturingStrip(index: nextIndex))
-        } else {
-            currentRoute = .uploading
-        }
-    }
-    
-    /// Retakes the current strip
-    func retakeStrip(at index: Int) {
-        // Remove the strip if it exists
-        capturedStrips.removeAll { $0.stripIndex == index }
-        currentRoute = .capture(.capturingStrip(index: index))
     }
     
     /// Transitions to upload phase
