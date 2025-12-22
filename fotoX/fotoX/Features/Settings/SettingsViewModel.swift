@@ -13,7 +13,7 @@ import Observation
 final class SettingsViewModel {
     // MARK: - State
     
-    /// Current Pi base URL
+    /// Current Worker base URL
     var baseURLString: String = ""
     
     /// Whether testing connection
@@ -27,7 +27,10 @@ final class SettingsViewModel {
     
     // MARK: - Initialization
     
-    init() {
+    private let healthCheck: @Sendable (URL) async throws -> Bool
+    
+    init(healthCheck: @escaping @Sendable (URL) async throws -> Bool = SettingsViewModel.defaultHealthCheck) {
+        self.healthCheck = healthCheck
         loadCurrentSettings()
     }
     
@@ -35,11 +38,7 @@ final class SettingsViewModel {
     
     /// Loads current settings
     private func loadCurrentSettings() {
-        if let urlString = UserDefaults.standard.string(forKey: "piBaseURL") {
-            baseURLString = urlString
-        } else {
-            baseURLString = APIClient.defaultBaseURL.absoluteString
-        }
+        baseURLString = WorkerConfiguration.currentBaseURL().absoluteString
     }
     
     /// Validates the URL
@@ -55,23 +54,25 @@ final class SettingsViewModel {
     /// Saves the base URL
     func saveBaseURL() -> Bool {
         guard isURLValid else {
-            urlError = "Please enter a valid URL (e.g., http://booth.local/api)"
+            urlError = "Please enter a valid URL (e.g., https://your-worker.workers.dev)"
             return false
         }
         
         urlError = nil
-        UserDefaults.standard.set(baseURLString, forKey: "piBaseURL")
+        if let url = URL(string: baseURLString) {
+            WorkerConfiguration.saveBaseURL(url)
+        }
         return true
     }
     
     /// Resets to default URL
     func resetToDefault() {
-        baseURLString = APIClient.defaultBaseURL.absoluteString
+        baseURLString = WorkerConfiguration.defaultBaseURL.absoluteString
         _ = saveBaseURL()
         connectionTestResult = nil
     }
     
-    /// Tests connection to the Pi
+    /// Tests connection to the Worker
     @MainActor
     func testConnection() async {
         guard isURLValid else {
@@ -88,22 +89,26 @@ final class SettingsViewModel {
             return
         }
         
-        let testClient = APIClient(baseURL: url, timeoutInterval: 10, maxRetries: 1)
-        
         do {
-            // Try to fetch events as a connection test
-            let data = try await testClient.fetchData(Endpoints.events)
-            // Try to decode to verify the response is valid JSON
-            let decoder = JSONDecoder()
-            let _ = try decoder.decode([Event].self, from: data)
-            connectionTestResult = .success
-        } catch let error as APIError {
-            connectionTestResult = .failure(error.userMessage)
+            let isHealthy = try await healthCheck(url)
+            connectionTestResult = isHealthy ? .success : .failure("Worker did not respond successfully")
         } catch {
             connectionTestResult = .failure("Connection failed: \(error.localizedDescription)")
         }
         
         isTestingConnection = false
+    }
+
+    private static func defaultHealthCheck(url: URL) async throws -> Bool {
+        var request = URLRequest(url: url.appendingPathComponent("health"))
+        request.httpMethod = "GET"
+        request.timeoutInterval = 10
+        
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse else {
+            return false
+        }
+        return (200..<400).contains(httpResponse.statusCode)
     }
     
     /// Clears test result
@@ -117,4 +122,3 @@ enum ConnectionTestResult: Equatable {
     case success
     case failure(String)
 }
-

@@ -72,7 +72,7 @@ struct SettingsView: View {
     
     private var connectionSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            sectionHeader(title: "Pi Connection", icon: "network")
+            sectionHeader(title: "Worker Connection", icon: "network")
             
             VStack(spacing: 12) {
                 // URL input
@@ -81,7 +81,7 @@ struct SettingsView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     
-                    TextField("http://booth.local/api", text: $viewModel.baseURLString)
+                    TextField("https://your-worker.workers.dev", text: $viewModel.baseURLString)
                         .textFieldStyle(.plain)
                         .keyboardType(.URL)
                         .autocapitalization(.none)
@@ -301,4 +301,3 @@ struct SettingsView: View {
     SettingsView()
         .environment(AppState())
 }
-

@@ -179,7 +179,7 @@ final class SettingsTests: FotoXUITestCase {
         XCTAssertTrue(waitForElement(app.navigationBars["Settings"]))
         
         // THEN: All sections should be visible
-        XCTAssertTrue(app.staticTexts["Pi Connection"].exists, "Pi Connection section")
+        XCTAssertTrue(app.staticTexts["Worker Connection"].exists, "Worker Connection section")
         XCTAssertTrue(app.staticTexts["App Info"].exists, "App Info section")
         XCTAssertTrue(app.staticTexts["Session Control"].exists, "Session Control section")
     }

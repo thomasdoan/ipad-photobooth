@@ -68,18 +68,10 @@ final class AppState {
     
     // MARK: - Configuration
     
-    /// Base URL for Pi API (persisted)
-    var piBaseURL: URL {
-        get {
-            if let urlString = UserDefaults.standard.string(forKey: "piBaseURL"),
-               let url = URL(string: urlString) {
-                return url
-            }
-            return APIClient.defaultBaseURL
-        }
-        set {
-            UserDefaults.standard.set(newValue.absoluteString, forKey: "piBaseURL")
-        }
+    /// Base URL for Worker (persisted)
+    var workerBaseURL: URL {
+        get { WorkerConfiguration.currentBaseURL() }
+        set { WorkerConfiguration.saveBaseURL(newValue) }
     }
     
     // MARK: - Computed Properties
@@ -195,4 +187,3 @@ final class AppState {
         currentError = nil
     }
 }
-

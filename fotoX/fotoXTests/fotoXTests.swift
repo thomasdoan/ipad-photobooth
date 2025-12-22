@@ -544,3 +544,43 @@ struct CaptureStateTests {
         #expect(config.stripCount == 3)
     }
 }
+
+// MARK: - Settings Tests
+
+@MainActor
+struct SettingsViewModelTests {
+    
+    @Test("Worker URL validation accepts valid URLs")
+    func workerURLValidationAcceptsValid() {
+        let viewModel = SettingsViewModel(healthCheck: { _ in true })
+        viewModel.baseURLString = "https://example.workers.dev"
+        #expect(viewModel.isURLValid == true)
+    }
+    
+    @Test("Worker URL validation rejects invalid URLs")
+    func workerURLValidationRejectsInvalid() {
+        let viewModel = SettingsViewModel(healthCheck: { _ in true })
+        viewModel.baseURLString = "not-a-url"
+        #expect(viewModel.isURLValid == false)
+    }
+    
+    @Test("Health check success sets success result")
+    func healthCheckSuccess() async {
+        let viewModel = SettingsViewModel(healthCheck: { _ in true })
+        viewModel.baseURLString = "https://example.workers.dev"
+        await viewModel.testConnection()
+        #expect(viewModel.connectionTestResult == .success)
+    }
+    
+    @Test("Health check failure sets failure result")
+    func healthCheckFailure() async {
+        let viewModel = SettingsViewModel(healthCheck: { _ in false })
+        viewModel.baseURLString = "https://example.workers.dev"
+        await viewModel.testConnection()
+        if case .failure = viewModel.connectionTestResult {
+            #expect(true)
+        } else {
+            Issue.record("Expected failure result")
+        }
+    }
+}
