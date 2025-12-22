@@ -12,6 +12,7 @@ struct CaptureView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
     @Environment(\.themeAssets) private var themeAssets
+    let services: ServiceContainer
     
     @State private var viewModel = CaptureViewModel()
     @State private var showFlash = false
@@ -33,7 +34,7 @@ struct CaptureView: View {
             await viewModel.setupCamera()
         }
         .onDisappear {
-            viewModel.cleanup()
+            viewModel.cleanup(deleteTemporaryFiles: false)
         }
         .onChange(of: viewModel.stripState) { oldState, newState in
             handleStateChange(from: oldState, to: newState)
@@ -336,18 +337,53 @@ struct CaptureView: View {
         for strip in strips {
             appState.addCapturedStrip(strip)
         }
+
+        guard let eventId = appState.selectedEvent?.id,
+              let session = appState.currentSession else {
+            appState.currentError = APIError.invalidResponse
+            appState.currentRoute = .idle
+            return
+        }
+
         appState.beginUpload()
+
+        Task {
+            do {
+                try await services.uploadQueueWorker.enqueueAndStart(
+                    eventId: eventId,
+                    session: session,
+                    strips: strips,
+                    onProgress: { sessionId in
+                        if appState.currentSession?.sessionId == sessionId {
+                            appState.assetUploaded()
+                        }
+                    },
+                    onError: { sessionId, error in
+                        if sessionId.isEmpty || appState.currentSession?.sessionId == sessionId {
+                            appState.uploadFailed(error: error)
+                        }
+                    }
+                )
+            } catch let error as APIError {
+                await MainActor.run {
+                    appState.uploadFailed(error: error)
+                }
+            } catch {
+                await MainActor.run {
+                    appState.uploadFailed(error: .unknown(error))
+                }
+            }
+        }
     }
     
     private func cancelCapture() {
-        viewModel.cleanup()
+        viewModel.cleanup(deleteTemporaryFiles: true)
         appState.resetSession()
     }
 }
 
 #Preview {
-    CaptureView()
+    CaptureView(services: ServiceContainer())
         .environment(AppState())
         .withTheme(.default)
 }
-

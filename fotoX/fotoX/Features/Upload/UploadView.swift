@@ -319,21 +319,7 @@ struct UploadView: View {
     }
     
     private func fetchQRAndContinue() {
-        Task {
-            guard let sessionId = appState.currentSession?.sessionId else { return }
-            
-            do {
-                let qrData = try await testableServices.fetchQRCode(sessionId: sessionId)
-                await MainActor.run {
-                    appState.uploadCompleted(qrData: qrData)
-                }
-            } catch {
-                // If QR fetch fails, still proceed (can try again on QR screen)
-                await MainActor.run {
-                    appState.uploadCompleted(qrData: Data())
-                }
-            }
-        }
+        appState.currentRoute = .qrDisplay
     }
 }
 

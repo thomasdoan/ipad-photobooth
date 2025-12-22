@@ -49,9 +49,6 @@ final class AppState {
     
     // MARK: - QR & Email
     
-    /// QR code image data
-    var qrCodeData: Data?
-    
     /// Email submission status
     var emailSubmitted: Bool = false
     
@@ -105,6 +102,7 @@ final class AppState {
     func startSession(with session: Session) {
         currentSession = session
         capturedStrips = []
+        emailSubmitted = false
         currentRoute = .capture(.capturingStrip(index: 0))
     }
     
@@ -141,19 +139,13 @@ final class AppState {
         totalAssetsToUpload = capturedStrips.count * 2 // video + photo per strip
         assetsUploaded = 0
         uploadError = nil
-        currentRoute = .uploading
+        emailSubmitted = false
+        currentRoute = .qrDisplay
     }
     
     /// Updates upload progress
     func assetUploaded() {
         assetsUploaded += 1
-    }
-    
-    /// Upload completed, transition to QR
-    func uploadCompleted(qrData: Data) {
-        qrCodeData = qrData
-        emailSubmitted = false
-        currentRoute = .qrDisplay
     }
     
     /// Upload failed
@@ -168,7 +160,6 @@ final class AppState {
         totalAssetsToUpload = 0
         assetsUploaded = 0
         uploadError = nil
-        qrCodeData = nil
         emailSubmitted = false
         currentRoute = .idle
     }

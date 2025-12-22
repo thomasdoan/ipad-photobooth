@@ -38,6 +38,9 @@ struct QRView: View {
                         
                         // URL display
                         urlSection
+
+                        // Upload status
+                        uploadStatusSection
                         
                         // Email section
                         if let viewModel = viewModel {
@@ -208,6 +211,29 @@ struct QRView: View {
             }
         }
     }
+
+    private var uploadStatusSection: some View {
+        Group {
+            if appState.totalAssetsToUpload > 0 {
+                let remaining = appState.totalAssetsToUpload - appState.assetsUploaded
+                let isComplete = remaining <= 0
+
+                HStack(spacing: 8) {
+                    Image(systemName: isComplete ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath")
+                        .foregroundStyle(isComplete ? .green : theme.primary)
+                    Text(isComplete ? "Uploads complete" : "Uploading \(appState.assetsUploaded)/\(appState.totalAssetsToUpload)")
+                        .font(.caption)
+                        .foregroundStyle(theme.accent.opacity(0.8))
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(theme.secondary.opacity(0.5))
+                )
+            }
+        }
+    }
     
     // MARK: - Email Section
     
@@ -340,7 +366,7 @@ struct QRView: View {
     
     private func setupViewModel() {
         let vm = QRViewModel(sessionService: services.sessionService, testableServices: testableServices)
-        vm.setup(qrData: appState.qrCodeData, session: appState.currentSession)
+        vm.setup(session: appState.currentSession)
         viewModel = vm
         
         // Fetch QR if not available

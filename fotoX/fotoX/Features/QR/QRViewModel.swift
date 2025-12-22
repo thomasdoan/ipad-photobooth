@@ -54,13 +54,9 @@ final class QRViewModel<SessionService: SessionServicing> {
     
     /// Sets up the view model with session data
     @MainActor
-    func setup(qrData: Data?, session: Session?) {
+    func setup(session: Session?) {
         if let session = session {
             universalURL = session.universalURL
-        }
-        
-        if let qrData = qrData, !qrData.isEmpty {
-            qrImage = UIImage(data: qrData)
         }
     }
     

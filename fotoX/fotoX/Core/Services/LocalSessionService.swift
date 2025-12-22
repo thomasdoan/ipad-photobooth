@@ -11,10 +11,10 @@ import CoreImage.CIFilterBuiltins
 
 @MainActor
 final class LocalSessionService: SessionServicing {
-    private let galleryBaseURL: URL
+    private let galleryBaseURLProvider: @Sendable () -> URL
 
-    init(galleryBaseURL: URL) {
-        self.galleryBaseURL = galleryBaseURL
+    init(galleryBaseURLProvider: @escaping @Sendable () -> URL = WorkerConfiguration.currentBaseURL) {
+        self.galleryBaseURLProvider = galleryBaseURLProvider
     }
 
     func createSession(eventId: Int) async throws -> Session {
@@ -46,7 +46,7 @@ final class LocalSessionService: SessionServicing {
     }
 
     private func galleryURLString(for sessionId: String) -> String {
-        galleryBaseURL.appendingPathComponent("s").appendingPathComponent(sessionId).absoluteString
+        galleryBaseURLProvider().appendingPathComponent("s").appendingPathComponent(sessionId).absoluteString
     }
 
     private func generateQRCode(from string: String) -> Data? {

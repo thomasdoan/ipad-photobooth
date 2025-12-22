@@ -15,6 +15,9 @@ final class SettingsViewModel {
     
     /// Current Worker base URL
     var baseURLString: String = ""
+
+    /// Shared presign token for uploads
+    var presignToken: String = ""
     
     /// Whether testing connection
     var isTestingConnection: Bool = false
@@ -39,6 +42,7 @@ final class SettingsViewModel {
     /// Loads current settings
     private func loadCurrentSettings() {
         baseURLString = WorkerConfiguration.currentBaseURL().absoluteString
+        presignToken = WorkerConfiguration.currentPresignToken() ?? ""
     }
     
     /// Validates the URL
@@ -62,6 +66,7 @@ final class SettingsViewModel {
         if let url = URL(string: baseURLString) {
             WorkerConfiguration.saveBaseURL(url)
         }
+        WorkerConfiguration.savePresignToken(presignToken)
         return true
     }
     

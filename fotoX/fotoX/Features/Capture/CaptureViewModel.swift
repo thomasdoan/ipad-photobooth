@@ -77,9 +77,11 @@ final class CaptureViewModel: @unchecked Sendable {
     }
     
     /// Cleans up resources
-    func cleanup() {
+    func cleanup(deleteTemporaryFiles: Bool = true) {
         cameraController.stopSession()
-        cameraController.cleanupTempFiles()
+        if deleteTemporaryFiles {
+            cameraController.cleanupTempFiles()
+        }
         invalidateTimers()
     }
     
@@ -293,4 +295,3 @@ extension CaptureViewModel: CameraControllerDelegate {
         }
     }
 }
-

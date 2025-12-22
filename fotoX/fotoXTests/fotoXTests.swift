@@ -158,6 +158,25 @@ struct ModelEncodingTests {
         
         #expect(json["email"] as? String == "test@example.com")
     }
+
+    @Test("PresignRequest encodes correctly")
+    func presignRequestEncodes() throws {
+        let request = PresignRequest(
+            eventId: 42,
+            sessionId: "ABC-123",
+            files: [
+                PresignFile(path: "events/42/sessions/ABC-123/photo_0.jpg", contentType: "image/jpeg", sizeBytes: 123)
+            ]
+        )
+        let data = try JSONEncoder().encode(request)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let files = json["files"] as? [[String: Any]]
+        
+        #expect(json["event_id"] as? Int == 42)
+        #expect(json["session_id"] as? String == "ABC-123")
+        #expect(files?.first?["content_type"] as? String == "image/jpeg")
+        #expect(files?.first?["size_bytes"] as? Int == 123)
+    }
 }
 
 // MARK: - Color Extension Tests
@@ -312,7 +331,6 @@ struct AppStateTests {
         #expect(state.currentRoute == .idle)
         #expect(state.currentSession == nil)
         #expect(state.capturedStrips.isEmpty)
-        #expect(state.qrCodeData == nil)
     }
     
     @Test("returnToEventSelection clears everything")

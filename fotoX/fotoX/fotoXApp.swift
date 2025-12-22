@@ -54,7 +54,7 @@ struct RootView: View {
                     .transition(.opacity)
                 
             case .capture:
-                CaptureView()
+                CaptureView(services: services)
                     .transition(.opacity)
                 
             case .uploading:
@@ -71,6 +71,20 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: appState.currentRoute)
+        .task {
+            await services.uploadQueueWorker.startProcessing(
+                onProgress: { sessionId in
+                    if appState.currentSession?.sessionId == sessionId {
+                        appState.assetUploaded()
+                    }
+                },
+                onError: { sessionId, error in
+                    if sessionId.isEmpty || appState.currentSession?.sessionId == sessionId {
+                        appState.uploadFailed(error: error)
+                    }
+                }
+            )
+        }
         .sheet(isPresented: Binding(
             get: { appState.showSettings },
             set: { appState.showSettings = $0 }

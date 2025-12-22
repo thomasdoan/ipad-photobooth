@@ -34,7 +34,7 @@ final class TestableServiceContainer: Sendable {
         
         self.themeService = ThemeService()
         self.eventService = LocalEventService()
-        self.sessionService = LocalSessionService(galleryBaseURL: WorkerConfiguration.currentBaseURL())
+        self.sessionService = LocalSessionService()
         self.apiClient = nil
 
         if useMocks {

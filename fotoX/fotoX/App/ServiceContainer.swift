@@ -13,11 +13,12 @@ final class ServiceContainer: Sendable {
     let eventService: LocalEventService
     let sessionService: LocalSessionService
     let themeService: ThemeService
+    let uploadQueueWorker: UploadQueueWorker
     
     init() {
-        let galleryBaseURL = WorkerConfiguration.currentBaseURL()
         self.eventService = LocalEventService()
-        self.sessionService = LocalSessionService(galleryBaseURL: galleryBaseURL)
+        self.sessionService = LocalSessionService()
         self.themeService = ThemeService()
+        self.uploadQueueWorker = UploadQueueWorker()
     }
 }
