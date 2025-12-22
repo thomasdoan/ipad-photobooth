@@ -32,7 +32,7 @@ struct UploadItem: Identifiable, Sendable {
 
 /// ViewModel for managing uploads
 @Observable
-final class UploadViewModel {
+final class UploadViewModel<SessionService: SessionServicing> {
     // MARK: - State
     
     /// Items to upload
@@ -224,4 +224,3 @@ final class UploadViewModel {
         }.count
     }
 }
-

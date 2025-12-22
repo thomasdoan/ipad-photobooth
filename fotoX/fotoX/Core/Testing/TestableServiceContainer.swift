@@ -14,11 +14,11 @@ final class TestableServiceContainer: Sendable {
     
     // MARK: - Service Access
     
-    /// Event service - real or mock based on configuration
-    let eventService: EventService
-    let sessionService: SessionService
+    /// Local services used when mocks are not enabled
+    let eventService: LocalEventService
+    let sessionService: LocalSessionService
     let themeService: ThemeService
-    let apiClient: APIClient
+    let apiClient: APIClient?
     
     // Mock services (available when testing)
     private(set) var mockEventService: MockEventService?
@@ -32,15 +32,17 @@ final class TestableServiceContainer: Sendable {
     init(useMocks: Bool = MockDataProvider.useMockData) {
         self.isMocking = useMocks
         
-        let client = APIClient(baseURL: APIClient.defaultBaseURL)
-        self.apiClient = client
-        self.eventService = EventService(apiClient: client)
-        self.sessionService = SessionService(apiClient: client)
         self.themeService = ThemeService()
-        
+        self.eventService = LocalEventService()
+        self.sessionService = LocalSessionService(galleryBaseURL: WorkerConfiguration.currentBaseURL())
+        self.apiClient = nil
+
         if useMocks {
             self.mockEventService = MockEventService()
             self.mockSessionService = MockSessionService()
+        } else {
+            self.mockEventService = nil
+            self.mockSessionService = nil
         }
     }
     
@@ -112,4 +114,3 @@ final class TestableServiceContainer: Sendable {
         return try await sessionService.submitEmail(sessionId: sessionId, email: email)
     }
 }
-

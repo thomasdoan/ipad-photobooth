@@ -15,7 +15,7 @@ struct QRView: View {
     let services: ServiceContainer
     let testableServices: TestableServiceContainer
     
-    @State private var viewModel: QRViewModel?
+    @State private var viewModel: QRViewModel<LocalSessionService>?
     @State private var showDoneAnimation = false
     @State private var autoReturnTimer: Timer?
     
@@ -211,7 +211,7 @@ struct QRView: View {
     
     // MARK: - Email Section
     
-    private func emailSection(viewModel: QRViewModel) -> some View {
+    private func emailSection(viewModel: QRViewModel<LocalSessionService>) -> some View {
         VStack(spacing: 16) {
             if viewModel.emailSubmitted {
                 // Success state
@@ -370,4 +370,3 @@ struct QRView: View {
         .environment(AppState())
         .withTheme(.default)
 }
-

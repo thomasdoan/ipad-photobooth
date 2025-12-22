@@ -15,7 +15,7 @@ struct IdleView: View {
     let services: ServiceContainer
     let testableServices: TestableServiceContainer
     
-    @State private var viewModel: IdleViewModel?
+    @State private var viewModel: IdleViewModel<LocalSessionService>?
     @State private var isPulsing = false
     @State private var showParticles = true
     
@@ -302,4 +302,3 @@ struct Particle: Identifiable {
         .environment(AppState())
         .withTheme(.default)
 }
-

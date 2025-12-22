@@ -14,7 +14,7 @@ struct UploadView: View {
     let services: ServiceContainer
     let testableServices: TestableServiceContainer
     
-    @State private var viewModel: UploadViewModel?
+    @State private var viewModel: UploadViewModel<LocalSessionService>?
     @State private var hasStartedUpload = false
     
     var body: some View {
@@ -126,7 +126,7 @@ struct UploadView: View {
     
     // MARK: - Progress Section
     
-    private func progressSection(viewModel: UploadViewModel) -> some View {
+    private func progressSection(viewModel: UploadViewModel<LocalSessionService>) -> some View {
         VStack(spacing: 24) {
             // Progress ring
             ZStack {
@@ -160,7 +160,7 @@ struct UploadView: View {
         }
     }
     
-    private func uploadItemsList(viewModel: UploadViewModel) -> some View {
+    private func uploadItemsList(viewModel: UploadViewModel<LocalSessionService>) -> some View {
         VStack(spacing: 8) {
             ForEach(viewModel.uploadItems) { item in
                 uploadItemRow(item: item)
@@ -217,7 +217,7 @@ struct UploadView: View {
     // MARK: - Action Buttons
     
     @ViewBuilder
-    private func actionButtons(viewModel: UploadViewModel) -> some View {
+    private func actionButtons(viewModel: UploadViewModel<LocalSessionService>) -> some View {
         VStack(spacing: 16) {
             if viewModel.isComplete {
                 // Continue to QR
@@ -342,4 +342,3 @@ struct UploadView: View {
         .environment(AppState())
         .withTheme(.default)
 }
-

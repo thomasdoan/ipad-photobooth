@@ -545,6 +545,28 @@ struct CaptureStateTests {
     }
 }
 
+// MARK: - Local Services Tests
+
+@MainActor
+struct LocalEventServiceTests {
+    
+    @Test("LocalEventService returns bundled events")
+    func localEventServiceReturnsEvents() async throws {
+        let service = LocalEventService()
+        let events = try await service.fetchEvents()
+        #expect(!events.isEmpty)
+    }
+    
+    @Test("LocalEventService returns event by id")
+    func localEventServiceFetchById() async throws {
+        let service = LocalEventService()
+        let events = try await service.fetchEvents()
+        let first = try #require(events.first)
+        let event = try await service.fetchEvent(id: first.id)
+        #expect(event.id == first.id)
+    }
+}
+
 // MARK: - Settings Tests
 
 @MainActor

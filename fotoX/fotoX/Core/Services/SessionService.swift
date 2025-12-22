@@ -9,7 +9,7 @@ import Foundation
 
 /// Service for session-related API operations
 @MainActor
-final class SessionService: Sendable {
+final class SessionService: SessionServicing {
     private let apiClient: APIClient
     
     init(apiClient: APIClient) {
@@ -93,4 +93,3 @@ final class SessionService: Sendable {
         return data
     }
 }
-

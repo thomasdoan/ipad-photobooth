@@ -11,7 +11,7 @@ import Observation
 
 /// ViewModel for QR display and email submission
 @Observable
-final class QRViewModel {
+final class QRViewModel<SessionService: SessionServicing> {
     // MARK: - State
     
     /// QR code image
@@ -134,4 +134,3 @@ final class QRViewModel {
         emailError = nil
     }
 }
-

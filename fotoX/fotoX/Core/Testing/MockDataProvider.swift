@@ -130,7 +130,7 @@ enum MockDataProvider {
 
 /// Mock event service for testing
 @MainActor
-final class MockEventService: Sendable {
+final class MockEventService: EventServicing {
     var shouldFail = false
     var delaySeconds: Double = 0.5
     
@@ -162,7 +162,7 @@ final class MockEventService: Sendable {
 
 /// Mock session service for testing
 @MainActor
-final class MockSessionService: Sendable {
+final class MockSessionService: SessionServicing {
     var shouldFailCreate = false
     var shouldFailUpload = false
     var shouldFailQR = false
@@ -217,4 +217,3 @@ final class MockSessionService: Sendable {
 }
 
 import UIKit
-
