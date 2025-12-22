@@ -207,6 +207,14 @@ final class CameraController: NSObject, @unchecked Sendable {
         // Create preview layer
         let previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
         previewLayer.videoGravity = .resizeAspectFill
+        
+        // Configure preview orientation (90 degrees for portrait)
+        if let connection = previewLayer.connection {
+            if connection.isVideoRotationAngleSupported(90) {
+                connection.videoRotationAngle = 90
+            }
+        }
+        
         self.previewLayer = previewLayer
     }
     

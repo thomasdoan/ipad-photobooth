@@ -54,8 +54,11 @@ struct CaptureView: View {
             Color.black.ignoresSafeArea()
             
             // Camera preview
-            CameraPreview(cameraController: viewModel.cameraController)
-                .ignoresSafeArea()
+            CameraPreview(
+                cameraController: viewModel.cameraController,
+                isReady: viewModel.isCameraReady
+            )
+            .ignoresSafeArea()
             
             // Frame overlay if available
             if let frame = themeAssets?.photoFrame {

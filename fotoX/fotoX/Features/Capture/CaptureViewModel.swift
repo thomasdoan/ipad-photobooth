@@ -25,6 +25,9 @@ final class CaptureViewModel: @unchecked Sendable {
     /// Whether the session is complete
     var isSessionComplete: Bool = false
     
+    /// Whether the camera is ready
+    var isCameraReady: Bool = false
+    
     /// Error message
     var errorMessage: String?
     
@@ -64,6 +67,7 @@ final class CaptureViewModel: @unchecked Sendable {
         do {
             try await cameraController.setup()
             cameraController.startSession()
+            isCameraReady = true
         } catch let error as CameraError {
             errorMessage = error.localizedDescription
             stripState = .error(error.localizedDescription)
