@@ -80,7 +80,7 @@ struct ModelDecodingTests {
     func sessionDecodesFromJSON() async throws {
         let json = """
         {
-            "session_id": 123,
+            "session_id": "8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B",
             "public_token": "zQ1A9LfKc7",
             "universal_url": "https://pb.example.com/s/zQ1A9LfKc7"
         }
@@ -88,7 +88,7 @@ struct ModelDecodingTests {
         
         let session = try JSONDecoder().decode(Session.self, from: json)
         
-        #expect(session.sessionId == 123)
+        #expect(session.sessionId == "8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B")
         #expect(session.publicToken == "zQ1A9LfKc7")
         #expect(session.universalURL == "https://pb.example.com/s/zQ1A9LfKc7")
     }
@@ -289,11 +289,11 @@ struct AppStateTests {
     @Test("startSession changes route to capture")
     func startSessionChangesRoute() {
         let state = AppState()
-        let session = Session(sessionId: 123, publicToken: "abc", universalURL: "https://example.com")
+        let session = Session(sessionId: "ABC-123", publicToken: "abc", universalURL: "https://example.com")
         
         state.startSession(with: session)
         
-        #expect(state.currentSession?.sessionId == 123)
+        #expect(state.currentSession?.sessionId == "ABC-123")
         if case .capture(.capturingStrip(let index)) = state.currentRoute {
             #expect(index == 0)
         } else {
@@ -304,7 +304,7 @@ struct AppStateTests {
     @Test("resetSession clears state and returns to idle")
     func resetSessionClearsState() {
         let state = AppState()
-        let session = Session(sessionId: 1, publicToken: "abc", universalURL: "https://example.com")
+        let session = Session(sessionId: "ABC-1", publicToken: "abc", universalURL: "https://example.com")
         state.startSession(with: session)
         
         state.resetSession()
@@ -471,25 +471,25 @@ struct EndpointTests {
     
     @Test("Upload asset endpoint has correct path")
     func uploadAssetEndpointPath() {
-        let endpoint = Endpoints.uploadAsset(sessionId: 123)
+        let endpoint = Endpoints.uploadAsset(sessionId: "ABC-123")
         
-        #expect(endpoint.path == "sessions/123/assets")
+        #expect(endpoint.path == "sessions/ABC-123/assets")
         #expect(endpoint.method == .POST)
     }
     
     @Test("QR code endpoint has correct path")
     func qrCodeEndpointPath() {
-        let endpoint = Endpoints.qrCode(sessionId: 456)
+        let endpoint = Endpoints.qrCode(sessionId: "ABC-456")
         
-        #expect(endpoint.path == "sessions/456/qr")
+        #expect(endpoint.path == "sessions/ABC-456/qr")
         #expect(endpoint.method == .GET)
     }
     
     @Test("Submit email endpoint has correct path")
     func submitEmailEndpointPath() {
-        let endpoint = Endpoints.submitEmail(sessionId: 789)
+        let endpoint = Endpoints.submitEmail(sessionId: "ABC-789")
         
-        #expect(endpoint.path == "sessions/789/email")
+        #expect(endpoint.path == "sessions/ABC-789/email")
         #expect(endpoint.method == .POST)
     }
     

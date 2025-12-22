@@ -74,7 +74,7 @@ final class TestableServiceContainer: Sendable {
     
     /// Uploads an asset
     func uploadAsset(
-        sessionId: Int,
+        sessionId: String,
         fileData: Data,
         fileName: String,
         mimeType: String,
@@ -99,7 +99,7 @@ final class TestableServiceContainer: Sendable {
     }
     
     /// Fetches QR code
-    func fetchQRCode(sessionId: Int) async throws -> Data {
+    func fetchQRCode(sessionId: String) async throws -> Data {
         if let mock = mockSessionService {
             return try await mock.fetchQRCode(sessionId: sessionId)
         }
@@ -107,7 +107,7 @@ final class TestableServiceContainer: Sendable {
     }
     
     /// Submits email
-    func submitEmail(sessionId: Int, email: String) async throws -> EmailSubmissionResponse {
+    func submitEmail(sessionId: String, email: String) async throws -> EmailSubmissionResponse {
         if let mock = mockSessionService {
             return try await mock.submitEmail(sessionId: sessionId, email: email)
         }

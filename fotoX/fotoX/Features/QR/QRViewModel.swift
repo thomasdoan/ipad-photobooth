@@ -66,7 +66,7 @@ final class QRViewModel<SessionService: SessionServicing> {
     
     /// Fetches QR code if not already loaded
     @MainActor
-    func fetchQRIfNeeded(sessionId: Int) async {
+    func fetchQRIfNeeded(sessionId: String) async {
         guard qrImage == nil else { return }
         
         isLoadingQR = true
@@ -98,7 +98,7 @@ final class QRViewModel<SessionService: SessionServicing> {
     
     /// Submits the email
     @MainActor
-    func submitEmail(sessionId: Int) async {
+    func submitEmail(sessionId: String) async {
         // Validate email
         guard !email.isEmpty else {
             emailError = "Please enter your email"

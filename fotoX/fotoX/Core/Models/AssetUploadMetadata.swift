@@ -49,11 +49,10 @@ struct CapturedStrip: Sendable {
 
 /// Represents all captured data for a session
 struct SessionCapture: Sendable {
-    let sessionId: Int
+    let sessionId: String
     let strips: [CapturedStrip]
     
     var totalAssetCount: Int {
         strips.count * 2 // video + photo per strip
     }
 }
-

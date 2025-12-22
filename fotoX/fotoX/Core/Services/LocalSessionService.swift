@@ -18,13 +18,13 @@ final class LocalSessionService: SessionServicing {
     }
 
     func createSession(eventId: Int) async throws -> Session {
-        let sessionId = Int.random(in: 1000...9999)
+        let sessionId = UUID().uuidString.uppercased()
         let galleryURL = galleryURLString(for: sessionId)
-        return Session(sessionId: sessionId, publicToken: String(sessionId), universalURL: galleryURL)
+        return Session(sessionId: sessionId, publicToken: sessionId, universalURL: galleryURL)
     }
 
     func uploadAsset(
-        sessionId: Int,
+        sessionId: String,
         fileData: Data,
         fileName: String,
         mimeType: String,
@@ -33,7 +33,7 @@ final class LocalSessionService: SessionServicing {
         throw APIError.uploadFailed("Upload queue not configured")
     }
 
-    func fetchQRCode(sessionId: Int) async throws -> Data {
+    func fetchQRCode(sessionId: String) async throws -> Data {
         let urlString = galleryURLString(for: sessionId)
         guard let qrData = generateQRCode(from: urlString) else {
             throw APIError.invalidResponse
@@ -41,12 +41,12 @@ final class LocalSessionService: SessionServicing {
         return qrData
     }
 
-    func submitEmail(sessionId: Int, email: String) async throws -> EmailSubmissionResponse {
+    func submitEmail(sessionId: String, email: String) async throws -> EmailSubmissionResponse {
         return EmailSubmissionResponse(status: "ok")
     }
 
-    private func galleryURLString(for sessionId: Int) -> String {
-        galleryBaseURL.appendingPathComponent("s").appendingPathComponent(String(sessionId)).absoluteString
+    private func galleryURLString(for sessionId: String) -> String {
+        galleryBaseURL.appendingPathComponent("s").appendingPathComponent(sessionId).absoluteString
     }
 
     private func generateQRCode(from string: String) -> Data? {

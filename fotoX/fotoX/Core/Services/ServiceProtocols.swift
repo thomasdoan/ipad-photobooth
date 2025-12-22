@@ -17,12 +17,12 @@ protocol EventServicing: Sendable {
 protocol SessionServicing: Sendable {
     func createSession(eventId: Int) async throws -> Session
     func uploadAsset(
-        sessionId: Int,
+        sessionId: String,
         fileData: Data,
         fileName: String,
         mimeType: String,
         metadata: AssetUploadMetadata
     ) async throws -> AssetUploadResponse
-    func fetchQRCode(sessionId: Int) async throws -> Data
-    func submitEmail(sessionId: Int, email: String) async throws -> EmailSubmissionResponse
+    func fetchQRCode(sessionId: String) async throws -> Data
+    func submitEmail(sessionId: String, email: String) async throws -> EmailSubmissionResponse
 }

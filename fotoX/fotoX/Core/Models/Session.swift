@@ -7,9 +7,9 @@
 
 import Foundation
 
-/// Represents a capture session created on the Pi
+/// Represents a capture session created on-device or remotely
 struct Session: Equatable, Sendable {
-    let sessionId: Int
+    let sessionId: String
     let publicToken: String
     let universalURL: String
 }
@@ -59,4 +59,3 @@ struct EmailSubmissionRequest: Sendable {
 }
 
 extension EmailSubmissionRequest: Codable {}
-
