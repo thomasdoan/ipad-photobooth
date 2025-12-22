@@ -164,6 +164,34 @@ Change via:
 1. **Settings UI** - Tap Settings → Update Base URL → Save
 2. **UserDefaults** - Key: `workerBaseURL`
 
+### Worker Deployment (Cloudflare)
+
+1. Install Wrangler (`npm i -g wrangler`) and log in:
+   ```bash
+   wrangler login
+   ```
+2. Configure the R2 binding in `worker/wrangler.toml` (bucket name + account).
+3. Set required Worker secrets:
+   ```bash
+   cd worker
+   wrangler secret put UPLOAD_SECRET
+   wrangler secret put PRESIGN_TOKEN
+   ```
+4. (Optional) Set public URL env vars:
+   - `PUBLIC_BASE_URL` (Worker base URL used in gallery links)
+   - `R2_PUBLIC_BASE_URL` (if the bucket is public)
+5. Deploy:
+   ```bash
+   wrangler deploy
+   ```
+6. Copy the deployed Worker URL into the iPad app Settings:
+   - **Base URL** → Worker URL (e.g., `https://your-worker.workers.dev`)
+   - **Presign Token** → value of `PRESIGN_TOKEN`
+
+Notes:
+- `UPLOAD_SECRET` stays only on the Worker and is never stored in the app.
+- `PRESIGN_TOKEN` is a shared secret used by the iPad to call `/presign` and `/complete`.
+
 ### Supported Endpoints (Worker)
 
 | Endpoint | Method | Description |
