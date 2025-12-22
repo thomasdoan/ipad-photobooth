@@ -332,6 +332,19 @@ struct AppStateTests {
         #expect(state.currentSession == nil)
         #expect(state.capturedStrips.isEmpty)
     }
+
+    @Test("beginUpload routes to qrDisplay and sets totals")
+    func beginUploadRoutesToQRDisplay() {
+        let state = AppState()
+        let strip = CapturedStrip(stripIndex: 0, videoURL: URL(string: "file://test")!, photoData: Data(), thumbnailData: nil)
+        state.capturedStrips = [strip]
+
+        state.beginUpload()
+
+        #expect(state.currentRoute == .qrDisplay)
+        #expect(state.totalAssetsToUpload == 2)
+        #expect(state.assetsUploaded == 0)
+    }
     
     @Test("returnToEventSelection clears everything")
     func returnToEventSelectionClearsAll() {

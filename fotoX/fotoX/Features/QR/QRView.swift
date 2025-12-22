@@ -33,6 +33,9 @@ struct QRView: View {
                         // Logo
                         logoSection
                         
+                        // Captured strips
+                        capturedStripsSection(geometry: geometry)
+                        
                         // QR Code
                         qrCodeSection(geometry: geometry)
                         
@@ -64,6 +67,54 @@ struct QRView: View {
         }
         .onDisappear {
             autoReturnTimer?.invalidate()
+        }
+    }
+    
+    // MARK: - Captured Strips
+    
+    @ViewBuilder
+    private func capturedStripsSection(geometry: GeometryProxy) -> some View {
+        let strips = appState.capturedStrips
+        if !strips.isEmpty {
+            let availableWidth = geometry.size.width - 80
+            let itemWidth = max(90, (availableWidth - 32) / 3)
+            let itemHeight = itemWidth * 1.3
+            
+            VStack(spacing: 12) {
+                Text("Your Photos")
+                    .font(.headline)
+                    .foregroundStyle(theme.accent.opacity(0.8))
+                
+                HStack(spacing: 16) {
+                    ForEach(strips, id: \.stripIndex) { strip in
+                        VStack(spacing: 8) {
+                            if let image = UIImage(data: strip.photoData) {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: itemWidth, height: itemHeight)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(theme.primary.opacity(0.4), lineWidth: 1)
+                                    )
+                            } else {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(theme.secondary.opacity(0.4))
+                                    .frame(width: itemWidth, height: itemHeight)
+                                    .overlay(
+                                        Image(systemName: "photo")
+                                            .foregroundStyle(theme.accent.opacity(0.5))
+                                    )
+                            }
+                            
+                            Text("Strip \(strip.stripIndex + 1)")
+                                .font(.caption.bold())
+                                .foregroundStyle(theme.accent.opacity(0.7))
+                        }
+                    }
+                }
+            }
         }
     }
     
