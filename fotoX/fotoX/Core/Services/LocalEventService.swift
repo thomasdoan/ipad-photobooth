@@ -25,8 +25,8 @@ private enum BundledEventStore {
     static let events: [Event] = [
         Event(
             id: 1,
-            name: "Sally & John's Wedding",
-            date: "2025-12-31",
+            name: "JackZeu's Wedding Shower",
+            date: "2026-01-31",
             theme: Theme(
                 id: 1,
                 primaryColor: "#FF4081",
@@ -55,21 +55,5 @@ private enum BundledEventStore {
                 stripFrameURL: nil
             )
         ),
-        Event(
-            id: 3,
-            name: "Birthday Bash 2025",
-            date: "2025-06-15",
-            theme: Theme(
-                id: 3,
-                primaryColor: "#FFD700",
-                secondaryColor: "#2D1B4E",
-                accentColor: "#FFFFFF",
-                fontFamily: "system",
-                logoURL: nil,
-                backgroundURL: nil,
-                photoFrameURL: nil,
-                stripFrameURL: nil
-            )
-        )
     ]
 }
