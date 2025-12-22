@@ -57,10 +57,6 @@ struct RootView: View {
                 CaptureView(services: services)
                     .transition(.opacity)
                 
-            case .uploading:
-                UploadView(services: services, testableServices: testableServices)
-                    .transition(.opacity)
-                
             case .qrDisplay:
                 QRView(services: services, testableServices: testableServices)
                     .transition(.opacity)

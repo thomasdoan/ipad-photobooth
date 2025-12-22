@@ -18,9 +18,6 @@ enum AppRoute: Equatable, Sendable {
     /// Active capture session
     case capture(CapturePhase)
     
-    /// Uploading captured assets
-    case uploading
-    
     /// QR code and email screen
     case qrDisplay
     

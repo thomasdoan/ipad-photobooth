@@ -5,6 +5,8 @@
 //  Upload screen with progress display
 //
 
+// TODO: get this working with the queued items
+
 import SwiftUI
 
 /// Screen showing upload progress
