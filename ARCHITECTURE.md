@@ -4,22 +4,27 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Event Venue                              │
-│                                                                  │
-│   ┌──────────┐         WiFi          ┌──────────────────┐       │
-│   │   iPad   │◄─────────────────────►│  Raspberry Pi    │       │
-│   │  FotoX   │                       │  (FastAPI)       │       │
-│   │   App    │                       │                  │       │
-│   └──────────┘                       └────────┬─────────┘       │
-│        │                                      │                  │
-│        │                                      │ Internet         │
-│        ▼                                      ▼                  │
-│   ┌──────────┐                       ┌──────────────────┐       │
-│   │  Guest   │                       │  Cloud Backend   │       │
-│   │  (scans  │                       │  (galleries,     │       │
-│   │   QR)    │                       │   email, sync)   │       │
-│   └──────────┘                       └──────────────────┘       │
-└─────────────────────────────────────────────────────────────────┘
+│                         Event Venue                             │
+│                                                                 │
+│   ┌──────────┐                                                  │
+│   │   iPad   │                                                  │
+│   │  FotoX   │                                                  │
+│   │   App    │                                                  │
+│   └────┬─────┘                                                  │
+│        │                                                        │
+└────────┼────────────────────────────────────────────────────────┘
+         │ Internet
+         ▼
+┌───────────────────────────┐        ┌───────────────────────────┐
+│   Cloudflare Worker       │◄──────►│        Cloudflare R2      │
+│  (presign + galleries)    │        │   (photos/videos/manifest)│
+└─────────────┬─────────────┘        └───────────────────────────┘
+              │
+              ▼
+       ┌──────────┐
+       │  Guest   │
+       │ (scan QR)│
+       └──────────┘
 ```
 
 ## App Architecture
@@ -28,38 +33,42 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                        Presentation Layer                        │
+│                        Presentation Layer                       │
 │  ┌───────────────────────────────────────────────────────────┐  │
-│  │                      SwiftUI Views                         │  │
+│  │                      SwiftUI Views                        │  │
 │  │  EventSelectionView │ IdleView │ CaptureView │ QRView     │  │
 │  └───────────────────────────────────────────────────────────┘  │
 │  ┌───────────────────────────────────────────────────────────┐  │
-│  │                      ViewModels                            │  │
-│  │  @Observable classes managing screen state                 │  │
+│  │                      ViewModels                           │  │
+│  │  @Observable classes managing screen state                │  │
 │  └───────────────────────────────────────────────────────────┘  │
 ├─────────────────────────────────────────────────────────────────┤
-│                        Application Layer                         │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌────────────────┐  │
+│                        Application Layer                        │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
 │  │    AppState     │  │   AppRouter     │  │ ServiceContainer│  │
 │  │  (navigation,   │  │  (route defs)   │  │  (DI container) │  │
 │  │   shared state) │  │                 │  │                 │  │
-│  └─────────────────┘  └─────────────────┘  └────────────────┘  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
 ├─────────────────────────────────────────────────────────────────┤
-│                         Domain Layer                             │
+│                         Domain Layer                            │
 │  ┌───────────────────────────────────────────────────────────┐  │
-│  │                       Services                             │  │
-│  │  EventService │ SessionService │ ThemeService             │  │
+│  │                       Services                            │  │
+│  │  LocalEventService │ LocalSessionService │ ThemeService   │  │
+│  │  UploadQueueWorker                                        │  │
 │  └───────────────────────────────────────────────────────────┘  │
 │  ┌───────────────────────────────────────────────────────────┐  │
-│  │                        Models                              │  │
+│  │                        Models                             │  │
 │  │  Event │ Theme │ Session │ CapturedStrip │ etc.           │  │
 │  └───────────────────────────────────────────────────────────┘  │
 ├─────────────────────────────────────────────────────────────────┤
-│                      Infrastructure Layer                        │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌────────────────┐  │
-│  │   APIClient     │  │ CameraController│  │  ImageCache    │  │
-│  │  (networking)   │  │ (AVFoundation)  │  │  (caching)     │  │
-│  └─────────────────┘  └─────────────────┘  └────────────────┘  │
+│                      Infrastructure Layer                       │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌────────────────┐   │
+│  │ WorkerAPIClient │  │ CameraController│  │  ImageCache    │   │
+│  │  (networking)   │  │ (AVFoundation)  │  │  (caching)     │   │
+│  └─────────────────┘  └─────────────────┘  └────────────────┘   │
+│  ┌─────────────────┐                                            │
+│  │ UploadQueueStore│                                            │
+│  └─────────────────┘                                            │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -91,19 +100,18 @@
 └────────────────────────────────────────────────────────────────┘
 ```
 
-### API Request Flow
+### Worker Upload Flow
 
 ```
-View                ViewModel              Service              APIClient
-  │                     │                     │                     │
-  │ ─── user action ──► │                     │                     │
-  │                     │ ── await load() ──► │                     │
-  │                     │                     │ ── fetch(endpoint) ─►
-  │                     │                     │                     │
-  │                     │                     │ ◄── Data/Error ─────│
-  │                     │ ◄── [Model] ────────│                     │
-  │ ◄── @Observable ────│                     │                     │
-  │     state update    │                     │                     │
+View               ViewModel          UploadQueueWorker      WorkerAPIClient
+  │                    │                     │                     │
+  │ ── capture done ──►│                     │                     │
+  │                    │ ── enqueue ───────► │                     │
+  │                    │                     │ ── presign ────────►│
+  │                    │                     │ ◄── URLs ──────────│
+  │                    │                     │ ── PUT uploads ────►│
+  │                    │                     │                     │
+  │                    │                     │ ── complete ───────►│
 ```
 
 ## Navigation
@@ -127,37 +135,33 @@ View                ViewModel              Service              APIClient
             │       └────────┬────────┘                       │
             │                │ all captured                   │
             │                ▼                                │
-            │       ┌─────────────────┐                       │
-            │       │   uploading     │                       │
-            │       └────────┬────────┘                       │
-            │                │ upload complete                │
+            │                │ enqueue uploads (background)   │
             │                ▼                                │
             │       ┌─────────────────┐                       │
             └───────│   qrDisplay     │───────────────────────┘
+                    │ (QR + email)    │
                     └─────────────────┘
                            done/timeout
 ```
+
+Summary: after capture, the app immediately shows the QR code and email entry while uploads run in the background.
+The QR code is generated locally from the session URL, so it works even if the venue is offline.
 
 ### Capture Flow State Machine
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    CaptureViewModel States                       │
-│                                                                  │
-│   ┌───────┐    ┌───────────┐    ┌───────────┐    ┌──────────┐  │
-│   │ ready │───►│ countdown │───►│ recording │───►│ photo    │  │
-│   └───────┘    │  (3,2,1)  │    │  (10 sec) │    │ capture  │  │
-│       ▲        └───────────┘    └───────────┘    └────┬─────┘  │
-│       │                                               │        │
-│       │        ┌───────────┐                          │        │
-│       └────────│  review   │◄─────────────────────────┘        │
-│      (retake)  │  strip N  │                                   │
-│                └─────┬─────┘                                   │
-│                      │ continue (or N=3)                       │
-│                      ▼                                         │
-│                ┌───────────┐                                   │
-│                │  summary  │───► transition to upload          │
-│                └───────────┘                                   │
+│                    CaptureViewModel States                      │
+│                                                                 │
+│   ┌───────┐    ┌───────────┐    ┌──────────┐                    │
+│   │ ready │───►│ recording │───►│ photo    │                    │
+│   └───────┘    │  (10 sec) │    │ capture  │                    │
+│       ▲        └───────────┘    └────┬─────┘                    │
+│       │                               │                         │
+│       │                               ▼                         │
+│       └──────────── repeat ×3 ────────┘                         │
+│                                                                 │
+│                     done → enqueue uploads                      │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -170,9 +174,9 @@ fotoXApp
     │
     ├──► ServiceContainer
     │       │
-    │       ├──► APIClient
-    │       ├──► EventService ──► APIClient
-    │       ├──► SessionService ──► APIClient
+    │       ├──► LocalEventService
+    │       ├──► LocalSessionService
+    │       ├──► UploadQueueWorker ──► WorkerAPIClient
     │       └──► ThemeService
     │
     └──► Features
@@ -216,7 +220,7 @@ fotoXApp
 - Better compile-time optimization
 
 ### 4. Actor for Networking
-- `APIClient` is an actor for thread safety
+- `WorkerAPIClient` is an actor for thread safety
 - Prevents data races in concurrent requests
 - Safe to call from any context
 
@@ -251,14 +255,17 @@ fotoX/fotoX/
 │   │   └── AssetUploadMetadata.swift
 │   │
 │   ├── Networking/
-│   │   ├── APIClient.swift        # HTTP client (actor)
-│   │   ├── APIError.swift         # Error types
-│   │   └── Endpoints.swift        # API routes
+│   │   ├── WorkerAPIClient.swift  # Worker HTTP client
+│   │   └── APIError.swift         # Error types
 │   │
 │   ├── Services/
-│   │   ├── EventService.swift     # Event API
-│   │   ├── SessionService.swift   # Session API
-│   │   └── ThemeService.swift     # Theme asset loading
+│   │   ├── LocalEventService.swift   # Bundled events
+│   │   ├── LocalSessionService.swift # Local sessions + QR
+│   │   └── ThemeService.swift        # Theme asset loading
+│   │
+│   ├── Upload/
+│   │   ├── UploadQueueWorker.swift # Upload coordinator
+│   │   └── UploadQueueStore.swift  # Queue persistence
 │   │
 │   ├── Testing/
 │   │   ├── MockDataProvider.swift # Fake data
@@ -276,4 +283,3 @@ fotoX/fotoX/
     ├── QR/                        # QR + email screen
     └── Settings/                  # Operator settings
 ```
-

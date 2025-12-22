@@ -4,11 +4,11 @@
 
 ## What is this?
 
-FotoX is an iPad photobooth app built in **Swift/SwiftUI**. It talks to a Raspberry Pi backend over local WiFi to:
-1. Fetch events with custom themes
-2. Capture 3 strips of video+photo per session  
-3. Upload media to the Pi
-4. Display QR codes for guests
+FotoX is an iPad photobooth app built in **Swift/SwiftUI**. It runs capture locally and uploads to a Cloudflare Worker + R2 to:
+1. Load bundled events with custom themes
+2. Capture 3 strips of video+photo per session
+3. Queue uploads (offline-tolerant)
+4. Display public QR codes for guests
 
 ## Tech Stack
 
@@ -27,15 +27,20 @@ fotoX/fotoX/
 ├── fotoXApp.swift              # App entry, DI setup
 ├── App/AppState.swift          # Central state (like Redux store)
 ├── App/AppRouter.swift         # Route definitions
-├── Core/Networking/APIClient.swift    # HTTP client
+├── Core/Services/              # Local + remote service layer
+├── Core/Upload/                # Upload queue + manifest
 └── Core/Models/                # Data types
 ```
+
+Also read:
+- `WORKER_CONTRACTS.md` for Worker/R2 schemas
+- `worker/` for the Worker implementation
 
 ## Architecture Overview
 
 ```
 User Flow:
-EventSelection → Idle → Capture (×3 strips) → Upload → QR Display
+EventSelection → Idle → Capture (×3 strips) → Upload Queue → QR Display
       ↑                                                    │
       └────────────────────────────────────────────────────┘
 ```
@@ -71,18 +76,18 @@ enum AppRoute {
 appState.currentRoute = .idle
 ```
 
-## API Endpoints (Pi Backend)
+## API Endpoints (Worker)
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `/events` | GET | List events |
-| `/events/{id}` | GET | Event details |
-| `/sessions` | POST | Create session |
-| `/sessions/{id}/assets` | POST | Upload media |
-| `/sessions/{id}/qr` | GET | Get QR PNG |
-| `/sessions/{id}/email` | POST | Submit email |
+| `/health` | GET | Health check |
+| `/presign` | POST | Get presigned upload URLs |
+| `/upload` | PUT | Upload asset to R2 |
+| `/complete` | POST | Finalize session + index |
+| `/s/{session_id}` | GET | Session gallery page |
+| `/e/{event_id}` | GET | Event gallery page |
 
-Base URL: `http://booth.local/api` (configurable)
+Base URL: `https://<worker>.workers.dev` (configurable)
 
 ## File Naming Conventions
 
@@ -127,6 +132,7 @@ struct MyView: View {
 - **Unit tests**: `fotoXTests/` - Model parsing, state logic
 - **UI tests**: `fotoXUITests/` - E2E flows with mock data
 - **Mock flag**: `--use-mock-data` launch argument
+- **Worker tests**: `worker/tests/` using Miniflare + Vitest/Jest for `/health`, `/presign`, `/upload`, `/complete`, `/s/:id`, `/e/:id`, `/asset`
 
 ## Key Gotchas
 
@@ -147,9 +153,10 @@ struct MyView: View {
 4. Add case to switch in `RootView`
 
 ### Add a new API endpoint
-1. Add to `Endpoints.swift`
-2. Add method to appropriate service
-3. Update `TestableServiceContainer` for mocking
+1. Add route in `worker/src/index.js`
+2. Add method to the Worker client/service
+3. Update `WORKER_CONTRACTS.md`
+4. Add mocks for Worker endpoints in app tests (Worker client protocol + mock)
 
 ### Add a new model
 1. Create in `Core/Models/`
@@ -173,7 +180,6 @@ xcodebuild test -scheme fotoX -destination 'platform=iOS Simulator,name=iPad Pro
 
 If unclear on a task, ask about:
 1. Which screen/feature does this affect?
-2. Should this work offline or require Pi connection?
+2. Should this work offline or require Worker connection?
 3. Is this user-facing or operator-only feature?
 4. Should it be covered by tests?
-
