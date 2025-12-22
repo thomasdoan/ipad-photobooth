@@ -97,6 +97,9 @@ Request:
 }
 ```
 
+Headers:
+- `X-FotoX-Key: <PRESIGN_TOKEN>`
+
 Response:
 ```json
 {
@@ -117,6 +120,9 @@ Request:
   "manifest_path": "events/42/sessions/.../manifest.json"
 }
 ```
+
+Headers:
+- `X-FotoX-Key: <PRESIGN_TOKEN>`
 
 Response:
 ```json
