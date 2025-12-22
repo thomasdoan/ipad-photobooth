@@ -177,6 +177,50 @@ struct ModelEncodingTests {
         #expect(files?.first?["content_type"] as? String == "image/jpeg")
         #expect(files?.first?["size_bytes"] as? Int == 123)
     }
+
+    @Test("CompleteRequest encodes correctly")
+    func completeRequestEncodes() throws {
+        let request = CompleteRequest(eventId: 7, sessionId: "SESSION-1", manifestPath: "events/7/sessions/SESSION-1/manifest.json")
+        let data = try JSONEncoder().encode(request)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        #expect(json["event_id"] as? Int == 7)
+        #expect(json["session_id"] as? String == "SESSION-1")
+        #expect(json["manifest_path"] as? String == "events/7/sessions/SESSION-1/manifest.json")
+    }
+
+    @Test("SessionManifest encodes correctly")
+    func sessionManifestEncodes() throws {
+        let asset = SessionManifestAsset(
+            id: "strip0_video",
+            kind: .video,
+            stripIndex: 0,
+            sequenceIndex: 0,
+            contentType: "video/mp4",
+            path: "events/7/sessions/SESSION-1/video_0.mp4",
+            sizeBytes: 1234,
+            durationSeconds: 10.0,
+            posterPath: "events/7/sessions/SESSION-1/photo_0.jpg"
+        )
+        let manifest = SessionManifest(
+            version: 1,
+            eventId: 7,
+            sessionId: "SESSION-1",
+            createdAt: "2025-01-01T00:00:00Z",
+            publicGalleryURL: "https://example.com/s/SESSION-1",
+            assets: [asset]
+        )
+        let data = try JSONEncoder().encode(manifest)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let assets = json["assets"] as? [[String: Any]]
+
+        #expect(json["event_id"] as? Int == 7)
+        #expect(json["session_id"] as? String == "SESSION-1")
+        #expect(json["public_gallery_url"] as? String == "https://example.com/s/SESSION-1")
+        #expect(assets?.first?["kind"] as? String == "video")
+        #expect(assets?.first?["content_type"] as? String == "video/mp4")
+        #expect(assets?.first?["duration_seconds"] as? Double == 10.0)
+    }
 }
 
 // MARK: - Color Extension Tests
@@ -421,6 +465,56 @@ struct AppStateTests {
         state.capturedStrips = [strip1]
         
         #expect(state.allStripsCaptured == false)
+    }
+}
+
+// MARK: - Upload Queue Tests
+
+struct UploadQueueStoreTests {
+    
+    @Test("UploadQueueStore persists sessions round-trip")
+    func uploadQueueStoreRoundTrip() async throws {
+        let fileManager = FileManager.default
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let fileURL = documents.appendingPathComponent("upload_queue.json")
+        try? fileManager.removeItem(at: fileURL)
+        
+        let store = UploadQueueStore(fileManager: fileManager)
+        let asset = UploadQueueAsset(
+            id: UUID(),
+            kind: .photo,
+            stripIndex: 0,
+            sequenceIndex: 1,
+            fileName: "photo_0.jpg",
+            mimeType: "image/jpeg",
+            localURL: documents.appendingPathComponent("photo_0.jpg"),
+            remotePath: "events/1/sessions/SESSION-1/photo_0.jpg",
+            sizeBytes: 321,
+            durationSeconds: nil,
+            posterPath: nil,
+            state: .pending
+        )
+        let session = UploadQueueSession(
+            id: UUID().uuidString,
+            eventId: 1,
+            sessionId: "SESSION-1",
+            createdAt: "2025-01-01T00:00:00Z",
+            publicGalleryURL: "https://example.com/s/SESSION-1",
+            assets: [asset],
+            manifestState: .pending,
+            completeState: .pending
+        )
+        
+        try await store.addSession(session)
+        
+        let reloadedStore = UploadQueueStore(fileManager: fileManager)
+        let sessions = try await reloadedStore.sessions()
+        
+        #expect(sessions.count == 1)
+        #expect(sessions.first?.sessionId == "SESSION-1")
+        #expect(sessions.first?.assets.first?.remotePath == "events/1/sessions/SESSION-1/photo_0.jpg")
+        
+        try? fileManager.removeItem(at: fileURL)
     }
 }
 
