@@ -161,9 +161,18 @@ struct UploadView: View {
     }
     
     private func uploadItemsList(viewModel: UploadViewModel) -> some View {
-        VStack(spacing: 8) {
-            ForEach(viewModel.uploadItems) { item in
-                uploadItemRow(item: item)
+        VStack(spacing: 12) {
+            // Queue statistics header
+            queueStatistics(viewModel: viewModel)
+
+            Divider()
+                .background(theme.accent.opacity(0.2))
+
+            // Upload items
+            VStack(spacing: 8) {
+                ForEach(viewModel.uploadItems) { item in
+                    uploadItemRow(item: item)
+                }
             }
         }
         .padding(.horizontal, 20)
@@ -173,24 +182,111 @@ struct UploadView: View {
                 .fill(theme.secondary.opacity(0.5))
         )
     }
+
+    private func queueStatistics(viewModel: UploadViewModel) -> some View {
+        HStack(spacing: 20) {
+            // Total size
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Total Size")
+                    .font(.caption2)
+                    .foregroundStyle(theme.accent.opacity(0.5))
+                Text(viewModel.totalSizeFormatted)
+                    .font(.caption)
+                    .fontWeight(.medium)
+                    .foregroundStyle(theme.accent)
+            }
+
+            // Upload speed (if available)
+            if let speed = viewModel.uploadSpeedFormatted {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Speed")
+                        .font(.caption2)
+                        .foregroundStyle(theme.accent.opacity(0.5))
+                    Text(speed)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(theme.primary)
+                }
+            }
+
+            // Time remaining (if available and still uploading)
+            if viewModel.isUploading, let timeRemaining = viewModel.timeRemainingFormatted {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Estimated")
+                        .font(.caption2)
+                        .foregroundStyle(theme.accent.opacity(0.5))
+                    Text(timeRemaining)
+                        .font(.caption)
+                        .fontWeight(.medium)
+                        .foregroundStyle(theme.primary)
+                }
+            }
+
+            Spacer()
+        }
+    }
     
     private func uploadItemRow(item: UploadItem) -> some View {
-        HStack {
-            // Icon
-            Image(systemName: item.kind == .video ? "video.fill" : "photo.fill")
-                .font(.body)
-                .foregroundStyle(theme.accent.opacity(0.7))
-                .frame(width: 24)
-            
-            // Name
-            Text(item.displayName)
-                .font(.subheadline)
-                .foregroundStyle(theme.accent)
-            
-            Spacer()
-            
-            // Status
-            statusIcon(for: item.state)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                // Icon
+                Image(systemName: item.kind == .video ? "video.fill" : "photo.fill")
+                    .font(.body)
+                    .foregroundStyle(theme.accent.opacity(0.7))
+                    .frame(width: 24)
+
+                // Name
+                Text(item.displayName)
+                    .font(.subheadline)
+                    .foregroundStyle(theme.accent)
+
+                Spacer()
+
+                // Status
+                statusIcon(for: item.state)
+            }
+
+            // Details row (file size, duration)
+            HStack(spacing: 12) {
+                // File size
+                Text(item.fileSizeFormatted)
+                    .font(.caption2)
+                    .foregroundStyle(theme.accent.opacity(0.5))
+
+                // Upload duration or status text
+                if let duration = item.uploadDurationFormatted {
+                    Text("•")
+                        .font(.caption2)
+                        .foregroundStyle(theme.accent.opacity(0.3))
+
+                    Text(duration)
+                        .font(.caption2)
+                        .foregroundStyle(theme.accent.opacity(0.5))
+                }
+
+                // Status text for current state
+                if case .uploading = item.state {
+                    Text("•")
+                        .font(.caption2)
+                        .foregroundStyle(theme.accent.opacity(0.3))
+
+                    Text("Uploading...")
+                        .font(.caption2)
+                        .foregroundStyle(theme.primary)
+                } else if case .failed(let error) = item.state {
+                    Text("•")
+                        .font(.caption2)
+                        .foregroundStyle(theme.accent.opacity(0.3))
+
+                    Text(error)
+                        .font(.caption2)
+                        .foregroundStyle(.red)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+            }
+            .padding(.leading, 32)
         }
         .padding(.vertical, 4)
     }
