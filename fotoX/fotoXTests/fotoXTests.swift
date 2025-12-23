@@ -1225,3 +1225,683 @@ extension MockAPIClient {
         self.shouldFail = shouldFail
     }
 }
+
+// MARK: - Integration Tests
+
+/// Integration tests verify multiple components working together
+@MainActor
+struct IntegrationTests {
+
+    // MARK: - Complete Session Lifecycle Tests
+
+    @Test("Complete session lifecycle from event selection to QR display")
+    func testCompleteSessionLifecycle() async throws {
+        // Setup: Create AppState and mock data
+        let appState = AppState()
+
+        let theme = Theme(
+            id: 1,
+            primaryColor: "#FF4081",
+            secondaryColor: "#212121",
+            accentColor: "#FFFFFF",
+            fontFamily: "system",
+            logoURL: nil,
+            backgroundURL: nil,
+            photoFrameURL: nil,
+            stripFrameURL: nil
+        )
+
+        let event = Event(
+            id: 1,
+            name: "Test Wedding",
+            date: "2025-12-25",
+            theme: theme
+        )
+
+        // Step 1: Select Event
+        #expect(appState.currentRoute == .eventSelection)
+        #expect(appState.selectedEvent == nil)
+
+        appState.selectEvent(event)
+
+        #expect(appState.currentRoute == .idle)
+        #expect(appState.selectedEvent?.id == 1)
+        #expect(appState.currentTheme.id == 1)
+
+        // Step 2: Start Session
+        let session = Session(
+            sessionId: 123,
+            publicToken: "abc123",
+            universalURL: "https://example.com/s/abc123"
+        )
+
+        appState.startSession(with: session)
+
+        #expect(appState.currentSession?.sessionId == 123)
+        if case .capture(.capturingStrip(let index)) = appState.currentRoute {
+            #expect(index == 0)
+        } else {
+            Issue.record("Expected capture route")
+        }
+
+        // Step 3: Capture Strips
+        for stripIndex in 0..<3 {
+            let strip = CapturedStrip(
+                stripIndex: stripIndex,
+                videoURL: URL(string: "file://strip\(stripIndex).mov")!,
+                photoData: Data(),
+                thumbnailData: nil
+            )
+            appState.capturedStrips.append(strip)
+        }
+
+        #expect(appState.capturedStrips.count == 3)
+        #expect(appState.allStripsCaptured == true)
+
+        // Step 4: Upload
+        appState.totalAssetsToUpload = 6 // 3 strips * 2 (video + photo)
+        appState.assetsUploaded = 0
+
+        for _ in 0..<6 {
+            appState.assetUploaded()
+        }
+
+        #expect(appState.uploadProgress == 1.0)
+        #expect(appState.assetsUploaded == 6)
+
+        // Step 5: Display QR
+        let qrData = Data([0x89, 0x50, 0x4E, 0x47]) // PNG header
+        appState.qrCodeData = qrData
+        appState.currentRoute = .qrDisplay
+
+        #expect(appState.currentRoute == .qrDisplay)
+        #expect(appState.qrCodeData != nil)
+
+        // Step 6: Reset Session
+        appState.resetSession()
+
+        #expect(appState.currentRoute == .idle)
+        #expect(appState.currentSession == nil)
+        #expect(appState.capturedStrips.isEmpty)
+        #expect(appState.qrCodeData == nil)
+        #expect(appState.assetsUploaded == 0)
+    }
+
+    @Test("Event selection to idle with theme loading")
+    func testEventSelectionWithThemeLoading() async throws {
+        let appState = AppState()
+        let eventService = EventService(apiClient: APIClient())
+        let themeService = ThemeService()
+
+        let viewModel = EventSelectionViewModel(
+            eventService: eventService,
+            themeService: themeService
+        )
+
+        let theme = Theme(
+            id: 5,
+            primaryColor: "#0066CC",
+            secondaryColor: "#FFFFFF",
+            accentColor: "#FF4081",
+            fontFamily: "Helvetica",
+            logoURL: "https://example.com/logo.png",
+            backgroundURL: "https://example.com/bg.jpg",
+            photoFrameURL: nil,
+            stripFrameURL: nil
+        )
+
+        let event = Event(
+            id: 5,
+            name: "Corporate Event",
+            date: "2025-06-15",
+            theme: theme
+        )
+
+        // Select event should update state and attempt theme loading
+        await viewModel.selectEvent(event, appState: appState)
+
+        #expect(appState.selectedEvent?.id == 5)
+        #expect(appState.currentRoute == .idle)
+        #expect(appState.currentTheme.logoURL?.absoluteString == "https://example.com/logo.png")
+        #expect(appState.currentTheme.backgroundURL?.absoluteString == "https://example.com/bg.jpg")
+    }
+
+    // MARK: - Upload Flow Integration Tests
+
+    @Test("Upload flow with all successful uploads")
+    func testSuccessfulUploadFlow() async throws {
+        let sessionService = SessionService(apiClient: APIClient())
+        let viewModel = UploadViewModel(sessionService: sessionService)
+        let appState = AppState()
+
+        // Prepare strips
+        let strips = [
+            CapturedStrip(
+                stripIndex: 0,
+                videoURL: URL(string: "file://0.mov")!,
+                photoData: Data([0x01, 0x02]),
+                thumbnailData: nil
+            ),
+            CapturedStrip(
+                stripIndex: 1,
+                videoURL: URL(string: "file://1.mov")!,
+                photoData: Data([0x03, 0x04]),
+                thumbnailData: nil
+            ),
+            CapturedStrip(
+                stripIndex: 2,
+                videoURL: URL(string: "file://2.mov")!,
+                photoData: Data([0x05, 0x06]),
+                thumbnailData: nil
+            )
+        ]
+
+        // Prepare upload
+        viewModel.prepareUploads(from: strips)
+
+        #expect(viewModel.uploadItems.count == 6) // 3 videos + 3 photos
+        #expect(viewModel.progress == 0)
+
+        // Verify item ordering and types
+        let items = viewModel.uploadItems
+        #expect(items[0].kind == .video && items[0].stripIndex == 0)
+        #expect(items[1].kind == .photo && items[1].stripIndex == 0)
+        #expect(items[2].kind == .video && items[2].stripIndex == 1)
+        #expect(items[3].kind == .photo && items[3].stripIndex == 1)
+        #expect(items[4].kind == .video && items[4].stripIndex == 2)
+        #expect(items[5].kind == .photo && items[5].stripIndex == 2)
+
+        // Verify all start as pending
+        for item in items {
+            #expect(item.state == .pending)
+        }
+    }
+
+    @Test("Upload flow with retry on failure")
+    func testUploadFlowWithRetry() async throws {
+        let sessionService = SessionService(apiClient: APIClient())
+        let viewModel = UploadViewModel(sessionService: sessionService)
+
+        let strips = [
+            CapturedStrip(
+                stripIndex: 0,
+                videoURL: URL(string: "file://0.mov")!,
+                photoData: Data(),
+                thumbnailData: nil
+            )
+        ]
+
+        viewModel.prepareUploads(from: strips)
+
+        // Simulate a failure
+        viewModel.uploadItems[0].state = .failed("Network error")
+        viewModel.uploadItems[1].state = .completed
+
+        #expect(viewModel.hasFailedUploads == true)
+        #expect(viewModel.completedCount == 1)
+        #expect(!viewModel.isComplete)
+
+        // Verify retry count tracking
+        #expect(viewModel.retryCount == 0)
+
+        // After retry, failed items should be reset to pending
+        for i in 0..<viewModel.uploadItems.count {
+            if case .failed = viewModel.uploadItems[i].state {
+                viewModel.uploadItems[i].state = .pending
+            }
+        }
+
+        #expect(viewModel.uploadItems[0].state == .pending)
+    }
+
+    @Test("Upload progress calculation across all strips")
+    func testUploadProgressCalculation() {
+        let sessionService = SessionService(apiClient: APIClient())
+        let viewModel = UploadViewModel(sessionService: sessionService)
+
+        let strips = [
+            CapturedStrip(stripIndex: 0, videoURL: URL(string: "file://0.mov")!, photoData: Data(), thumbnailData: nil),
+            CapturedStrip(stripIndex: 1, videoURL: URL(string: "file://1.mov")!, photoData: Data(), thumbnailData: nil),
+            CapturedStrip(stripIndex: 2, videoURL: URL(string: "file://2.mov")!, photoData: Data(), thumbnailData: nil)
+        ]
+
+        viewModel.prepareUploads(from: strips)
+
+        // Initial state
+        #expect(viewModel.progress == 0)
+        #expect(viewModel.completedCount == 0)
+
+        // Complete first strip (video + photo)
+        viewModel.uploadItems[0].state = .completed
+        viewModel.uploadItems[1].state = .completed
+        #expect(viewModel.completedCount == 2)
+
+        // Complete second strip
+        viewModel.uploadItems[2].state = .completed
+        viewModel.uploadItems[3].state = .completed
+        #expect(viewModel.completedCount == 4)
+
+        // Complete third strip
+        viewModel.uploadItems[4].state = .completed
+        viewModel.uploadItems[5].state = .completed
+        #expect(viewModel.completedCount == 6)
+
+        // All completed
+        let allCompleted = viewModel.uploadItems.allSatisfy {
+            if case .completed = $0.state { return true }
+            return false
+        }
+        #expect(allCompleted == true)
+    }
+
+    // MARK: - Capture Flow Integration Tests
+
+    @Test("Complete capture flow for single strip")
+    func testCompleteCaptureFlowSingleStrip() {
+        let viewModel = CaptureViewModel()
+
+        // Initial state
+        #expect(viewModel.currentStripIndex == 0)
+        #expect(viewModel.stripState == .ready)
+        #expect(viewModel.capturedStrips.isEmpty)
+
+        // Start capture - should transition to countdown
+        viewModel.startCapture()
+
+        if case .countdown(let remaining) = viewModel.stripState {
+            #expect(remaining == 3)
+        } else {
+            Issue.record("Expected countdown state after startCapture")
+        }
+
+        // Simulate strip completion
+        viewModel.stripState = .complete
+        let strip = CapturedStripMedia(
+            stripIndex: 0,
+            videoURL: URL(string: "file://strip0.mov")!,
+            photoData: Data([0x01, 0x02, 0x03]),
+            thumbnailData: Data([0x04, 0x05])
+        )
+        viewModel.capturedStrips.append(strip)
+        viewModel.isReviewing = true
+
+        #expect(viewModel.capturedStrips.count == 1)
+        #expect(viewModel.isReviewing == true)
+
+        // Continue to next strip
+        viewModel.continueToNext()
+
+        #expect(viewModel.currentStripIndex == 1)
+        #expect(viewModel.stripState == .ready)
+        #expect(!viewModel.isReviewing)
+        #expect(!viewModel.showingSummary)
+    }
+
+    @Test("Complete capture flow for all three strips")
+    func testCompleteCaptureFlowAllStrips() {
+        let viewModel = CaptureViewModel()
+
+        // Capture three strips
+        for stripIndex in 0..<3 {
+            #expect(viewModel.currentStripIndex == stripIndex)
+            #expect(viewModel.stripState == .ready)
+
+            // Start capture
+            viewModel.startCapture()
+
+            // Complete strip
+            viewModel.stripState = .complete
+            let strip = CapturedStripMedia(
+                stripIndex: stripIndex,
+                videoURL: URL(string: "file://strip\(stripIndex).mov")!,
+                photoData: Data(),
+                thumbnailData: nil
+            )
+            viewModel.capturedStrips.append(strip)
+            viewModel.isReviewing = true
+
+            // Continue (or show summary if last strip)
+            viewModel.continueToNext()
+        }
+
+        // After completing all 3 strips, summary should be shown
+        #expect(viewModel.capturedStrips.count == 3)
+        #expect(viewModel.showingSummary == true)
+
+        // Convert to model format
+        let converted = viewModel.getCapturedStrips()
+        #expect(converted.count == 3)
+        #expect(converted[0].stripIndex == 0)
+        #expect(converted[1].stripIndex == 1)
+        #expect(converted[2].stripIndex == 2)
+    }
+
+    @Test("Capture flow with retake functionality")
+    func testCaptureFlowWithRetakes() {
+        let viewModel = CaptureViewModel()
+
+        // Capture first strip
+        viewModel.startCapture()
+        viewModel.stripState = .complete
+        let strip0 = CapturedStripMedia(
+            stripIndex: 0,
+            videoURL: URL(string: "file://0.mov")!,
+            photoData: Data(),
+            thumbnailData: nil
+        )
+        viewModel.capturedStrips.append(strip0)
+        viewModel.isReviewing = true
+
+        // User decides to retake
+        viewModel.retakeCurrentStrip()
+
+        #expect(viewModel.capturedStrips.isEmpty)
+        #expect(viewModel.currentStripIndex == 0)
+        #expect(viewModel.stripState == .ready)
+        #expect(!viewModel.isReviewing)
+
+        // Capture again
+        viewModel.startCapture()
+        viewModel.stripState = .complete
+        let strip0_v2 = CapturedStripMedia(
+            stripIndex: 0,
+            videoURL: URL(string: "file://0_v2.mov")!,
+            photoData: Data(),
+            thumbnailData: nil
+        )
+        viewModel.capturedStrips.append(strip0_v2)
+
+        #expect(viewModel.capturedStrips.count == 1)
+        #expect(viewModel.capturedStrips[0].videoURL.absoluteString.contains("v2"))
+    }
+
+    // MARK: - Error Recovery Integration Tests
+
+    @Test("AppState handles session reset correctly")
+    func testSessionResetErrorRecovery() {
+        let appState = AppState()
+
+        // Setup a session with data
+        let theme = Theme(
+            id: 1,
+            primaryColor: "#FF0000",
+            secondaryColor: "#000000",
+            accentColor: "#FFFFFF",
+            fontFamily: "system",
+            logoURL: nil,
+            backgroundURL: nil,
+            photoFrameURL: nil,
+            stripFrameURL: nil
+        )
+        let event = Event(id: 1, name: "Test", date: "2025-01-01", theme: theme)
+        appState.selectEvent(event)
+
+        let session = Session(sessionId: 123, publicToken: "abc", universalURL: "https://test.com")
+        appState.startSession(with: session)
+
+        // Add captured strips
+        let strip = CapturedStrip(
+            stripIndex: 0,
+            videoURL: URL(string: "file://test.mov")!,
+            photoData: Data(),
+            thumbnailData: nil
+        )
+        appState.capturedStrips.append(strip)
+        appState.totalAssetsToUpload = 6
+        appState.assetsUploaded = 3
+        appState.qrCodeData = Data([0x01])
+
+        // Verify session is active
+        #expect(appState.currentSession != nil)
+        #expect(!appState.capturedStrips.isEmpty)
+        #expect(appState.assetsUploaded == 3)
+
+        // Reset session (error recovery)
+        appState.resetSession()
+
+        // Verify clean state but event is preserved
+        #expect(appState.currentRoute == .idle)
+        #expect(appState.selectedEvent?.id == 1) // Event preserved
+        #expect(appState.currentSession == nil)
+        #expect(appState.capturedStrips.isEmpty)
+        #expect(appState.qrCodeData == nil)
+        #expect(appState.assetsUploaded == 0)
+        #expect(appState.totalAssetsToUpload == 0)
+    }
+
+    @Test("AppState handles return to event selection")
+    func testReturnToEventSelectionErrorRecovery() {
+        let appState = AppState()
+
+        // Setup complete state
+        let theme = Theme(
+            id: 1,
+            primaryColor: "#FF0000",
+            secondaryColor: "#000000",
+            accentColor: "#FFFFFF",
+            fontFamily: "system",
+            logoURL: nil,
+            backgroundURL: nil,
+            photoFrameURL: nil,
+            stripFrameURL: nil
+        )
+        let event = Event(id: 1, name: "Test", date: "2025-01-01", theme: theme)
+        appState.selectEvent(event)
+
+        let session = Session(sessionId: 123, publicToken: "abc", universalURL: "https://test.com")
+        appState.startSession(with: session)
+
+        // Return to event selection (complete reset)
+        appState.returnToEventSelection()
+
+        // Verify everything is cleared
+        #expect(appState.currentRoute == .eventSelection)
+        #expect(appState.selectedEvent == nil)
+        #expect(appState.currentSession == nil)
+        #expect(appState.capturedStrips.isEmpty)
+        #expect(appState.currentTheme.id == 0) // Default theme
+    }
+
+    @Test("Upload recovery after network failure")
+    func testUploadRecoveryAfterNetworkFailure() {
+        let sessionService = SessionService(apiClient: APIClient())
+        let viewModel = UploadViewModel(sessionService: sessionService)
+
+        let strips = [
+            CapturedStrip(stripIndex: 0, videoURL: URL(string: "file://0.mov")!, photoData: Data(), thumbnailData: nil)
+        ]
+
+        viewModel.prepareUploads(from: strips)
+
+        // Simulate network failure on first item
+        viewModel.uploadItems[0].state = .failed("Network timeout")
+        viewModel.uploadItems[1].state = .completed
+
+        #expect(viewModel.hasFailedUploads == true)
+        #expect(!viewModel.isComplete)
+
+        // Simulate retry - reset failed items
+        for i in 0..<viewModel.uploadItems.count {
+            if case .failed = viewModel.uploadItems[i].state {
+                viewModel.uploadItems[i].state = .pending
+            }
+        }
+
+        // Simulate successful retry
+        viewModel.uploadItems[0].state = .completed
+
+        // Now all should be complete
+        let allCompleted = viewModel.uploadItems.allSatisfy {
+            if case .completed = $0.state { return true }
+            return false
+        }
+
+        #expect(allCompleted == true)
+        #expect(!viewModel.hasFailedUploads)
+    }
+
+    @Test("Email validation recovery from errors")
+    func testEmailValidationRecovery() {
+        let sessionService = SessionService(apiClient: APIClient())
+        let viewModel = QRViewModel(sessionService: sessionService)
+
+        // Enter invalid email
+        viewModel.email = "invalid"
+        #expect(!viewModel.isEmailValid)
+
+        viewModel.emailError = "Invalid email format"
+        #expect(viewModel.emailError != nil)
+
+        // User corrects the email
+        viewModel.email = "valid@example.com"
+        #expect(viewModel.isEmailValid)
+
+        // Clear error
+        viewModel.clearEmailError()
+        #expect(viewModel.emailError == nil)
+
+        // Ready to submit
+        #expect(viewModel.isEmailValid)
+        #expect(viewModel.emailError == nil)
+    }
+
+    // MARK: - Multi-Component Integration Tests
+
+    @Test("EventSelection to Capture to Upload to QR complete flow")
+    func testCompleteUserFlow() async throws {
+        let appState = AppState()
+
+        // Step 1: Event Selection
+        let theme = Theme(
+            id: 1,
+            primaryColor: "#FF4081",
+            secondaryColor: "#212121",
+            accentColor: "#FFFFFF",
+            fontFamily: "system",
+            logoURL: nil,
+            backgroundURL: nil,
+            photoFrameURL: nil,
+            stripFrameURL: nil
+        )
+        let event = Event(id: 1, name: "Integration Test Event", date: "2025-12-25", theme: theme)
+
+        appState.selectEvent(event)
+        #expect(appState.currentRoute == .idle)
+
+        // Step 2: Start Session
+        let session = Session(sessionId: 999, publicToken: "test123", universalURL: "https://test.com/s/test123")
+        appState.startSession(with: session)
+
+        if case .capture(.capturingStrip(let index)) = appState.currentRoute {
+            #expect(index == 0)
+        } else {
+            Issue.record("Expected capture route")
+        }
+
+        // Step 3: Capture flow (simulate all strips)
+        let captureViewModel = CaptureViewModel()
+        for i in 0..<3 {
+            let strip = CapturedStripMedia(
+                stripIndex: i,
+                videoURL: URL(string: "file://strip\(i).mov")!,
+                photoData: Data(),
+                thumbnailData: nil
+            )
+            captureViewModel.capturedStrips.append(strip)
+        }
+
+        let convertedStrips = captureViewModel.getCapturedStrips()
+        appState.capturedStrips = convertedStrips
+        #expect(appState.allStripsCaptured == true)
+
+        // Step 4: Upload flow
+        let uploadViewModel = UploadViewModel(sessionService: SessionService(apiClient: APIClient()))
+        uploadViewModel.prepareUploads(from: convertedStrips)
+
+        #expect(uploadViewModel.uploadItems.count == 6)
+
+        // Simulate successful uploads
+        appState.totalAssetsToUpload = 6
+        for _ in 0..<6 {
+            appState.assetUploaded()
+        }
+        #expect(appState.uploadProgress == 1.0)
+
+        // Step 5: QR Display
+        let qrViewModel = QRViewModel(sessionService: SessionService(apiClient: APIClient()))
+        qrViewModel.setup(qrData: Data([0x89, 0x50, 0x4E, 0x47]), session: session)
+
+        #expect(qrViewModel.universalURL == "https://test.com/s/test123")
+        #expect(qrViewModel.qrImage != nil)
+
+        // Step 6: Email submission
+        qrViewModel.email = "guest@example.com"
+        #expect(qrViewModel.isEmailValid)
+
+        // Step 7: Complete - return to idle
+        appState.resetSession()
+        #expect(appState.currentRoute == .idle)
+        #expect(appState.selectedEvent != nil) // Event still selected
+    }
+
+    @Test("Multiple session cycles with same event")
+    func testMultipleSessionCycles() {
+        let appState = AppState()
+
+        let theme = Theme(
+            id: 1,
+            primaryColor: "#FF0000",
+            secondaryColor: "#000000",
+            accentColor: "#FFFFFF",
+            fontFamily: "system",
+            logoURL: nil,
+            backgroundURL: nil,
+            photoFrameURL: nil,
+            stripFrameURL: nil
+        )
+        let event = Event(id: 1, name: "Test", date: "2025-01-01", theme: theme)
+
+        // Select event once
+        appState.selectEvent(event)
+        #expect(appState.selectedEvent?.id == 1)
+
+        // Run 3 session cycles
+        for sessionNum in 1...3 {
+            let session = Session(
+                sessionId: sessionNum,
+                publicToken: "token\(sessionNum)",
+                universalURL: "https://test.com/s/token\(sessionNum)"
+            )
+
+            appState.startSession(with: session)
+            #expect(appState.currentSession?.sessionId == sessionNum)
+
+            // Capture strips
+            for i in 0..<3 {
+                let strip = CapturedStrip(
+                    stripIndex: i,
+                    videoURL: URL(string: "file://session\(sessionNum)_strip\(i).mov")!,
+                    photoData: Data(),
+                    thumbnailData: nil
+                )
+                appState.capturedStrips.append(strip)
+            }
+
+            #expect(appState.capturedStrips.count == 3)
+
+            // Upload
+            appState.totalAssetsToUpload = 6
+            for _ in 0..<6 {
+                appState.assetUploaded()
+            }
+
+            // Reset for next session
+            appState.resetSession()
+
+            #expect(appState.currentRoute == .idle)
+            #expect(appState.selectedEvent?.id == 1) // Event preserved
+            #expect(appState.currentSession == nil)
+            #expect(appState.capturedStrips.isEmpty)
+        }
+    }
+}
