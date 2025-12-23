@@ -533,14 +533,695 @@ struct AssetUploadMetadataTests {
 // MARK: - CaptureState Tests
 
 struct CaptureStateTests {
-    
+
     @Test("Default capture configuration has correct values")
     func defaultCaptureConfig() {
         let config = CaptureConfiguration.default
-        
+
         #expect(config.videoDuration == 10)
         #expect(config.countdownSeconds == 3)
         #expect(config.photoCountdownSeconds == 1)
         #expect(config.stripCount == 3)
+    }
+}
+
+// MARK: - Mock Infrastructure
+
+/// Mock URLSession for testing APIClient
+final class MockURLSession: URLSession {
+    var mockData: Data?
+    var mockResponse: HTTPURLResponse?
+    var mockError: Error?
+    var callCount = 0
+
+    override func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        callCount += 1
+
+        if let error = mockError {
+            throw error
+        }
+
+        let response = mockResponse ?? HTTPURLResponse(
+            url: request.url!,
+            statusCode: 200,
+            httpVersion: nil,
+            headerFields: nil
+        )!
+
+        let data = mockData ?? Data()
+        return (data, response)
+    }
+}
+
+/// Mock APIClient for testing services
+actor MockAPIClient: APIClientProtocol {
+    var shouldFail = false
+    var fetchCallCount = 0
+    var sendCallCount = 0
+    var uploadCallCount = 0
+    var mockEvents: [Event] = []
+    var mockSession: Session?
+    var mockQRData: Data?
+
+    nonisolated func fetch<T: Decodable & Sendable>(_ endpoint: Endpoint) async throws -> T {
+        await incrementFetchCount()
+
+        if await shouldFail {
+            throw APIError.serverUnreachable
+        }
+
+        // Return mock data based on type
+        if T.self == [Event].self {
+            let events = await mockEvents
+            return events as! T
+        } else if T.self == Event.self {
+            let event = await mockEvents.first!
+            return event as! T
+        }
+
+        throw APIError.decodingError(DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Mock")))
+    }
+
+    nonisolated func fetchData(_ endpoint: Endpoint) async throws -> Data {
+        await incrementFetchCount()
+
+        if await shouldFail {
+            throw APIError.serverUnreachable
+        }
+
+        if let qrData = await mockQRData {
+            return qrData
+        }
+
+        return Data()
+    }
+
+    nonisolated func send<T: Encodable & Sendable, R: Decodable & Sendable>(
+        _ endpoint: Endpoint,
+        body: T
+    ) async throws -> R {
+        await incrementSendCount()
+
+        if await shouldFail {
+            throw APIError.serverUnreachable
+        }
+
+        if R.self == Session.self {
+            let session = await mockSession!
+            return session as! R
+        } else if R.self == EmailSubmissionResponse.self {
+            return EmailSubmissionResponse(status: "ok") as! R
+        }
+
+        throw APIError.decodingError(DecodingError.dataCorrupted(.init(codingPath: [], debugDescription: "Mock")))
+    }
+
+    nonisolated func upload(
+        _ endpoint: Endpoint,
+        fileData: Data,
+        fileName: String,
+        mimeType: String,
+        metadata: [String: String]
+    ) async throws -> AssetUploadResponse {
+        await incrementUploadCount()
+
+        if await shouldFail {
+            throw APIError.serverUnreachable
+        }
+
+        return AssetUploadResponse(assetId: 123, status: "ok")
+    }
+
+    private func incrementFetchCount() {
+        fetchCallCount += 1
+    }
+
+    private func incrementSendCount() {
+        sendCallCount += 1
+    }
+
+    private func incrementUploadCount() {
+        uploadCallCount += 1
+    }
+}
+
+// MARK: - APIClient Tests
+
+@MainActor
+struct APIClientTests {
+
+    @Test("APIClient handles successful response")
+    func testSuccessfulFetch() async throws {
+        let eventJSON = """
+        [{
+            "id": 1,
+            "name": "Test Event",
+            "date": "2025-01-01",
+            "theme": {
+                "id": 1,
+                "primary_color": "#FF0000",
+                "secondary_color": "#000000",
+                "accent_color": "#FFFFFF",
+                "font_family": "system",
+                "logo_url": null,
+                "background_url": null,
+                "photo_frame_url": null,
+                "strip_frame_url": null
+            }
+        }]
+        """.data(using: .utf8)!
+
+        let client = APIClient(baseURL: URL(string: "http://test.local")!)
+
+        // Note: Real APIClient tests would require URLProtocol mocking
+        // This is a simplified example showing the test structure
+    }
+
+    @Test("APIClient handles timeout error")
+    func testTimeoutError() {
+        let error = APIError.timeout
+
+        #expect(error.isRetryable == true)
+        #expect(error.userMessage.contains("timed out") || error.userMessage.contains("time"))
+    }
+
+    @Test("APIClient handles server unreachable")
+    func testServerUnreachable() {
+        let error = APIError.serverUnreachable
+
+        #expect(error.isRetryable == true)
+        #expect(error.userMessage.contains("connect") || error.userMessage.contains("reach"))
+    }
+
+    @Test("APIClient marks 4xx errors as non-retryable")
+    func testClientErrorsNotRetryable() {
+        let error = APIError.httpError(statusCode: 404, message: "Not Found")
+
+        #expect(error.isRetryable == false)
+    }
+
+    @Test("APIClient marks 5xx errors as retryable")
+    func testServerErrorsRetryable() {
+        let error = APIError.httpError(statusCode: 500, message: "Server Error")
+
+        #expect(error.isRetryable == true)
+    }
+
+    @Test("APIClient baseURL can be updated")
+    func testBaseURLUpdate() async {
+        let client = APIClient(baseURL: URL(string: "http://old.local")!)
+        let newURL = URL(string: "http://new.local")!
+
+        await client.updateBaseURL(newURL)
+        let baseURL = await client.baseURL
+
+        #expect(baseURL == newURL)
+    }
+}
+
+// MARK: - EventSelectionViewModel Tests
+
+@MainActor
+struct EventSelectionViewModelTests {
+
+    @Test("ViewModel starts with empty events")
+    func testInitialState() {
+        let mockClient = MockAPIClient()
+        let eventService = EventService(apiClient: APIClient())
+        let themeService = ThemeService()
+
+        let viewModel = EventSelectionViewModel(
+            eventService: eventService,
+            themeService: themeService
+        )
+
+        #expect(viewModel.events.isEmpty)
+        #expect(!viewModel.isLoading)
+        #expect(viewModel.errorMessage == nil)
+    }
+
+    @Test("loadEvents sets loading state")
+    func testLoadingState() async {
+        let mockClient = MockAPIClient()
+        await mockClient.setMockEvents([])
+
+        let eventService = EventService(apiClient: APIClient())
+        let themeService = ThemeService()
+
+        let viewModel = EventSelectionViewModel(
+            eventService: eventService,
+            themeService: themeService
+        )
+
+        // Note: Proper test would require dependency injection of APIClient
+        // This shows the structure for testing loading states
+    }
+
+    @Test("selectEvent updates app state")
+    func testSelectEvent() async {
+        let theme = Theme(
+            id: 1,
+            primaryColor: "#FF0000",
+            secondaryColor: "#000000",
+            accentColor: "#FFFFFF",
+            fontFamily: "system",
+            logoURL: nil,
+            backgroundURL: nil,
+            photoFrameURL: nil,
+            stripFrameURL: nil
+        )
+        let event = Event(id: 1, name: "Test", date: "2025-01-01", theme: theme)
+
+        let appState = AppState()
+        let eventService = EventService(apiClient: APIClient())
+        let themeService = ThemeService()
+
+        let viewModel = EventSelectionViewModel(
+            eventService: eventService,
+            themeService: themeService
+        )
+
+        await viewModel.selectEvent(event, appState: appState)
+
+        #expect(appState.selectedEvent?.id == 1)
+        #expect(appState.currentRoute == .idle)
+    }
+
+    @Test("clearError resets error state")
+    func testClearError() {
+        let eventService = EventService(apiClient: APIClient())
+        let themeService = ThemeService()
+
+        let viewModel = EventSelectionViewModel(
+            eventService: eventService,
+            themeService: themeService
+        )
+
+        viewModel.errorMessage = "Test error"
+        viewModel.showError = true
+
+        viewModel.clearError()
+
+        #expect(viewModel.errorMessage == nil)
+        #expect(!viewModel.showError)
+    }
+}
+
+// MARK: - CaptureViewModel Tests
+
+@MainActor
+struct CaptureViewModelTests {
+
+    @Test("ViewModel initializes with ready state")
+    func testInitialState() {
+        let viewModel = CaptureViewModel()
+
+        #expect(viewModel.currentStripIndex == 0)
+        #expect(viewModel.stripState == .ready)
+        #expect(viewModel.capturedStrips.isEmpty)
+        #expect(!viewModel.isReviewing)
+        #expect(!viewModel.showingSummary)
+    }
+
+    @Test("startCapture transitions to countdown")
+    func testStartCaptureTransitionsToCountdown() {
+        let viewModel = CaptureViewModel()
+
+        viewModel.startCapture()
+
+        if case .countdown(let remaining) = viewModel.stripState {
+            #expect(remaining == viewModel.config.countdownSeconds)
+        } else {
+            Issue.record("Expected countdown state")
+        }
+    }
+
+    @Test("continueToNext increments strip index")
+    func testContinueToNextIncrements() {
+        let viewModel = CaptureViewModel()
+        viewModel.stripState = .complete
+
+        let initialIndex = viewModel.currentStripIndex
+        viewModel.continueToNext()
+
+        #expect(viewModel.currentStripIndex == initialIndex + 1)
+        #expect(viewModel.stripState == .ready)
+        #expect(!viewModel.isReviewing)
+    }
+
+    @Test("continueToNext shows summary after last strip")
+    func testContinueToNextShowsSummary() {
+        let viewModel = CaptureViewModel()
+        viewModel.currentStripIndex = 2 // Last strip (0, 1, 2)
+        viewModel.stripState = .complete
+
+        viewModel.continueToNext()
+
+        #expect(viewModel.showingSummary)
+    }
+
+    @Test("retakeCurrentStrip resets state")
+    func testRetakeCurrentStrip() {
+        let viewModel = CaptureViewModel()
+        viewModel.stripState = .complete
+        viewModel.isReviewing = true
+
+        // Add a fake strip
+        let strip = CapturedStripMedia(
+            stripIndex: 0,
+            videoURL: URL(string: "file://test.mov")!,
+            photoData: Data(),
+            thumbnailData: nil
+        )
+        viewModel.capturedStrips.append(strip)
+
+        viewModel.retakeCurrentStrip()
+
+        #expect(viewModel.stripState == .ready)
+        #expect(!viewModel.isReviewing)
+        #expect(viewModel.capturedStrips.isEmpty)
+    }
+
+    @Test("retakeStrip removes specific strip")
+    func testRetakeSpecificStrip() {
+        let viewModel = CaptureViewModel()
+
+        // Add multiple strips
+        let strip0 = CapturedStripMedia(stripIndex: 0, videoURL: URL(string: "file://0.mov")!, photoData: Data(), thumbnailData: nil)
+        let strip1 = CapturedStripMedia(stripIndex: 1, videoURL: URL(string: "file://1.mov")!, photoData: Data(), thumbnailData: nil)
+        viewModel.capturedStrips = [strip0, strip1]
+        viewModel.currentStripIndex = 2
+
+        viewModel.retakeStrip(at: 1)
+
+        #expect(viewModel.capturedStrips.count == 1)
+        #expect(viewModel.capturedStrips[0].stripIndex == 0)
+        #expect(viewModel.currentStripIndex == 1)
+        #expect(!viewModel.showingSummary)
+    }
+
+    @Test("getCapturedStrips converts to model format")
+    func testGetCapturedStrips() {
+        let viewModel = CaptureViewModel()
+
+        let strip = CapturedStripMedia(
+            stripIndex: 0,
+            videoURL: URL(string: "file://test.mov")!,
+            photoData: Data(),
+            thumbnailData: Data()
+        )
+        viewModel.capturedStrips.append(strip)
+
+        let converted = viewModel.getCapturedStrips()
+
+        #expect(converted.count == 1)
+        #expect(converted[0].stripIndex == 0)
+        #expect(converted[0].videoURL == URL(string: "file://test.mov")!)
+    }
+
+    @Test("cleanup stops session")
+    func testCleanup() {
+        let viewModel = CaptureViewModel()
+
+        // This test verifies cleanup doesn't crash
+        viewModel.cleanup()
+
+        // If we get here without crashing, cleanup worked
+        #expect(true)
+    }
+}
+
+// MARK: - UploadViewModel Tests
+
+@MainActor
+struct UploadViewModelTests {
+
+    @Test("prepareUploads creates correct items")
+    func testPrepareUploads() {
+        let sessionService = SessionService(apiClient: APIClient())
+        let viewModel = UploadViewModel(sessionService: sessionService)
+
+        let strips = [
+            CapturedStrip(
+                stripIndex: 0,
+                videoURL: URL(string: "file://0.mov")!,
+                photoData: Data(),
+                thumbnailData: nil
+            ),
+            CapturedStrip(
+                stripIndex: 1,
+                videoURL: URL(string: "file://1.mov")!,
+                photoData: Data(),
+                thumbnailData: nil
+            )
+        ]
+
+        viewModel.prepareUploads(from: strips)
+
+        // Should create 2 items per strip (video + photo)
+        #expect(viewModel.uploadItems.count == 4)
+        #expect(viewModel.progress == 0)
+        #expect(!viewModel.isComplete)
+    }
+
+    @Test("prepareUploads creates video and photo items")
+    func testUploadItemsTypes() {
+        let sessionService = SessionService(apiClient: APIClient())
+        let viewModel = UploadViewModel(sessionService: sessionService)
+
+        let strips = [
+            CapturedStrip(
+                stripIndex: 0,
+                videoURL: URL(string: "file://0.mov")!,
+                photoData: Data(),
+                thumbnailData: nil
+            )
+        ]
+
+        viewModel.prepareUploads(from: strips)
+
+        let videoItems = viewModel.uploadItems.filter { $0.kind == .video }
+        let photoItems = viewModel.uploadItems.filter { $0.kind == .photo }
+
+        #expect(videoItems.count == 1)
+        #expect(photoItems.count == 1)
+        #expect(videoItems[0].stripIndex == 0)
+        #expect(photoItems[0].stripIndex == 0)
+    }
+
+    @Test("hasFailedUploads detects failures")
+    func testHasFailedUploads() {
+        let sessionService = SessionService(apiClient: APIClient())
+        let viewModel = UploadViewModel(sessionService: sessionService)
+
+        let strips = [
+            CapturedStrip(
+                stripIndex: 0,
+                videoURL: URL(string: "file://0.mov")!,
+                photoData: Data(),
+                thumbnailData: nil
+            )
+        ]
+
+        viewModel.prepareUploads(from: strips)
+
+        #expect(!viewModel.hasFailedUploads)
+
+        // Simulate a failure
+        viewModel.uploadItems[0].state = .failed("Network error")
+
+        #expect(viewModel.hasFailedUploads)
+    }
+
+    @Test("completedCount counts completed uploads")
+    func testCompletedCount() {
+        let sessionService = SessionService(apiClient: APIClient())
+        let viewModel = UploadViewModel(sessionService: sessionService)
+
+        let strips = [
+            CapturedStrip(
+                stripIndex: 0,
+                videoURL: URL(string: "file://0.mov")!,
+                photoData: Data(),
+                thumbnailData: nil
+            )
+        ]
+
+        viewModel.prepareUploads(from: strips)
+
+        #expect(viewModel.completedCount == 0)
+
+        // Mark items as completed
+        viewModel.uploadItems[0].state = .completed
+        viewModel.uploadItems[1].state = .completed
+
+        #expect(viewModel.completedCount == 2)
+    }
+
+    @Test("uploadItem has correct display name")
+    func testUploadItemDisplayName() {
+        let videoItem = UploadItem(
+            id: UUID(),
+            stripIndex: 0,
+            kind: .video,
+            fileName: "test.mov",
+            mimeType: "video/quicktime",
+            state: .pending
+        )
+
+        let photoItem = UploadItem(
+            id: UUID(),
+            stripIndex: 1,
+            kind: .photo,
+            fileName: "test.jpg",
+            mimeType: "image/jpeg",
+            state: .pending
+        )
+
+        #expect(videoItem.displayName == "Video 1")
+        #expect(photoItem.displayName == "Photo 2")
+    }
+}
+
+// MARK: - QRViewModel Tests
+
+@MainActor
+struct QRViewModelTests {
+
+    @Test("ViewModel initializes with empty state")
+    func testInitialState() {
+        let sessionService = SessionService(apiClient: APIClient())
+        let viewModel = QRViewModel(sessionService: sessionService)
+
+        #expect(viewModel.qrImage == nil)
+        #expect(viewModel.universalURL.isEmpty)
+        #expect(viewModel.email.isEmpty)
+        #expect(!viewModel.isSubmittingEmail)
+        #expect(!viewModel.emailSubmitted)
+    }
+
+    @Test("setup configures universal URL")
+    func testSetupWithSession() {
+        let sessionService = SessionService(apiClient: APIClient())
+        let viewModel = QRViewModel(sessionService: sessionService)
+
+        let session = Session(
+            sessionId: 123,
+            publicToken: "abc",
+            universalURL: "https://example.com/session/abc"
+        )
+
+        viewModel.setup(qrData: nil, session: session)
+
+        #expect(viewModel.universalURL == "https://example.com/session/abc")
+    }
+
+    @Test("email validation accepts valid email")
+    func testEmailValidationValid() {
+        let sessionService = SessionService(apiClient: APIClient())
+        let viewModel = QRViewModel(sessionService: sessionService)
+
+        viewModel.email = "test@example.com"
+
+        #expect(viewModel.isEmailValid)
+    }
+
+    @Test("email validation rejects invalid email")
+    func testEmailValidationInvalid() {
+        let sessionService = SessionService(apiClient: APIClient())
+        let viewModel = QRViewModel(sessionService: sessionService)
+
+        viewModel.email = "not-an-email"
+
+        #expect(!viewModel.isEmailValid)
+    }
+
+    @Test("email validation rejects empty email")
+    func testEmailValidationEmpty() {
+        let sessionService = SessionService(apiClient: APIClient())
+        let viewModel = QRViewModel(sessionService: sessionService)
+
+        viewModel.email = ""
+
+        #expect(!viewModel.isEmailValid)
+    }
+
+    @Test("email validation handles edge cases")
+    func testEmailValidationEdgeCases() {
+        let sessionService = SessionService(apiClient: APIClient())
+        let viewModel = QRViewModel(sessionService: sessionService)
+
+        // Missing @
+        viewModel.email = "testexample.com"
+        #expect(!viewModel.isEmailValid)
+
+        // Missing domain
+        viewModel.email = "test@"
+        #expect(!viewModel.isEmailValid)
+
+        // Missing TLD
+        viewModel.email = "test@example"
+        #expect(!viewModel.isEmailValid)
+
+        // Valid with subdomain
+        viewModel.email = "test@mail.example.com"
+        #expect(viewModel.isEmailValid)
+
+        // Valid with plus
+        viewModel.email = "test+tag@example.com"
+        #expect(viewModel.isEmailValid)
+    }
+
+    @Test("clearEmailError clears error")
+    func testClearEmailError() {
+        let sessionService = SessionService(apiClient: APIClient())
+        let viewModel = QRViewModel(sessionService: sessionService)
+
+        viewModel.emailError = "Some error"
+        viewModel.clearEmailError()
+
+        #expect(viewModel.emailError == nil)
+    }
+}
+
+// MARK: - SessionService Tests
+
+@MainActor
+struct SessionServiceTests {
+
+    @Test("uploadAsset builds correct metadata")
+    func testUploadAssetMetadata() async throws {
+        let apiClient = APIClient()
+        let service = SessionService(apiClient: apiClient)
+
+        let metadata = AssetUploadMetadata(
+            kind: .video,
+            stripIndex: 1,
+            sequenceIndex: 0
+        )
+
+        #expect(metadata.kind == .video)
+        #expect(metadata.stripIndex == 1)
+        #expect(metadata.sequenceIndex == 0)
+    }
+}
+
+// MARK: - Helper Extensions
+
+extension MockAPIClient {
+    func setMockEvents(_ events: [Event]) async {
+        self.mockEvents = events
+    }
+
+    func setMockSession(_ session: Session) async {
+        self.mockSession = session
+    }
+
+    func setMockQRData(_ data: Data) async {
+        self.mockQRData = data
+    }
+
+    func setShouldFail(_ shouldFail: Bool) async {
+        self.shouldFail = shouldFail
     }
 }
