@@ -94,5 +94,10 @@ enum Endpoints {
             headers: ["Content-Type": "application/json"]
         )
     }
+
+    /// GET /events/{id}/gallery - Get all media for an event
+    static func eventGallery(eventId: Int) -> Endpoint {
+        Endpoint(path: "events/\(eventId)/gallery")
+    }
 }
 

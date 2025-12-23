@@ -210,9 +210,27 @@ struct IdleView: View {
                 .background(theme.secondary.opacity(0.3))
                 .clipShape(Capsule())
             }
-            
+
             Spacer()
-            
+
+            // Gallery button
+            Button {
+                appState.currentRoute = .gallery
+            } label: {
+                HStack(spacing: 8) {
+                    Image(systemName: "photo.on.rectangle.angled")
+                    Text("View Gallery")
+                }
+                .font(.subheadline)
+                .foregroundStyle(theme.accent.opacity(0.6))
+                .padding(.horizontal, 20)
+                .padding(.vertical, 10)
+                .background(theme.secondary.opacity(0.3))
+                .clipShape(Capsule())
+            }
+
+            Spacer()
+
             // Hidden settings trigger (triple-tap)
             Color.clear
                 .frame(width: 60, height: 60)

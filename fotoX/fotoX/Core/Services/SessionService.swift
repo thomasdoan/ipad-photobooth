@@ -65,31 +65,44 @@ final class SessionService: Sendable {
         let request = EmailSubmissionRequest(email: email)
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()
-        
+
         let baseURL = await apiClient.baseURL
         guard var urlRequest = Endpoints.submitEmail(sessionId: sessionId).makeRequest(baseURL: baseURL) else {
             throw APIError.invalidURL
         }
         urlRequest.httpBody = try encoder.encode(request)
-        
+
         let data = try await performRequest(urlRequest)
         return try decoder.decode(EmailSubmissionResponse.self, from: data)
     }
-    
+
+    /// Fetches all media for an event's gallery
+    func fetchEventGallery(eventId: Int) async throws -> GalleryResponse {
+        let decoder = JSONDecoder()
+
+        let baseURL = await apiClient.baseURL
+        guard let urlRequest = Endpoints.eventGallery(eventId: eventId).makeRequest(baseURL: baseURL) else {
+            throw APIError.invalidURL
+        }
+
+        let data = try await performRequest(urlRequest)
+        return try decoder.decode(GalleryResponse.self, from: data)
+    }
+
     /// Helper to perform network request
     private func performRequest(_ request: URLRequest) async throws -> Data {
         let session = URLSession.shared
         let (data, response) = try await session.data(for: request)
-        
+
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
         }
-        
+
         guard httpResponse.statusCode >= 200 && httpResponse.statusCode < 300 else {
             let message = String(data: data, encoding: .utf8)
             throw APIError.httpError(statusCode: httpResponse.statusCode, message: message)
         }
-        
+
         return data
     }
 }

@@ -11,19 +11,22 @@ import Foundation
 enum AppRoute: Equatable, Sendable {
     /// Event selection screen (initial state)
     case eventSelection
-    
+
     /// Idle/attract screen for selected event
     case idle
-    
+
+    /// Gallery view for event photos/videos
+    case gallery
+
     /// Active capture session
     case capture(CapturePhase)
-    
+
     /// Uploading captured assets
     case uploading
-    
+
     /// QR code and email screen
     case qrDisplay
-    
+
     /// Settings screen (operator access)
     case settings
 }

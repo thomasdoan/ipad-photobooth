@@ -48,23 +48,27 @@ struct RootView: View {
             case .eventSelection:
                 EventSelectionView(services: services, testableServices: testableServices)
                     .transition(.opacity)
-                
+
             case .idle:
                 IdleView(services: services, testableServices: testableServices)
                     .transition(.opacity)
-                
+
+            case .gallery:
+                GalleryView(services: services, testableServices: testableServices)
+                    .transition(.opacity)
+
             case .capture:
                 CaptureView()
                     .transition(.opacity)
-                
+
             case .uploading:
                 UploadView(services: services, testableServices: testableServices)
                     .transition(.opacity)
-                
+
             case .qrDisplay:
                 QRView(services: services, testableServices: testableServices)
                     .transition(.opacity)
-                
+
             case .settings:
                 SettingsView()
                     .transition(.opacity)
