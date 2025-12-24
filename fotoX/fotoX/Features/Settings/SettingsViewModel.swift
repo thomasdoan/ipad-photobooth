@@ -18,7 +18,10 @@ final class SettingsViewModel {
 
     /// Shared presign token for uploads
     var presignToken: String = ""
-    
+
+    /// Video duration in seconds for capture
+    var videoDuration: Double = 10
+
     /// Whether testing connection
     var isTestingConnection: Bool = false
     
@@ -48,6 +51,7 @@ final class SettingsViewModel {
     private func loadCurrentSettings() {
         baseURLString = WorkerConfiguration.currentBaseURL().absoluteString
         presignToken = WorkerConfiguration.currentPresignToken() ?? ""
+        videoDuration = WorkerConfiguration.currentVideoDuration()
     }
     
     /// Validates the URL
@@ -60,25 +64,32 @@ final class SettingsViewModel {
         return true
     }
     
-    /// Saves the base URL
-    func saveBaseURL() -> Bool {
+    /// Saves all settings
+    func saveSettings() -> Bool {
         guard isURLValid else {
             urlError = "Please enter a valid URL (e.g., https://your-worker.workers.dev)"
             return false
         }
-        
+
         urlError = nil
         if let url = URL(string: baseURLString) {
             WorkerConfiguration.saveBaseURL(url)
         }
         WorkerConfiguration.savePresignToken(presignToken)
+        WorkerConfiguration.saveVideoDuration(videoDuration)
         return true
+    }
+
+    /// Saves the base URL (deprecated, use saveSettings instead)
+    func saveBaseURL() -> Bool {
+        return saveSettings()
     }
     
     /// Resets to default URL
     func resetToDefault() {
         baseURLString = WorkerConfiguration.defaultBaseURL.absoluteString
-        _ = saveBaseURL()
+        videoDuration = WorkerConfiguration.defaultVideoDuration
+        _ = saveSettings()
         connectionTestResult = nil
     }
     

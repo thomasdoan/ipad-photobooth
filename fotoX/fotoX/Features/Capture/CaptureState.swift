@@ -53,7 +53,7 @@ struct CaptureConfiguration: Sendable {
     
     /// Default configuration
     static let `default` = CaptureConfiguration(
-        videoDuration: 10,
+        videoDuration: WorkerConfiguration.currentVideoDuration(),
         countdownSeconds: 0,
         photoCountdownSeconds: 1,
         stripCount: 3
