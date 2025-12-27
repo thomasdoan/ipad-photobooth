@@ -22,6 +22,9 @@ final class SettingsViewModel {
     /// Video duration in seconds for capture
     var videoDuration: Double = 10
 
+    /// Whether to show text overlays on frame (couple's names, date, hashtag)
+    var frameTextOverlays: Bool = true
+
     /// Whether testing connection
     var isTestingConnection: Bool = false
     
@@ -52,6 +55,7 @@ final class SettingsViewModel {
         baseURLString = WorkerConfiguration.currentBaseURL().absoluteString
         presignToken = WorkerConfiguration.currentPresignToken() ?? ""
         videoDuration = WorkerConfiguration.currentVideoDuration()
+        frameTextOverlays = WorkerConfiguration.currentFrameTextOverlays()
     }
     
     /// Validates the URL
@@ -77,6 +81,7 @@ final class SettingsViewModel {
         }
         WorkerConfiguration.savePresignToken(presignToken)
         WorkerConfiguration.saveVideoDuration(videoDuration)
+        WorkerConfiguration.saveFrameTextOverlays(frameTextOverlays)
         return true
     }
 
@@ -89,6 +94,7 @@ final class SettingsViewModel {
     func resetToDefault() {
         baseURLString = WorkerConfiguration.defaultBaseURL.absoluteString
         videoDuration = WorkerConfiguration.defaultVideoDuration
+        frameTextOverlays = WorkerConfiguration.defaultFrameTextOverlays
         _ = saveSettings()
         connectionTestResult = nil
     }

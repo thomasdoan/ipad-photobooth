@@ -59,15 +59,13 @@ struct CaptureView: View {
                 isReady: viewModel.isCameraReady
             )
             .ignoresSafeArea()
-            
-            // Frame overlay if available
-            if let frame = themeAssets?.photoFrame {
-                frame
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .ignoresSafeArea()
-                    .allowsHitTesting(false)
-            }
+
+            // Custom frame overlay with couple's names and date
+            FrameOverlayView(
+                event: appState.selectedEvent,
+                showTextOverlays: WorkerConfiguration.currentFrameTextOverlays()
+            )
+            .ignoresSafeArea()
         }
     }
     

@@ -11,8 +11,10 @@ enum WorkerConfiguration {
     static let baseURLKey = "workerBaseURL"
     static let presignTokenKey = "workerPresignToken"
     static let videoDurationKey = "captureVideoDuration"
+    static let frameTextOverlaysKey = "frameTextOverlays"
     static let defaultBaseURL = URL(string: "https://your-worker.workers.dev")!
     static let defaultVideoDuration: TimeInterval = 10
+    static let defaultFrameTextOverlays: Bool = true
 
     static func currentBaseURL() -> URL {
         if let urlString = UserDefaults.standard.string(forKey: baseURLKey),
@@ -49,5 +51,17 @@ enum WorkerConfiguration {
     static func saveVideoDuration(_ duration: TimeInterval) {
         let clamped = max(3, min(10, duration))
         UserDefaults.standard.set(clamped, forKey: videoDurationKey)
+    }
+
+    static func currentFrameTextOverlays() -> Bool {
+        // Check if value exists in UserDefaults
+        if UserDefaults.standard.object(forKey: frameTextOverlaysKey) == nil {
+            return defaultFrameTextOverlays
+        }
+        return UserDefaults.standard.bool(forKey: frameTextOverlaysKey)
+    }
+
+    static func saveFrameTextOverlays(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: frameTextOverlaysKey)
     }
 }

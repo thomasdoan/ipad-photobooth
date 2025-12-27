@@ -37,7 +37,10 @@ private enum BundledEventStore {
                 backgroundURL: nil,
                 photoFrameURL: nil,
                 stripFrameURL: nil
-            )
+            ),
+            coupleName1: "Jack",
+            coupleName2: "Zeu",
+            hashtag: "#JackZeu2026"
         ),
         // Event(
         //     id: 2,

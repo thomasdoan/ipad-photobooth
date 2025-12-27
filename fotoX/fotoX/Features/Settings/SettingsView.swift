@@ -217,7 +217,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 16) {
             sectionHeader(title: "Capture Settings", icon: "video.circle")
 
-            VStack(spacing: 16) {
+            VStack(spacing: 0) {
                 // Video duration control
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
@@ -241,6 +241,29 @@ struct SettingsView: View {
                         Stepper("", value: $viewModel.videoDuration, in: 3...10, step: 1)
                             .labelsHidden()
                     }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+
+                Divider()
+                    .padding(.leading, 16)
+
+                // Frame text overlays toggle
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Show Frame Text")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+
+                        Text("Display couple's names and date on photos")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Toggle("", isOn: $viewModel.frameTextOverlays)
+                        .labelsHidden()
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
