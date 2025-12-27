@@ -52,12 +52,14 @@ struct CaptureConfiguration: Sendable {
     let stripCount: Int
     
     /// Default configuration
-    static let `default` = CaptureConfiguration(
-        videoDuration: 10,
-        countdownSeconds: 0,
-        photoCountdownSeconds: 1,
-        stripCount: 3
-    )
+    static var `default`: CaptureConfiguration {
+        CaptureConfiguration(
+            videoDuration: WorkerConfiguration.currentVideoDuration(),
+            countdownSeconds: 0,
+            photoCountdownSeconds: 1,
+            stripCount: 3
+        )
+    }
 }
 
 /// Represents the captured media for a single strip

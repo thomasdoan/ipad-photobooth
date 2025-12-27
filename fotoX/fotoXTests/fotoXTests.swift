@@ -657,16 +657,64 @@ struct AssetUploadMetadataTests {
 
 // MARK: - CaptureState Tests
 
+@Suite(.serialized)
 struct CaptureStateTests {
     
     @Test("Default capture configuration has correct values")
     func defaultCaptureConfig() {
+        // Reset to ensure test isolation
+        WorkerConfiguration.saveVideoDuration(10)
+
         let config = CaptureConfiguration.default
-        
+
         #expect(config.videoDuration == 10)
         #expect(config.countdownSeconds == 0)
         #expect(config.photoCountdownSeconds == 1)
         #expect(config.stripCount == 3)
+    }
+
+    @Test("WorkerConfiguration saves and loads video duration")
+    func videoDurationPersistence() {
+        // Save custom duration
+        WorkerConfiguration.saveVideoDuration(7)
+
+        // Verify it's retrieved correctly
+        let duration = WorkerConfiguration.currentVideoDuration()
+        #expect(duration == 7)
+
+        // Cleanup
+        WorkerConfiguration.saveVideoDuration(10)
+    }
+
+    @Test("Video duration is clamped to valid range")
+    func videoDurationClamping() {
+        // Test minimum clamp
+        WorkerConfiguration.saveVideoDuration(1)
+        #expect(WorkerConfiguration.currentVideoDuration() == 3)
+
+        // Test maximum clamp
+        WorkerConfiguration.saveVideoDuration(100)
+        #expect(WorkerConfiguration.currentVideoDuration() == 10)
+
+        // Test valid range
+        WorkerConfiguration.saveVideoDuration(7)
+        #expect(WorkerConfiguration.currentVideoDuration() == 7)
+
+        // Cleanup
+        WorkerConfiguration.saveVideoDuration(10)
+    }
+
+    @Test("CaptureConfiguration respects saved video duration")
+    func captureConfigurationUsesPersistedValue() {
+        // Save custom duration
+        WorkerConfiguration.saveVideoDuration(5)
+
+        // Create configuration
+        let config = CaptureConfiguration.default
+        #expect(config.videoDuration == 5)
+
+        // Cleanup
+        WorkerConfiguration.saveVideoDuration(10)
     }
 }
 

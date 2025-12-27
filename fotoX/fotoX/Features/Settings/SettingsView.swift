@@ -26,10 +26,13 @@ struct SettingsView: View {
                     VStack(spacing: 24) {
                         // Connection settings
                         connectionSection
-                        
+
+                        // Capture settings
+                        captureSettingsSection
+
                         // App info
                         appInfoSection
-                        
+
                         // Danger zone
                         dangerZoneSection
                     }
@@ -48,7 +51,7 @@ struct SettingsView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        if viewModel.saveBaseURL() {
+                        if viewModel.saveSettings() {
                             updateAPIClient()
                             dismiss()
                         }
@@ -207,9 +210,50 @@ struct SettingsView: View {
                 .fill(result == .success ? Color.green.opacity(0.1) : Color.red.opacity(0.1))
         )
     }
-    
+
+    // MARK: - Capture Settings Section
+
+    private var captureSettingsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeader(title: "Capture Settings", icon: "video.circle")
+
+            VStack(spacing: 16) {
+                // Video duration control
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Video Duration")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+
+                        Text("Length of each video recording")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    HStack(spacing: 12) {
+                        Text("\(Int(viewModel.videoDuration))s")
+                            .font(.headline.monospacedDigit())
+                            .foregroundStyle(.primary)
+                            .frame(minWidth: 40, alignment: .trailing)
+
+                        Stepper("", value: $viewModel.videoDuration, in: 3...10, step: 1)
+                            .labelsHidden()
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(UIColor.secondarySystemGroupedBackground))
+            )
+        }
+    }
+
     // MARK: - App Info Section
-    
+
     private var appInfoSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             sectionHeader(title: "App Info", icon: "info.circle")
