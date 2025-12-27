@@ -39,21 +39,21 @@ private enum BundledEventStore {
                 stripFrameURL: nil
             )
         ),
-        Event(
-            id: 2,
-            name: "Corporate Holiday Party",
-            date: "2025-12-20",
-            theme: Theme(
-                id: 2,
-                primaryColor: "#0066CC",
-                secondaryColor: "#1A1A2E",
-                accentColor: "#FFFFFF",
-                fontFamily: "system",
-                logoURL: nil,
-                backgroundURL: nil,
-                photoFrameURL: nil,
-                stripFrameURL: nil
-            )
-        ),
+        // Event(
+        //     id: 2,
+        //     name: "Corporate Holiday Party",
+        //     date: "2025-12-20",
+        //     theme: Theme(
+        //         id: 2,
+        //         primaryColor: "#0066CC",
+        //         secondaryColor: "#1A1A2E",
+        //         accentColor: "#FFFFFF",
+        //         fontFamily: "system",
+        //         logoURL: nil,
+        //         backgroundURL: nil,
+        //         photoFrameURL: nil,
+        //         stripFrameURL: nil
+        //     )
+        // ),
     ]
 }
