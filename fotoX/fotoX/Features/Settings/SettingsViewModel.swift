@@ -22,6 +22,9 @@ final class SettingsViewModel {
     /// Video duration in seconds for capture
     var videoDuration: Double = 10
 
+    /// Whether to keep files on device after upload
+    var keepFilesAfterUpload: Bool = false
+
     /// Whether testing connection
     var isTestingConnection: Bool = false
     
@@ -52,6 +55,7 @@ final class SettingsViewModel {
         baseURLString = WorkerConfiguration.currentBaseURL().absoluteString
         presignToken = WorkerConfiguration.currentPresignToken() ?? ""
         videoDuration = WorkerConfiguration.currentVideoDuration()
+        keepFilesAfterUpload = WorkerConfiguration.keepFilesAfterUpload()
     }
     
     /// Validates the URL
@@ -77,6 +81,7 @@ final class SettingsViewModel {
         }
         WorkerConfiguration.savePresignToken(presignToken)
         WorkerConfiguration.saveVideoDuration(videoDuration)
+        WorkerConfiguration.saveKeepFilesAfterUpload(keepFilesAfterUpload)
         return true
     }
 
@@ -89,6 +94,7 @@ final class SettingsViewModel {
     func resetToDefault() {
         baseURLString = WorkerConfiguration.defaultBaseURL.absoluteString
         videoDuration = WorkerConfiguration.defaultVideoDuration
+        keepFilesAfterUpload = false
         _ = saveSettings()
         connectionTestResult = nil
     }

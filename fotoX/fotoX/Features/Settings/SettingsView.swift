@@ -217,7 +217,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 16) {
             sectionHeader(title: "Capture Settings", icon: "video.circle")
 
-            VStack(spacing: 16) {
+            VStack(spacing: 0) {
                 // Video duration control
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
@@ -240,6 +240,24 @@ struct SettingsView: View {
 
                         Stepper("", value: $viewModel.videoDuration, in: 3...10, step: 1)
                             .labelsHidden()
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+
+                Divider()
+                    .padding(.leading, 16)
+
+                // Keep files toggle
+                Toggle(isOn: $viewModel.keepFilesAfterUpload) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Keep Files After Upload")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+
+                        Text("Photos and videos remain on device after uploading")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .padding(.horizontal, 16)

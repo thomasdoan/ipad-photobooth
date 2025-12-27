@@ -382,6 +382,11 @@ actor UploadQueueWorker {
     }
 
     private func cleanupFiles(for session: UploadQueueSession) throws {
+        // Check if user wants to keep files on device
+        if WorkerConfiguration.keepFilesAfterUpload() {
+            return
+        }
+
         for asset in session.assets {
             if fileManager.fileExists(atPath: asset.localURL.path) {
                 try? fileManager.removeItem(at: asset.localURL)

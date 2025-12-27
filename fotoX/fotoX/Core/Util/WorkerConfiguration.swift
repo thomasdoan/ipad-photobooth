@@ -11,6 +11,7 @@ enum WorkerConfiguration {
     static let baseURLKey = "workerBaseURL"
     static let presignTokenKey = "workerPresignToken"
     static let videoDurationKey = "captureVideoDuration"
+    static let keepFilesAfterUploadKey = "keepFilesAfterUpload"
     static let defaultBaseURL = URL(string: "https://your-worker.workers.dev")!
     static let defaultVideoDuration: TimeInterval = 10
 
@@ -49,5 +50,13 @@ enum WorkerConfiguration {
     static func saveVideoDuration(_ duration: TimeInterval) {
         let clamped = max(3, min(10, duration))
         UserDefaults.standard.set(clamped, forKey: videoDurationKey)
+    }
+
+    static func keepFilesAfterUpload() -> Bool {
+        UserDefaults.standard.bool(forKey: keepFilesAfterUploadKey)
+    }
+
+    static func saveKeepFilesAfterUpload(_ keep: Bool) {
+        UserDefaults.standard.set(keep, forKey: keepFilesAfterUploadKey)
     }
 }
