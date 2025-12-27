@@ -22,6 +22,9 @@ final class SettingsViewModel {
     /// Video duration in seconds for capture
     var videoDuration: Double = 10
 
+    /// Video review mode setting
+    var videoReviewMode: VideoReviewMode = .firstOnly
+
     /// Whether testing connection
     var isTestingConnection: Bool = false
     
@@ -52,6 +55,7 @@ final class SettingsViewModel {
         baseURLString = WorkerConfiguration.currentBaseURL().absoluteString
         presignToken = WorkerConfiguration.currentPresignToken() ?? ""
         videoDuration = WorkerConfiguration.currentVideoDuration()
+        videoReviewMode = WorkerConfiguration.currentVideoReviewMode()
     }
     
     /// Validates the URL
@@ -77,6 +81,7 @@ final class SettingsViewModel {
         }
         WorkerConfiguration.savePresignToken(presignToken)
         WorkerConfiguration.saveVideoDuration(videoDuration)
+        WorkerConfiguration.saveVideoReviewMode(videoReviewMode)
         return true
     }
 
@@ -89,6 +94,7 @@ final class SettingsViewModel {
     func resetToDefault() {
         baseURLString = WorkerConfiguration.defaultBaseURL.absoluteString
         videoDuration = WorkerConfiguration.defaultVideoDuration
+        videoReviewMode = WorkerConfiguration.defaultVideoReviewMode
         _ = saveSettings()
         connectionTestResult = nil
     }

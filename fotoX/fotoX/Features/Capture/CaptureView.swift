@@ -93,25 +93,39 @@ struct CaptureView: View {
             switch viewModel.stripState {
             case .ready:
                 readyOverlay
-                
+
             case .countdown(let remaining):
                 CountdownView(number: remaining, isPhotoCountdown: false)
-                
+
             case .recording(let elapsed):
                 recordingOverlay(elapsed: elapsed, geometry: geometry)
-                
+
             case .processingVideo, .processingPhoto:
                 processingOverlay
-                
+
             case .photoCountdown(let remaining):
                 CountdownView(number: remaining, isPhotoCountdown: true)
-                
+
             case .capturingPhoto:
                 Color.clear // Flash will handle this
-                
+
+            case .reviewingStrip(let strip):
+                StripReviewView(
+                    stripIndex: strip.stripIndex,
+                    stripCount: viewModel.config.stripCount,
+                    videoURL: strip.videoURL,
+                    photoData: strip.photoData,
+                    onRetake: {
+                        viewModel.retryCurrentStrip()
+                    },
+                    onContinue: {
+                        viewModel.approveStrip()
+                    }
+                )
+
             case .complete:
                 EmptyView()
-                
+
             case .error(let message):
                 errorOverlay(message: message)
             }

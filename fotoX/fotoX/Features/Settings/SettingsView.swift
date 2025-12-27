@@ -217,7 +217,7 @@ struct SettingsView: View {
         VStack(alignment: .leading, spacing: 16) {
             sectionHeader(title: "Capture Settings", icon: "video.circle")
 
-            VStack(spacing: 16) {
+            VStack(spacing: 0) {
                 // Video duration control
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {
@@ -241,6 +241,33 @@ struct SettingsView: View {
                         Stepper("", value: $viewModel.videoDuration, in: 3...10, step: 1)
                             .labelsHidden()
                     }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+
+                Divider().padding(.leading, 16)
+
+                // Video review mode control
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Video Review Screen")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+
+                        Text("Show video replay after capture")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    Picker("", selection: $viewModel.videoReviewMode) {
+                        Text("Disabled").tag(VideoReviewMode.disabled)
+                        Text("First Only").tag(VideoReviewMode.firstOnly)
+                        Text("All Captures").tag(VideoReviewMode.allCaptures)
+                    }
+                    .pickerStyle(.menu)
+                    .tint(.primary)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)

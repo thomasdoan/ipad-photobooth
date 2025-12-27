@@ -29,10 +29,13 @@ enum StripCaptureState: Equatable, Sendable {
     
     /// Processing photo
     case processingPhoto
-    
+
+    /// Reviewing captured video before continuing
+    case reviewingStrip(CapturedStripMedia)
+
     /// Strip complete
     case complete
-    
+
     /// Error occurred
     case error(String)
 }
@@ -41,23 +44,27 @@ enum StripCaptureState: Equatable, Sendable {
 struct CaptureConfiguration: Sendable {
     /// Duration of video recording in seconds
     let videoDuration: TimeInterval
-    
+
     /// Countdown before recording starts
     let countdownSeconds: Int
-    
+
     /// Short countdown before photo capture
     let photoCountdownSeconds: Int
-    
+
     /// Total number of strips to capture
     let stripCount: Int
-    
+
+    /// Video review mode setting
+    let videoReviewMode: VideoReviewMode
+
     /// Default configuration
     static var `default`: CaptureConfiguration {
         CaptureConfiguration(
             videoDuration: WorkerConfiguration.currentVideoDuration(),
             countdownSeconds: 0,
             photoCountdownSeconds: 1,
-            stripCount: 3
+            stripCount: 3,
+            videoReviewMode: WorkerConfiguration.currentVideoReviewMode()
         )
     }
 }

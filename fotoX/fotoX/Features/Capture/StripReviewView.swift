@@ -9,38 +9,42 @@ import SwiftUI
 import AVKit
 
 /// View for reviewing a captured strip (video + photo)
-// TODO: Revisit whether this view is still needed with auto-advance capture. Might be needed if we want to allow retakes.
 struct StripReviewView: View {
     let stripIndex: Int
+    let stripCount: Int
     let videoURL: URL
     let photoData: Data
     let onRetake: () -> Void
     let onContinue: () -> Void
-    let isLastStrip: Bool
-    
+
+    var isLastStrip: Bool {
+        stripIndex >= stripCount - 1
+    }
+
     @State private var showingVideo = true
     @State private var player: AVPlayer?
-    
+    @State private var loopObserver: NSObjectProtocol?
+
     @Environment(\.appTheme) private var theme
-    
+
     var body: some View {
         GeometryReader { geometry in
             ZStack {
                 // Background
                 theme.secondary.ignoresSafeArea()
-                
+
                 VStack(spacing: 24) {
                     // Header
                     headerSection
-                    
+
                     // Media preview
                     mediaPreview(geometry: geometry)
-                    
+
                     // Toggle buttons
                     mediaToggle
-                    
+
                     Spacer()
-                    
+
                     // Action buttons
                     actionButtons
                 }
@@ -48,42 +52,70 @@ struct StripReviewView: View {
             }
         }
         .onAppear {
-            player = AVPlayer(url: videoURL)
+            setupPlayer()
         }
         .onDisappear {
-            player?.pause()
-            player = nil
+            cleanupPlayer()
         }
     }
-    
+
+    // MARK: - Player Setup
+
+    private func setupPlayer() {
+        let newPlayer = AVPlayer(url: videoURL)
+        player = newPlayer
+
+        // Set up looping
+        loopObserver = NotificationCenter.default.addObserver(
+            forName: .AVPlayerItemDidPlayToEndTime,
+            object: newPlayer.currentItem,
+            queue: .main
+        ) { [weak newPlayer] _ in
+            newPlayer?.seek(to: .zero)
+            newPlayer?.play()
+        }
+
+        newPlayer.play()
+    }
+
+    private func cleanupPlayer() {
+        player?.pause()
+        if let observer = loopObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        loopObserver = nil
+        player = nil
+    }
+
     // MARK: - Header
-    
+
     private var headerSection: some View {
         VStack(spacing: 8) {
-            Text("Strip \(stripIndex + 1) of 3")
+            Text("Strip \(stripIndex + 1) of \(stripCount)")
                 .font(.headline)
                 .foregroundStyle(theme.accent.opacity(0.7))
-            
-            Text("Review Your Capture")
+
+            Text("Your Video Clip")
                 .font(.system(size: 32, weight: .bold, design: .rounded))
                 .foregroundStyle(theme.accent)
+
+            Text("A video is captured alongside each photo!")
+                .font(.subheadline)
+                .foregroundStyle(theme.accent.opacity(0.6))
         }
     }
-    
+
     // MARK: - Media Preview
-    
+
     private func mediaPreview(geometry: GeometryProxy) -> some View {
         let previewHeight = geometry.size.height * 0.5
-        
+
         return ZStack {
             if showingVideo, let player = player {
                 VideoPlayer(player: player)
                     .aspectRatio(9/16, contentMode: .fit)
                     .frame(maxHeight: previewHeight)
                     .clipShape(RoundedRectangle(cornerRadius: 20))
-                    .onAppear {
-                        player.play()
-                    }
             } else if let uiImage = UIImage(data: photoData) {
                 Image(uiImage: uiImage)
                     .resizable()
@@ -94,9 +126,9 @@ struct StripReviewView: View {
         }
         .shadow(color: .black.opacity(0.3), radius: 20)
     }
-    
+
     // MARK: - Media Toggle
-    
+
     private var mediaToggle: some View {
         HStack(spacing: 0) {
             toggleButton(title: "Video", icon: "video.fill", isSelected: showingVideo) {
@@ -106,7 +138,7 @@ struct StripReviewView: View {
                     player?.play()
                 }
             }
-            
+
             toggleButton(title: "Photo", icon: "photo.fill", isSelected: !showingVideo) {
                 withAnimation {
                     showingVideo = false
@@ -119,7 +151,7 @@ struct StripReviewView: View {
                 .fill(theme.secondary.opacity(0.5))
         )
     }
-    
+
     private func toggleButton(title: String, icon: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: 8) {
@@ -136,9 +168,9 @@ struct StripReviewView: View {
             )
         }
     }
-    
+
     // MARK: - Action Buttons
-    
+
     private var actionButtons: some View {
         HStack(spacing: 24) {
             // Retake button
@@ -156,7 +188,7 @@ struct StripReviewView: View {
                         .stroke(theme.accent.opacity(0.5), lineWidth: 2)
                 )
             }
-            
+
             // Continue button
             Button(action: onContinue) {
                 HStack(spacing: 8) {

@@ -106,6 +106,12 @@ final class CaptureViewModel: @unchecked Sendable {
     /// Resets state to retry the current strip
     @MainActor
     func retryCurrentStrip() {
+        // If we're in review state, remove the last captured strip
+        if case .reviewingStrip = stripState {
+            if !capturedStrips.isEmpty {
+                capturedStrips.removeLast()
+            }
+        }
         currentVideoURL = nil
         currentPhotoData = nil
         stripState = .ready
@@ -162,22 +168,52 @@ final class CaptureViewModel: @unchecked Sendable {
             stripState = .error("Missing capture data")
             return
         }
-        
+
         // Generate thumbnail
         let thumbnailData = await CameraController.generateThumbnail(from: videoURL)
-        
+
         let strip = CapturedStripMedia(
             stripIndex: currentStripIndex,
             videoURL: videoURL,
             photoData: photoData,
             thumbnailData: thumbnailData
         )
-        
+
         capturedStrips.append(strip)
-        
-        // Reset for next or show review
+
+        // Reset temp variables
         currentVideoURL = nil
         currentPhotoData = nil
+
+        // Check if we should show review screen
+        if shouldShowReview() {
+            stripState = .reviewingStrip(strip)
+        } else {
+            advanceToNextStrip()
+        }
+    }
+
+    /// Determines if the review screen should be shown for the current strip
+    private func shouldShowReview() -> Bool {
+        switch config.videoReviewMode {
+        case .disabled:
+            return false
+        case .firstOnly:
+            return currentStripIndex == 0
+        case .allCaptures:
+            return true
+        }
+    }
+
+    /// Called when user approves the current strip from review screen
+    @MainActor
+    func approveStrip() {
+        advanceToNextStrip()
+    }
+
+    /// Advances to the next strip or marks session complete
+    @MainActor
+    private func advanceToNextStrip() {
         stripState = .complete
 
         if currentStripIndex < config.stripCount - 1 {
