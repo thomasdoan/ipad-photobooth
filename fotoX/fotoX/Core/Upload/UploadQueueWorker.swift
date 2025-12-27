@@ -188,14 +188,24 @@ actor UploadQueueWorker {
                     )
                     workingSession.assets[index].state = .uploaded
                     try await store.updateSession(workingSession)
+                    DiagnosticsManager.recordUploadAttempt(
+                        sessionId: workingSession.sessionId,
+                        success: true
+                    )
                     await MainActor.run {
                         onProgress?(workingSession.sessionId)
                     }
                 } catch {
                     workingSession.assets[index].state = .failed
                     try await store.updateSession(workingSession)
+                    let errorMessage = "Upload failed for \(asset.fileName)"
+                    DiagnosticsManager.recordUploadAttempt(
+                        sessionId: workingSession.sessionId,
+                        success: false,
+                        error: errorMessage
+                    )
                     await MainActor.run {
-                        onError?(workingSession.sessionId, .uploadFailed("Upload failed for \(asset.fileName)"))
+                        onError?(workingSession.sessionId, .uploadFailed(errorMessage))
                     }
                     return workingSession
                 }
@@ -247,8 +257,14 @@ actor UploadQueueWorker {
             } catch {
                 workingSession.manifestState = .failed
                 try await store.updateSession(workingSession)
+                let errorMessage = "Manifest upload failed"
+                DiagnosticsManager.recordUploadAttempt(
+                    sessionId: workingSession.sessionId,
+                    success: false,
+                    error: errorMessage
+                )
                 await MainActor.run {
-                    onError?(workingSession.sessionId, .uploadFailed("Manifest upload failed"))
+                    onError?(workingSession.sessionId, .uploadFailed(errorMessage))
                 }
                 return workingSession
             }
@@ -270,8 +286,14 @@ actor UploadQueueWorker {
             } catch {
                 workingSession.completeState = .failed
                 try await store.updateSession(workingSession)
+                let errorMessage = "Failed to finalize upload"
+                DiagnosticsManager.recordUploadAttempt(
+                    sessionId: workingSession.sessionId,
+                    success: false,
+                    error: errorMessage
+                )
                 await MainActor.run {
-                    onError?(workingSession.sessionId, .uploadFailed("Failed to finalize upload"))
+                    onError?(workingSession.sessionId, .uploadFailed(errorMessage))
                 }
                 return workingSession
             }
