@@ -19,11 +19,11 @@ struct AssetUploadMetadata: Sendable {
     let stripIndex: Int
     let sequenceIndex: Int
     
-    /// Sequence index for video (always 0)
-    static let videoSequenceIndex = 0
-    
-    /// Sequence index for photo (always 1, captured after video)
-    static let photoSequenceIndex = 1
+    /// Sequence index for video (always 1, uploaded after photo)
+    static let videoSequenceIndex = 1
+
+    /// Sequence index for photo (always 0, uploaded first for faster user access)
+    static let photoSequenceIndex = 0
 }
 
 /// Response from asset upload endpoint

@@ -89,8 +89,8 @@ actor UploadQueueWorker {
                 state: .pending
             )
 
-            assets.append(videoAsset)
             assets.append(photoAsset)
+            assets.append(videoAsset)
         }
 
         let queueSession = UploadQueueSession(
