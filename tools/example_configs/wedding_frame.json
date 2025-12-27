@@ -1,0 +1,10 @@
+{
+    "type": "text",
+    "event": "JackZeu's Wedding Shower",
+    "date": "January 31, 2026",
+    "color": "#FF4081",
+    "text_color": "#FFFFFF",
+    "border_width": 100,
+    "text_position": "bottom",
+    "output": "wedding_frame.png"
+}

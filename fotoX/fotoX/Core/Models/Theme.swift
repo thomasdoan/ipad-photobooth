@@ -19,6 +19,43 @@ struct Theme: Equatable, Sendable {
     let backgroundURL: String?
     let photoFrameURL: String?
     let stripFrameURL: String?
+
+    // Bundled asset names (from app's asset catalog)
+    // These take precedence over URLs if provided
+    let logoAsset: String?
+    let backgroundAsset: String?
+    let photoFrameAsset: String?
+    let stripFrameAsset: String?
+
+    init(
+        id: Int,
+        primaryColor: String,
+        secondaryColor: String,
+        accentColor: String,
+        fontFamily: String,
+        logoURL: String? = nil,
+        backgroundURL: String? = nil,
+        photoFrameURL: String? = nil,
+        stripFrameURL: String? = nil,
+        logoAsset: String? = nil,
+        backgroundAsset: String? = nil,
+        photoFrameAsset: String? = nil,
+        stripFrameAsset: String? = nil
+    ) {
+        self.id = id
+        self.primaryColor = primaryColor
+        self.secondaryColor = secondaryColor
+        self.accentColor = accentColor
+        self.fontFamily = fontFamily
+        self.logoURL = logoURL
+        self.backgroundURL = backgroundURL
+        self.photoFrameURL = photoFrameURL
+        self.stripFrameURL = stripFrameURL
+        self.logoAsset = logoAsset
+        self.backgroundAsset = backgroundAsset
+        self.photoFrameAsset = photoFrameAsset
+        self.stripFrameAsset = stripFrameAsset
+    }
 }
 
 extension Theme: Codable {
@@ -32,6 +69,10 @@ extension Theme: Codable {
         case backgroundURL = "background_url"
         case photoFrameURL = "photo_frame_url"
         case stripFrameURL = "strip_frame_url"
+        case logoAsset = "logo_asset"
+        case backgroundAsset = "background_asset"
+        case photoFrameAsset = "photo_frame_asset"
+        case stripFrameAsset = "strip_frame_asset"
     }
 }
 
@@ -46,7 +87,13 @@ struct AppTheme: Equatable, Sendable {
     let backgroundURL: URL?
     let photoFrameURL: URL?
     let stripFrameURL: URL?
-    
+
+    // Bundled asset names (from app's asset catalog)
+    let logoAsset: String?
+    let backgroundAsset: String?
+    let photoFrameAsset: String?
+    let stripFrameAsset: String?
+
     /// Creates an AppTheme from a raw Theme model
     init(from theme: Theme) {
         self.id = theme.id
@@ -58,8 +105,12 @@ struct AppTheme: Equatable, Sendable {
         self.backgroundURL = theme.backgroundURL.flatMap { URL(string: $0) }
         self.photoFrameURL = theme.photoFrameURL.flatMap { URL(string: $0) }
         self.stripFrameURL = theme.stripFrameURL.flatMap { URL(string: $0) }
+        self.logoAsset = theme.logoAsset
+        self.backgroundAsset = theme.backgroundAsset
+        self.photoFrameAsset = theme.photoFrameAsset
+        self.stripFrameAsset = theme.stripFrameAsset
     }
-    
+
     /// Default theme for when no event is selected
     static let `default` = AppTheme(
         id: 0,
@@ -70,9 +121,13 @@ struct AppTheme: Equatable, Sendable {
         logoURL: nil,
         backgroundURL: nil,
         photoFrameURL: nil,
-        stripFrameURL: nil
+        stripFrameURL: nil,
+        logoAsset: nil,
+        backgroundAsset: nil,
+        photoFrameAsset: nil,
+        stripFrameAsset: nil
     )
-    
+
     private init(
         id: Int,
         primary: Color,
@@ -82,7 +137,11 @@ struct AppTheme: Equatable, Sendable {
         logoURL: URL?,
         backgroundURL: URL?,
         photoFrameURL: URL?,
-        stripFrameURL: URL?
+        stripFrameURL: URL?,
+        logoAsset: String?,
+        backgroundAsset: String?,
+        photoFrameAsset: String?,
+        stripFrameAsset: String?
     ) {
         self.id = id
         self.primary = primary
@@ -93,6 +152,10 @@ struct AppTheme: Equatable, Sendable {
         self.backgroundURL = backgroundURL
         self.photoFrameURL = photoFrameURL
         self.stripFrameURL = stripFrameURL
+        self.logoAsset = logoAsset
+        self.backgroundAsset = backgroundAsset
+        self.photoFrameAsset = photoFrameAsset
+        self.stripFrameAsset = stripFrameAsset
     }
 }
 

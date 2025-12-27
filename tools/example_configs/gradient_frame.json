@@ -1,0 +1,8 @@
+{
+    "type": "gradient",
+    "start_color": "#FF4081",
+    "end_color": "#7B1FA2",
+    "border_width": 60,
+    "gradient_direction": "diagonal",
+    "output": "gradient_frame.png"
+}

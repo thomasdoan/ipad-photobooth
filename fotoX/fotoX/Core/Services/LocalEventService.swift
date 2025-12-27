@@ -36,7 +36,13 @@ private enum BundledEventStore {
                 logoURL: nil,
                 backgroundURL: nil,
                 photoFrameURL: nil,
-                stripFrameURL: nil
+                stripFrameURL: nil,
+                logoAsset: nil,
+                backgroundAsset: nil,
+                // Use a bundled frame asset - add "WeddingFrame" to Assets.xcassets
+                // Generate with: python tools/frame_generator.py --type text --event "JackZeu's Wedding Shower" --date "January 31, 2026" --color "#FF4081" -o WeddingFrame.png
+                photoFrameAsset: "WeddingFrame",
+                stripFrameAsset: nil
             )
         ),
         // Event(
@@ -52,7 +58,11 @@ private enum BundledEventStore {
         //         logoURL: nil,
         //         backgroundURL: nil,
         //         photoFrameURL: nil,
-        //         stripFrameURL: nil
+        //         stripFrameURL: nil,
+        //         logoAsset: nil,
+        //         backgroundAsset: nil,
+        //         photoFrameAsset: "CorporateFrame",
+        //         stripFrameAsset: nil
         //     )
         // ),
     ]
