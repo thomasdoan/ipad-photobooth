@@ -165,7 +165,21 @@ actor UploadQueueWorker {
             let presignResponse = try await apiClient.presign(request: presignRequest)
             let uploadMap = Dictionary(uniqueKeysWithValues: presignResponse.uploads.map { ($0.path, $0) })
 
-            for index in workingSession.assets.indices {
+            // Sort indices to prioritize photos over videos for faster QR code experience
+            let sortedIndices = workingSession.assets.indices.sorted { idx1, idx2 in
+                let asset1 = workingSession.assets[idx1]
+                let asset2 = workingSession.assets[idx2]
+                // Photos first, then videos
+                if asset1.kind == .photo && asset2.kind == .video {
+                    return true
+                } else if asset1.kind == .video && asset2.kind == .photo {
+                    return false
+                }
+                // Within same kind, maintain original order (by strip index)
+                return asset1.stripIndex < asset2.stripIndex
+            }
+
+            for index in sortedIndices {
                 if workingSession.assets[index].state == .uploaded {
                     continue
                 }
