@@ -26,10 +26,13 @@ struct SettingsView: View {
                     VStack(spacing: 24) {
                         // Connection settings
                         connectionSection
-                        
+
+                        // Capture settings
+                        captureSettingsSection
+
                         // App info
                         appInfoSection
-                        
+
                         // Danger zone
                         dangerZoneSection
                     }
@@ -48,7 +51,7 @@ struct SettingsView: View {
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
-                        if viewModel.saveBaseURL() {
+                        if viewModel.saveSettings() {
                             updateAPIClient()
                             dismiss()
                         }
@@ -72,7 +75,7 @@ struct SettingsView: View {
     
     private var connectionSection: some View {
         VStack(alignment: .leading, spacing: 16) {
-            sectionHeader(title: "Pi Connection", icon: "network")
+            sectionHeader(title: "Worker Connection", icon: "network")
             
             VStack(spacing: 12) {
                 // URL input
@@ -81,7 +84,7 @@ struct SettingsView: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                     
-                    TextField("http://booth.local/api", text: $viewModel.baseURLString)
+                    TextField("https://your-worker.workers.dev", text: $viewModel.baseURLString)
                         .textFieldStyle(.plain)
                         .keyboardType(.URL)
                         .autocapitalization(.none)
@@ -105,6 +108,32 @@ struct SettingsView: View {
                             .font(.caption)
                             .foregroundStyle(.red)
                     }
+                }
+
+                // Presign token
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Presign Token")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+
+                    SecureField("Shared presign token", text: $viewModel.presignToken)
+                        .textFieldStyle(.plain)
+                        .autocapitalization(.none)
+                        .autocorrectionDisabled()
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 10)
+                                .fill(Color(UIColor.systemBackground))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.gray.opacity(0.2), lineWidth: 1)
+                        )
+
+                    Text("Required for uploads via /presign")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 
                 // Test connection button
@@ -181,9 +210,50 @@ struct SettingsView: View {
                 .fill(result == .success ? Color.green.opacity(0.1) : Color.red.opacity(0.1))
         )
     }
-    
+
+    // MARK: - Capture Settings Section
+
+    private var captureSettingsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            sectionHeader(title: "Capture Settings", icon: "video.circle")
+
+            VStack(spacing: 16) {
+                // Video duration control
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Video Duration")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+
+                        Text("Length of each video recording")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    HStack(spacing: 12) {
+                        Text("\(Int(viewModel.videoDuration))s")
+                            .font(.headline.monospacedDigit())
+                            .foregroundStyle(.primary)
+                            .frame(minWidth: 40, alignment: .trailing)
+
+                        Stepper("", value: $viewModel.videoDuration, in: 3...10, step: 1)
+                            .labelsHidden()
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+            }
+            .background(
+                RoundedRectangle(cornerRadius: 12)
+                    .fill(Color(UIColor.secondarySystemGroupedBackground))
+            )
+        }
+    }
+
     // MARK: - App Info Section
-    
+
     private var appInfoSection: some View {
         VStack(alignment: .leading, spacing: 16) {
             sectionHeader(title: "App Info", icon: "info.circle")
@@ -301,4 +371,3 @@ struct SettingsView: View {
     SettingsView()
         .environment(AppState())
 }
-

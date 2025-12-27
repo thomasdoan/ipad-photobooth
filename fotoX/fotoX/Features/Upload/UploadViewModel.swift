@@ -32,7 +32,7 @@ struct UploadItem: Identifiable, Sendable {
 
 /// ViewModel for managing uploads
 @Observable
-final class UploadViewModel {
+final class UploadViewModel<SessionService: SessionServicing> {
     // MARK: - State
     
     /// Items to upload
@@ -99,7 +99,7 @@ final class UploadViewModel {
     
     /// Starts the upload process
     @MainActor
-    func startUpload(sessionId: Int, strips: [CapturedStrip], appState: AppState) async {
+    func startUpload(sessionId: String, strips: [CapturedStrip], appState: AppState) async {
         guard !isUploading else { return }
         
         isUploading = true
@@ -187,7 +187,7 @@ final class UploadViewModel {
     
     /// Retries failed uploads
     @MainActor
-    func retryFailed(sessionId: Int, strips: [CapturedStrip], appState: AppState) async {
+    func retryFailed(sessionId: String, strips: [CapturedStrip], appState: AppState) async {
         guard retryCount < maxRetries else {
             errorMessage = "Maximum retry attempts reached"
             return
@@ -224,4 +224,3 @@ final class UploadViewModel {
         }.count
     }
 }
-

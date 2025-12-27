@@ -45,6 +45,11 @@ enum CameraError: Error, LocalizedError {
 
 /// Controller for camera operations (video recording + photo capture)
 final class CameraController: NSObject, @unchecked Sendable {
+    // MARK: - Constants
+    
+    /// Video rotation angle for portrait orientation (degrees clockwise)
+    private static let videoRotationAngle: CGFloat = 270
+    
     // MARK: - Properties
     
     weak var delegate: CameraControllerDelegate?
@@ -167,8 +172,8 @@ final class CameraController: NSObject, @unchecked Sendable {
             
             // Configure video orientation for portrait
             if let connection = movieOutput.connection(with: .video) {
-                if connection.isVideoRotationAngleSupported(90) {
-                    connection.videoRotationAngle = 90
+                if connection.isVideoRotationAngleSupported(Self.videoRotationAngle) {
+                    connection.videoRotationAngle = Self.videoRotationAngle
                 }
                 if connection.isVideoMirroringSupported {
                     connection.isVideoMirrored = true // Mirror front camera
@@ -190,8 +195,8 @@ final class CameraController: NSObject, @unchecked Sendable {
             
             // Configure orientation
             if let connection = photoOutput.connection(with: .video) {
-                if connection.isVideoRotationAngleSupported(90) {
-                    connection.videoRotationAngle = 90
+                if connection.isVideoRotationAngleSupported(Self.videoRotationAngle) {
+                    connection.videoRotationAngle = Self.videoRotationAngle
                 }
                 if connection.isVideoMirroringSupported {
                     connection.isVideoMirrored = true
@@ -207,6 +212,14 @@ final class CameraController: NSObject, @unchecked Sendable {
         // Create preview layer
         let previewLayer = AVCaptureVideoPreviewLayer(session: captureSession)
         previewLayer.videoGravity = .resizeAspectFill
+        
+        // Configure preview orientation
+        if let connection = previewLayer.connection {
+            if connection.isVideoRotationAngleSupported(Self.videoRotationAngle) {
+                connection.videoRotationAngle = Self.videoRotationAngle
+            }
+        }
+        
         self.previewLayer = previewLayer
     }
     

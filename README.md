@@ -1,16 +1,16 @@
 # FotoX - iPad Photobooth App
 
-A production-quality iPad photobooth app built with SwiftUI. Designed to work with a Raspberry Pi backend for event-based photo/video capture sessions.
+A production-quality iPad photobooth app built with SwiftUI. Designed to run local capture on the iPad and upload to Cloudflare Worker + R2 for public galleries.
 
 ## Features
 
-- **Event Selection** - Browse and select from available events
+- **Event Selection** - Browse and select from bundled events
 - **Themed UI** - Each event has custom colors, logos, and backgrounds
 - **3-Strip Capture** - Record three 10-second videos with photos
-- **Upload with Progress** - Reliable uploads with retry logic
-- **QR Code Display** - Guests scan to access their photos
+- **Background Upload Queue** - Offline-tolerant uploads with retry
+- **QR Code Display** - Guests scan to access their gallery
 - **Email Collection** - Optional email input for photo delivery
-- **Operator Settings** - Hidden settings panel for configuration
+- **Operator Settings** - Configure Worker connection
 
 ## Requirements
 
@@ -37,13 +37,13 @@ open fotoX/fotoX.xcodeproj
    - **Physical iPad** - For full functionality
 3. Press `Cmd+R` or click the Play button
 
-### 3. Configure Pi Connection
+### 3. Configure Worker Connection
 
 On first launch:
-1. The app will try to connect to `http://booth.local/api`
-2. If your Pi has a different address:
+1. The app will try to connect to your Worker base URL
+2. To update it:
    - Tap **Settings** on the event selection screen
-   - Update the **Base URL**
+   - Update the **Base URL** (e.g., `https://your-worker.workers.dev`)
    - Tap **Test Connection** to verify
    - Tap **Save**
 
@@ -51,8 +51,10 @@ On first launch:
 
 ```
 FotoX/
+├── WORKER_CONTRACTS.md         # Worker + R2 schema and endpoints
 ├── README.md                    # This file
 ├── REACT_TO_SWIFT.md           # Guide for React developers
+├── worker/                     # Cloudflare Worker source
 └── fotoX/
     ├── fotoX.xcodeproj         # Xcode project
     ├── fotoX/                   # Main app source
@@ -145,7 +147,7 @@ xcodebuild test \
 
 ### Test with Mock Data
 
-The app supports mock data for testing without a Pi:
+The app supports mock data for testing without a Worker:
 
 ```bash
 # Launch app with mock data
@@ -154,24 +156,52 @@ xcrun simctl launch booted id8.fotoX --uitesting --use-mock-data
 
 ## Configuration
 
-### Pi Base URL
+### Worker Base URL
 
-Default: `http://booth.local/api`
+Default: `https://your-worker.workers.dev`
 
 Change via:
 1. **Settings UI** - Tap Settings → Update Base URL → Save
-2. **UserDefaults** - Key: `piBaseURL`
+2. **UserDefaults** - Key: `workerBaseURL`
 
-### Supported Endpoints
+### Worker Deployment (Cloudflare)
+
+1. Install Wrangler (`npm i -g wrangler`) and log in:
+   ```bash
+   wrangler login
+   ```
+2. Configure the R2 binding in `worker/wrangler.toml` (bucket name + account).
+3. Set required Worker secrets:
+   ```bash
+   cd worker
+   wrangler secret put UPLOAD_SECRET
+   wrangler secret put PRESIGN_TOKEN
+   ```
+4. (Optional) Set public URL env vars:
+   - `PUBLIC_BASE_URL` (Worker base URL used in gallery links)
+   - `R2_PUBLIC_BASE_URL` (if the bucket is public)
+5. Deploy:
+   ```bash
+   wrangler deploy
+   ```
+6. Copy the deployed Worker URL into the iPad app Settings:
+   - **Base URL** → Worker URL (e.g., `https://your-worker.workers.dev`)
+   - **Presign Token** → value of `PRESIGN_TOKEN`
+
+Notes:
+- `UPLOAD_SECRET` stays only on the Worker and is never stored in the app.
+- `PRESIGN_TOKEN` is a shared secret used by the iPad to call `/presign` and `/complete`.
+
+### Supported Endpoints (Worker)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/events` | GET | List all events |
-| `/events/{id}` | GET | Get event details |
-| `/sessions` | POST | Create capture session |
-| `/sessions/{id}/assets` | POST | Upload video/photo |
-| `/sessions/{id}/qr` | GET | Get QR code image |
-| `/sessions/{id}/email` | POST | Submit guest email |
+| `/health` | GET | Health check |
+| `/presign` | POST | Get presigned upload URLs |
+| `/upload` | PUT | Upload asset to R2 |
+| `/complete` | POST | Finalize session + index |
+| `/s/{session_id}` | GET | Session gallery page |
+| `/e/{event_id}` | GET | Event gallery page |
 
 ## Development
 
@@ -184,7 +214,7 @@ Change via:
 
 ### Running with Mock Services
 
-For development without a Pi backend:
+For development without a Worker backend:
 
 ```swift
 // In fotoXApp.swift, services are auto-mocked when launched with:
@@ -228,16 +258,16 @@ The app requires these permissions (configured in build settings):
 |------------|-------|
 | Camera | Record videos and take photos |
 | Microphone | Record audio with videos |
-| Local Network | Connect to Pi backend |
+| Network | Connect to Worker + R2 |
 
 ## Troubleshooting
 
-### "Cannot connect to photobooth server"
+### "Cannot connect to Worker"
 
-1. Verify Pi is running and on same network
-2. Check Pi IP address matches app settings
-3. Try `ping booth.local` from Mac
-4. Check Pi firewall allows port 80/443
+1. Verify the Worker URL in Settings
+2. Open `https://<worker>.workers.dev/health` in a browser
+3. Ensure the iPad has internet access
+4. Check Cloudflare dashboard logs for errors
 
 ### Camera not working
 
@@ -247,10 +277,8 @@ The app requires these permissions (configured in build settings):
 
 ### Events not loading
 
-1. Verify Pi is running
-2. Check network connection
-3. Test API: `curl http://booth.local/api/events`
-4. Check Xcode console for errors
+1. Ensure the app has bundled events (see `LocalEventService`)
+2. Check Xcode console for errors
 
 ### Build errors
 
@@ -283,8 +311,8 @@ rm -rf ~/Library/Developer/Xcode/DerivedData
                     ┌─────────────────────┤
                     ▼                     ▼
               ┌──────────┐          ┌──────────┐
-              │  Upload  │─────────▶│    QR    │
-              │ Progress │          │  Screen  │
+              │ Upload   │─────────▶│    QR    │
+              │  Queue   │          │  Screen  │
               └──────────┘          └──────────┘
 ```
 

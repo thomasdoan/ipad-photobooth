@@ -9,7 +9,7 @@ import Foundation
 
 /// Service for event-related API operations
 @MainActor
-final class EventService: Sendable {
+final class EventService: EventServicing {
     private let apiClient: APIClient
     
     init(apiClient: APIClient) {
@@ -30,4 +30,3 @@ final class EventService: Sendable {
         return try decoder.decode(Event.self, from: data)
     }
 }
-

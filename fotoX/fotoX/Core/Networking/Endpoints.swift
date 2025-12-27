@@ -74,7 +74,7 @@ enum Endpoints {
     )
     
     /// POST /sessions/{id}/assets - Upload an asset
-    static func uploadAsset(sessionId: Int) -> Endpoint {
+    static func uploadAsset(sessionId: String) -> Endpoint {
         Endpoint(
             path: "sessions/\(sessionId)/assets",
             method: .POST
@@ -82,12 +82,12 @@ enum Endpoints {
     }
     
     /// GET /sessions/{id}/qr - Get QR code for session
-    static func qrCode(sessionId: Int) -> Endpoint {
+    static func qrCode(sessionId: String) -> Endpoint {
         Endpoint(path: "sessions/\(sessionId)/qr")
     }
     
     /// POST /sessions/{id}/email - Submit guest email
-    static func submitEmail(sessionId: Int) -> Endpoint {
+    static func submitEmail(sessionId: String) -> Endpoint {
         Endpoint(
             path: "sessions/\(sessionId)/email",
             method: .POST,
@@ -95,4 +95,3 @@ enum Endpoints {
         )
     }
 }
-

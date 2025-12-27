@@ -11,7 +11,7 @@ import Observation
 
 /// ViewModel for QR display and email submission
 @Observable
-final class QRViewModel {
+final class QRViewModel<SessionService: SessionServicing> {
     // MARK: - State
     
     /// QR code image
@@ -54,19 +54,15 @@ final class QRViewModel {
     
     /// Sets up the view model with session data
     @MainActor
-    func setup(qrData: Data?, session: Session?) {
+    func setup(session: Session?) {
         if let session = session {
             universalURL = session.universalURL
-        }
-        
-        if let qrData = qrData, !qrData.isEmpty {
-            qrImage = UIImage(data: qrData)
         }
     }
     
     /// Fetches QR code if not already loaded
     @MainActor
-    func fetchQRIfNeeded(sessionId: Int) async {
+    func fetchQRIfNeeded(sessionId: String) async {
         guard qrImage == nil else { return }
         
         isLoadingQR = true
@@ -98,7 +94,7 @@ final class QRViewModel {
     
     /// Submits the email
     @MainActor
-    func submitEmail(sessionId: Int) async {
+    func submitEmail(sessionId: String) async {
         // Validate email
         guard !email.isEmpty else {
             emailError = "Please enter your email"
@@ -134,4 +130,3 @@ final class QRViewModel {
         emailError = nil
     }
 }
-

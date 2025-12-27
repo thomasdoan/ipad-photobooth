@@ -15,7 +15,7 @@ struct QRView: View {
     let services: ServiceContainer
     let testableServices: TestableServiceContainer
     
-    @State private var viewModel: QRViewModel?
+    @State private var viewModel: QRViewModel<LocalSessionService>?
     @State private var showDoneAnimation = false
     @State private var autoReturnTimer: Timer?
     
@@ -33,11 +33,17 @@ struct QRView: View {
                         // Logo
                         logoSection
                         
+                        // Captured strips
+                        capturedStripsSection(geometry: geometry)
+                        
                         // QR Code
                         qrCodeSection(geometry: geometry)
                         
                         // URL display
                         urlSection
+
+                        // Upload status
+                        uploadStatusSection
                         
                         // Email section
                         if let viewModel = viewModel {
@@ -61,6 +67,54 @@ struct QRView: View {
         }
         .onDisappear {
             autoReturnTimer?.invalidate()
+        }
+    }
+    
+    // MARK: - Captured Strips
+    
+    @ViewBuilder
+    private func capturedStripsSection(geometry: GeometryProxy) -> some View {
+        let strips = appState.capturedStrips
+        if !strips.isEmpty {
+            let availableWidth = geometry.size.width - 80
+            let itemWidth = max(90, (availableWidth - 32) / 3)
+            let itemHeight = itemWidth * 1.3
+            
+            VStack(spacing: 12) {
+                Text("Your Photos")
+                    .font(.headline)
+                    .foregroundStyle(theme.accent.opacity(0.8))
+                
+                HStack(spacing: 16) {
+                    ForEach(strips, id: \.stripIndex) { strip in
+                        VStack(spacing: 8) {
+                            if let image = UIImage(data: strip.photoData) {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(width: itemWidth, height: itemHeight)
+                                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                                    .overlay(
+                                        RoundedRectangle(cornerRadius: 12)
+                                            .stroke(theme.primary.opacity(0.4), lineWidth: 1)
+                                    )
+                            } else {
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(theme.secondary.opacity(0.4))
+                                    .frame(width: itemWidth, height: itemHeight)
+                                    .overlay(
+                                        Image(systemName: "photo")
+                                            .foregroundStyle(theme.accent.opacity(0.5))
+                                    )
+                            }
+                            
+                            Text("Strip \(strip.stripIndex + 1)")
+                                .font(.caption.bold())
+                                .foregroundStyle(theme.accent.opacity(0.7))
+                        }
+                    }
+                }
+            }
         }
     }
     
@@ -208,10 +262,33 @@ struct QRView: View {
             }
         }
     }
+
+    private var uploadStatusSection: some View {
+        Group {
+            if appState.totalAssetsToUpload > 0 {
+                let remaining = appState.totalAssetsToUpload - appState.assetsUploaded
+                let isComplete = remaining <= 0
+
+                HStack(spacing: 8) {
+                    Image(systemName: isComplete ? "checkmark.circle.fill" : "arrow.triangle.2.circlepath")
+                        .foregroundStyle(isComplete ? .green : theme.primary)
+                    Text(isComplete ? "Uploads complete" : "Uploading \(appState.assetsUploaded)/\(appState.totalAssetsToUpload)")
+                        .font(.caption)
+                        .foregroundStyle(theme.accent.opacity(0.8))
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(theme.secondary.opacity(0.5))
+                )
+            }
+        }
+    }
     
     // MARK: - Email Section
     
-    private func emailSection(viewModel: QRViewModel) -> some View {
+    private func emailSection(viewModel: QRViewModel<LocalSessionService>) -> some View {
         VStack(spacing: 16) {
             if viewModel.emailSubmitted {
                 // Success state
@@ -340,7 +417,7 @@ struct QRView: View {
     
     private func setupViewModel() {
         let vm = QRViewModel(sessionService: services.sessionService, testableServices: testableServices)
-        vm.setup(qrData: appState.qrCodeData, session: appState.currentSession)
+        vm.setup(session: appState.currentSession)
         viewModel = vm
         
         // Fetch QR if not available
@@ -370,4 +447,3 @@ struct QRView: View {
         .environment(AppState())
         .withTheme(.default)
 }
-

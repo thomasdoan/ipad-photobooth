@@ -80,7 +80,7 @@ enum MockDataProvider {
     
     static func mockSession(eventId: Int) -> Session {
         Session(
-            sessionId: Int.random(in: 1000...9999),
+            sessionId: UUID().uuidString.uppercased(),
             publicToken: "mock\(UUID().uuidString.prefix(8))",
             universalURL: "https://pb.example.com/s/mock-session"
         )
@@ -130,7 +130,7 @@ enum MockDataProvider {
 
 /// Mock event service for testing
 @MainActor
-final class MockEventService: Sendable {
+final class MockEventService: EventServicing {
     var shouldFail = false
     var delaySeconds: Double = 0.5
     
@@ -162,7 +162,7 @@ final class MockEventService: Sendable {
 
 /// Mock session service for testing
 @MainActor
-final class MockSessionService: Sendable {
+final class MockSessionService: SessionServicing {
     var shouldFailCreate = false
     var shouldFailUpload = false
     var shouldFailQR = false
@@ -180,7 +180,7 @@ final class MockSessionService: Sendable {
     }
     
     func uploadAsset(
-        sessionId: Int,
+        sessionId: String,
         fileData: Data,
         fileName: String,
         mimeType: String,
@@ -195,7 +195,7 @@ final class MockSessionService: Sendable {
         return MockDataProvider.mockUploadResponse
     }
     
-    func fetchQRCode(sessionId: Int) async throws -> Data {
+    func fetchQRCode(sessionId: String) async throws -> Data {
         try await Task.sleep(nanoseconds: 300_000_000) // 0.3s
         
         if shouldFailQR {
@@ -205,7 +205,7 @@ final class MockSessionService: Sendable {
         return MockDataProvider.mockQRCodeData
     }
     
-    func submitEmail(sessionId: Int, email: String) async throws -> EmailSubmissionResponse {
+    func submitEmail(sessionId: String, email: String) async throws -> EmailSubmissionResponse {
         try await Task.sleep(nanoseconds: 300_000_000) // 0.3s
         
         if shouldFailEmail {
@@ -217,4 +217,3 @@ final class MockSessionService: Sendable {
 }
 
 import UIKit
-

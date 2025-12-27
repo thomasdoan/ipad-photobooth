@@ -1,7 +1,7 @@
 # FotoX Project Rules
 
 ## Project Overview
-This is an iPad photobooth app built with Swift/SwiftUI that communicates with a Raspberry Pi backend.
+This is an iPad photobooth app built with Swift/SwiftUI that uploads to a Cloudflare Worker + R2 backend.
 
 ## Code Style
 
@@ -29,7 +29,7 @@ This is an iPad photobooth app built with Swift/SwiftUI that communicates with a
 ### State Management
 - Central `AppState` holds navigation and shared state
 - ViewModels hold screen-specific state
-- Services handle API calls and business logic
+- Services handle local data and Worker interactions
 
 ### Navigation
 - Enum-based routing via `AppRoute`
@@ -55,10 +55,14 @@ App/            - App-level state and configuration
 - Test JSON parsing for all API models
 
 ## API Integration
-- Base URL: `http://booth.local/api` (configurable)
-- All endpoints defined in `Endpoints.swift`
-- Use `APIClient` for all HTTP requests
+- Base URL: `https://<worker>.workers.dev` (configurable)
+- Worker endpoints defined in `WORKER_CONTRACTS.md`
+- Use the Worker client for all HTTP requests
 - Handle errors with `APIError` enum
+
+## Offline Behavior
+- QR codes are generated locally from the session URL
+- Uploads are queued and processed in the background
 
 ## Common Tasks
 
@@ -69,10 +73,10 @@ App/            - App-level state and configuration
 4. Wire up services via `ServiceContainer`
 
 ### Adding an API Call
-1. Define endpoint in `Endpoints.swift`
-2. Add service method (e.g., in `SessionService`)
-3. Add mock in `TestableServiceContainer`
-4. Add unit test for response parsing
+1. Define route in `worker/src/index.js`
+2. Update `WORKER_CONTRACTS.md`
+3. Add service method in the Worker client
+4. Add mock in `TestableServiceContainer`
 
 ### Debugging
 - Use `print()` for quick debugging (shows in Xcode console)
@@ -85,4 +89,3 @@ App/            - App-level state and configuration
 - Don't create new singletons
 - Don't skip error handling
 - Don't hardcode URLs or secrets
-

@@ -12,6 +12,7 @@ struct CaptureView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
     @Environment(\.themeAssets) private var themeAssets
+    let services: ServiceContainer
     
     @State private var viewModel = CaptureViewModel()
     @State private var showFlash = false
@@ -33,10 +34,15 @@ struct CaptureView: View {
             await viewModel.setupCamera()
         }
         .onDisappear {
-            viewModel.cleanup()
+            viewModel.cleanup(deleteTemporaryFiles: false)
         }
         .onChange(of: viewModel.stripState) { oldState, newState in
             handleStateChange(from: oldState, to: newState)
+        }
+        .onChange(of: viewModel.isSessionComplete) { _, isComplete in
+            if isComplete {
+                finishCapture()
+            }
         }
     }
     
@@ -48,8 +54,11 @@ struct CaptureView: View {
             Color.black.ignoresSafeArea()
             
             // Camera preview
-            CameraPreview(cameraController: viewModel.cameraController)
-                .ignoresSafeArea()
+            CameraPreview(
+                cameraController: viewModel.cameraController,
+                isReady: viewModel.isCameraReady
+            )
+            .ignoresSafeArea()
             
             // Frame overlay if available
             if let frame = themeAssets?.photoFrame {
@@ -66,37 +75,7 @@ struct CaptureView: View {
     
     @ViewBuilder
     private func overlayLayer(geometry: GeometryProxy) -> some View {
-        if viewModel.showingSummary {
-            // Summary view
-            CaptureSummaryView(
-                strips: viewModel.getCapturedStrips(),
-                onRetake: { index in
-                    viewModel.retakeStrip(at: index)
-                },
-                onFinish: {
-                    finishCapture()
-                }
-            )
-            .transition(.opacity)
-        } else if viewModel.isReviewing, let lastStrip = viewModel.capturedStrips.last {
-            // Review view
-            StripReviewView(
-                stripIndex: lastStrip.stripIndex,
-                videoURL: lastStrip.videoURL,
-                photoData: lastStrip.photoData,
-                onRetake: {
-                    viewModel.retakeCurrentStrip()
-                },
-                onContinue: {
-                    viewModel.continueToNext()
-                },
-                isLastStrip: viewModel.currentStripIndex >= viewModel.config.stripCount - 1
-            )
-            .transition(.opacity)
-        } else {
-            // Capture UI
-            captureOverlay(geometry: geometry)
-        }
+        captureOverlay(geometry: geometry)
     }
     
     // MARK: - Capture Overlay
@@ -202,7 +181,7 @@ struct CaptureView: View {
                             .frame(width: 80, height: 80)
                     }
                     
-                    Text("Tap to Start Recording")
+                    Text("Tap to Start")
                         .font(.headline)
                         .foregroundStyle(.white)
                 }
@@ -275,7 +254,7 @@ struct CaptureView: View {
                     .multilineTextAlignment(.center)
                 
                 Button {
-                    viewModel.retakeCurrentStrip()
+                    viewModel.retryCurrentStrip()
                 } label: {
                     Text("Try Again")
                         .font(.headline)
@@ -336,18 +315,53 @@ struct CaptureView: View {
         for strip in strips {
             appState.addCapturedStrip(strip)
         }
+
+        guard let eventId = appState.selectedEvent?.id,
+              let session = appState.currentSession else {
+            appState.currentError = APIError.invalidResponse
+            appState.currentRoute = .idle
+            return
+        }
+
         appState.beginUpload()
+
+        Task {
+            do {
+                try await services.uploadQueueWorker.enqueueAndStart(
+                    eventId: eventId,
+                    session: session,
+                    strips: strips,
+                    onProgress: { sessionId in
+                        if appState.currentSession?.sessionId == sessionId {
+                            appState.assetUploaded()
+                        }
+                    },
+                    onError: { sessionId, error in
+                        if sessionId.isEmpty || appState.currentSession?.sessionId == sessionId {
+                            appState.uploadFailed(error: error)
+                        }
+                    }
+                )
+            } catch let error as APIError {
+                await MainActor.run {
+                    appState.uploadFailed(error: error)
+                }
+            } catch {
+                await MainActor.run {
+                    appState.uploadFailed(error: .unknown(error))
+                }
+            }
+        }
     }
     
     private func cancelCapture() {
-        viewModel.cleanup()
+        viewModel.cleanup(deleteTemporaryFiles: true)
         appState.resetSession()
     }
 }
 
 #Preview {
-    CaptureView()
+    CaptureView(services: ServiceContainer())
         .environment(AppState())
         .withTheme(.default)
 }
-

@@ -18,9 +18,6 @@ enum AppRoute: Equatable, Sendable {
     /// Active capture session
     case capture(CapturePhase)
     
-    /// Uploading captured assets
-    case uploading
-    
     /// QR code and email screen
     case qrDisplay
     
@@ -35,12 +32,6 @@ enum CapturePhase: Equatable, Sendable {
     
     /// Capturing a strip (countdown, recording, photo)
     case capturingStrip(index: Int)
-    
-    /// Reviewing a captured strip
-    case reviewingStrip(index: Int)
-    
-    /// Summary before upload
-    case summary
 }
 
 /// State machine for capture flow
@@ -57,4 +48,3 @@ enum CaptureStripState: Equatable, Sendable {
     /// Processing captured media
     case processing
 }
-

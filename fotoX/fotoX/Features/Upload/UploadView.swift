@@ -5,6 +5,8 @@
 //  Upload screen with progress display
 //
 
+// TODO: get this working with the queued items
+
 import SwiftUI
 
 /// Screen showing upload progress
@@ -14,7 +16,7 @@ struct UploadView: View {
     let services: ServiceContainer
     let testableServices: TestableServiceContainer
     
-    @State private var viewModel: UploadViewModel?
+    @State private var viewModel: UploadViewModel<LocalSessionService>?
     @State private var hasStartedUpload = false
     
     var body: some View {
@@ -126,7 +128,7 @@ struct UploadView: View {
     
     // MARK: - Progress Section
     
-    private func progressSection(viewModel: UploadViewModel) -> some View {
+    private func progressSection(viewModel: UploadViewModel<LocalSessionService>) -> some View {
         VStack(spacing: 24) {
             // Progress ring
             ZStack {
@@ -160,7 +162,7 @@ struct UploadView: View {
         }
     }
     
-    private func uploadItemsList(viewModel: UploadViewModel) -> some View {
+    private func uploadItemsList(viewModel: UploadViewModel<LocalSessionService>) -> some View {
         VStack(spacing: 8) {
             ForEach(viewModel.uploadItems) { item in
                 uploadItemRow(item: item)
@@ -217,7 +219,7 @@ struct UploadView: View {
     // MARK: - Action Buttons
     
     @ViewBuilder
-    private func actionButtons(viewModel: UploadViewModel) -> some View {
+    private func actionButtons(viewModel: UploadViewModel<LocalSessionService>) -> some View {
         VStack(spacing: 16) {
             if viewModel.isComplete {
                 // Continue to QR
@@ -319,21 +321,7 @@ struct UploadView: View {
     }
     
     private func fetchQRAndContinue() {
-        Task {
-            guard let sessionId = appState.currentSession?.sessionId else { return }
-            
-            do {
-                let qrData = try await testableServices.fetchQRCode(sessionId: sessionId)
-                await MainActor.run {
-                    appState.uploadCompleted(qrData: qrData)
-                }
-            } catch {
-                // If QR fetch fails, still proceed (can try again on QR screen)
-                await MainActor.run {
-                    appState.uploadCompleted(qrData: Data())
-                }
-            }
-        }
+        appState.currentRoute = .qrDisplay
     }
 }
 
@@ -342,4 +330,3 @@ struct UploadView: View {
         .environment(AppState())
         .withTheme(.default)
 }
-

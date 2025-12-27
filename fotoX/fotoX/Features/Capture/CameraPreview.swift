@@ -11,6 +11,7 @@ import AVFoundation
 /// SwiftUI view that displays the camera preview
 struct CameraPreview: UIViewRepresentable {
     let cameraController: CameraController
+    let isReady: Bool
     
     func makeUIView(context: Context) -> UIView {
         let view = CameraPreviewUIView()
@@ -24,9 +25,13 @@ struct CameraPreview: UIViewRepresentable {
     
     func updateUIView(_ uiView: UIView, context: Context) {
         if let previewLayer = cameraController.previewLayer {
-            DispatchQueue.main.async {
-                previewLayer.frame = uiView.bounds
+            // Add layer if it's not already added
+            if previewLayer.superlayer == nil {
+                uiView.layer.addSublayer(previewLayer)
             }
+            
+            // Update frame
+            previewLayer.frame = uiView.bounds
         }
     }
 }
@@ -36,9 +41,9 @@ class CameraPreviewUIView: UIView {
     override func layoutSubviews() {
         super.layoutSubviews()
         
-        // Update preview layer frame to match view bounds
-        if let previewLayer = layer.sublayers?.first as? AVCaptureVideoPreviewLayer {
-            previewLayer.frame = bounds
+        // Update all sublayers to match view bounds (should just be the preview layer)
+        layer.sublayers?.forEach { sublayer in
+            sublayer.frame = bounds
         }
     }
 }
@@ -57,7 +62,7 @@ struct CameraPreviewContainer: View {
         GeometryReader { geometry in
             let size = calculateSize(in: geometry.size)
             
-            CameraPreview(cameraController: cameraController)
+            CameraPreview(cameraController: cameraController, isReady: cameraController.previewLayer != nil)
                 .frame(width: size.width, height: size.height)
                 .clipShape(RoundedRectangle(cornerRadius: 24))
                 .position(x: geometry.size.width / 2, y: geometry.size.height / 2)

@@ -13,7 +13,7 @@ struct EventSelectionView: View {
     let services: ServiceContainer
     let testableServices: TestableServiceContainer
     
-    @State private var viewModel: EventSelectionViewModel?
+    @State private var viewModel: EventSelectionViewModel<LocalEventService>?
     
     var body: some View {
         GeometryReader { geometry in
@@ -113,7 +113,7 @@ struct EventSelectionView: View {
     // MARK: - Events Content
     
     @ViewBuilder
-    private func eventsContent(viewModel: EventSelectionViewModel, geometry: GeometryProxy) -> some View {
+    private func eventsContent(viewModel: EventSelectionViewModel<LocalEventService>, geometry: GeometryProxy) -> some View {
         if viewModel.isLoading && viewModel.events.isEmpty {
             loadingView
         } else if viewModel.events.isEmpty {
@@ -136,7 +136,7 @@ struct EventSelectionView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    private func emptyView(viewModel: EventSelectionViewModel) -> some View {
+    private func emptyView(viewModel: EventSelectionViewModel<LocalEventService>) -> some View {
         VStack(spacing: 24) {
             Image(systemName: "calendar.badge.exclamationmark")
                 .font(.system(size: 64))
@@ -171,7 +171,7 @@ struct EventSelectionView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
     
-    private func eventsGrid(viewModel: EventSelectionViewModel, geometry: GeometryProxy) -> some View {
+    private func eventsGrid(viewModel: EventSelectionViewModel<LocalEventService>, geometry: GeometryProxy) -> some View {
         ScrollView {
             LazyVGrid(
                 columns: [
@@ -310,4 +310,3 @@ struct EventCard: View {
     EventSelectionView(services: ServiceContainer(), testableServices: TestableServiceContainer())
         .environment(AppState())
 }
-

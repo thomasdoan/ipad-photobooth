@@ -10,7 +10,7 @@ import Observation
 
 /// ViewModel for the event selection screen
 @Observable
-final class EventSelectionViewModel {
+final class EventSelectionViewModel<EventService: EventServicing> {
     // MARK: - State
     
     /// List of available events
@@ -101,4 +101,3 @@ final class EventSelectionViewModel {
         showError = false
     }
 }
-

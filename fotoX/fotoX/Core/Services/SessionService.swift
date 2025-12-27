@@ -9,7 +9,7 @@ import Foundation
 
 /// Service for session-related API operations
 @MainActor
-final class SessionService: Sendable {
+final class SessionService: SessionServicing {
     private let apiClient: APIClient
     
     init(apiClient: APIClient) {
@@ -34,7 +34,7 @@ final class SessionService: Sendable {
     
     /// Uploads a video or photo asset to the session
     func uploadAsset(
-        sessionId: Int,
+        sessionId: String,
         fileData: Data,
         fileName: String,
         mimeType: String,
@@ -56,12 +56,12 @@ final class SessionService: Sendable {
     }
     
     /// Fetches the QR code image for a session
-    func fetchQRCode(sessionId: Int) async throws -> Data {
+    func fetchQRCode(sessionId: String) async throws -> Data {
         return try await apiClient.fetchData(Endpoints.qrCode(sessionId: sessionId))
     }
     
     /// Submits guest email for a session
-    func submitEmail(sessionId: Int, email: String) async throws -> EmailSubmissionResponse {
+    func submitEmail(sessionId: String, email: String) async throws -> EmailSubmissionResponse {
         let request = EmailSubmissionRequest(email: email)
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()
@@ -93,4 +93,3 @@ final class SessionService: Sendable {
         return data
     }
 }
-

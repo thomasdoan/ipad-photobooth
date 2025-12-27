@@ -10,7 +10,7 @@ import Observation
 
 /// ViewModel for the idle screen
 @Observable
-final class IdleViewModel {
+final class IdleViewModel<SessionService: SessionServicing> {
     // MARK: - State
     
     /// Whether a session is being created
@@ -75,4 +75,3 @@ final class IdleViewModel {
         showError = false
     }
 }
-

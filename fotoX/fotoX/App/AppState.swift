@@ -49,9 +49,6 @@ final class AppState {
     
     // MARK: - QR & Email
     
-    /// QR code image data
-    var qrCodeData: Data?
-    
     /// Email submission status
     var emailSubmitted: Bool = false
     
@@ -68,18 +65,10 @@ final class AppState {
     
     // MARK: - Configuration
     
-    /// Base URL for Pi API (persisted)
-    var piBaseURL: URL {
-        get {
-            if let urlString = UserDefaults.standard.string(forKey: "piBaseURL"),
-               let url = URL(string: urlString) {
-                return url
-            }
-            return APIClient.defaultBaseURL
-        }
-        set {
-            UserDefaults.standard.set(newValue.absoluteString, forKey: "piBaseURL")
-        }
+    /// Base URL for Worker (persisted)
+    var workerBaseURL: URL {
+        get { WorkerConfiguration.currentBaseURL() }
+        set { WorkerConfiguration.saveBaseURL(newValue) }
     }
     
     // MARK: - Computed Properties
@@ -113,35 +102,13 @@ final class AppState {
     func startSession(with session: Session) {
         currentSession = session
         capturedStrips = []
+        emailSubmitted = false
         currentRoute = .capture(.capturingStrip(index: 0))
     }
     
     /// Adds a captured strip
     func addCapturedStrip(_ strip: CapturedStrip) {
         capturedStrips.append(strip)
-        
-        if capturedStrips.count < 3 {
-            currentRoute = .capture(.reviewingStrip(index: strip.stripIndex))
-        } else {
-            currentRoute = .capture(.summary)
-        }
-    }
-    
-    /// Proceeds to next strip after review
-    func proceedToNextStrip() {
-        let nextIndex = capturedStrips.count
-        if nextIndex < 3 {
-            currentRoute = .capture(.capturingStrip(index: nextIndex))
-        } else {
-            currentRoute = .uploading
-        }
-    }
-    
-    /// Retakes the current strip
-    func retakeStrip(at index: Int) {
-        // Remove the strip if it exists
-        capturedStrips.removeAll { $0.stripIndex == index }
-        currentRoute = .capture(.capturingStrip(index: index))
     }
     
     /// Transitions to upload phase
@@ -149,19 +116,13 @@ final class AppState {
         totalAssetsToUpload = capturedStrips.count * 2 // video + photo per strip
         assetsUploaded = 0
         uploadError = nil
-        currentRoute = .uploading
+        emailSubmitted = false
+        currentRoute = .qrDisplay
     }
     
     /// Updates upload progress
     func assetUploaded() {
         assetsUploaded += 1
-    }
-    
-    /// Upload completed, transition to QR
-    func uploadCompleted(qrData: Data) {
-        qrCodeData = qrData
-        emailSubmitted = false
-        currentRoute = .qrDisplay
     }
     
     /// Upload failed
@@ -176,7 +137,6 @@ final class AppState {
         totalAssetsToUpload = 0
         assetsUploaded = 0
         uploadError = nil
-        qrCodeData = nil
         emailSubmitted = false
         currentRoute = .idle
     }
@@ -195,4 +155,3 @@ final class AppState {
         currentError = nil
     }
 }
-

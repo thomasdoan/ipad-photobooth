@@ -10,17 +10,15 @@ import Foundation
 /// Container holding all service dependencies
 @MainActor
 final class ServiceContainer: Sendable {
-    let apiClient: APIClient
-    let eventService: EventService
-    let sessionService: SessionService
+    let eventService: LocalEventService
+    let sessionService: LocalSessionService
     let themeService: ThemeService
+    let uploadQueueWorker: UploadQueueWorker
     
-    init(baseURL: URL = APIClient.defaultBaseURL) {
-        let client = APIClient(baseURL: baseURL)
-        self.apiClient = client
-        self.eventService = EventService(apiClient: client)
-        self.sessionService = SessionService(apiClient: client)
+    init() {
+        self.eventService = LocalEventService()
+        self.sessionService = LocalSessionService()
         self.themeService = ThemeService()
+        self.uploadQueueWorker = UploadQueueWorker()
     }
 }
-

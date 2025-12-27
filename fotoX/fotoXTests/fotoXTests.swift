@@ -80,7 +80,7 @@ struct ModelDecodingTests {
     func sessionDecodesFromJSON() async throws {
         let json = """
         {
-            "session_id": 123,
+            "session_id": "8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B",
             "public_token": "zQ1A9LfKc7",
             "universal_url": "https://pb.example.com/s/zQ1A9LfKc7"
         }
@@ -88,7 +88,7 @@ struct ModelDecodingTests {
         
         let session = try JSONDecoder().decode(Session.self, from: json)
         
-        #expect(session.sessionId == 123)
+        #expect(session.sessionId == "8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B")
         #expect(session.publicToken == "zQ1A9LfKc7")
         #expect(session.universalURL == "https://pb.example.com/s/zQ1A9LfKc7")
     }
@@ -157,6 +157,69 @@ struct ModelEncodingTests {
         let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
         
         #expect(json["email"] as? String == "test@example.com")
+    }
+
+    @Test("PresignRequest encodes correctly")
+    func presignRequestEncodes() throws {
+        let request = PresignRequest(
+            eventId: 42,
+            sessionId: "ABC-123",
+            files: [
+                PresignFile(path: "events/42/sessions/ABC-123/photo_0.jpg", contentType: "image/jpeg", sizeBytes: 123)
+            ]
+        )
+        let data = try JSONEncoder().encode(request)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let files = json["files"] as? [[String: Any]]
+        
+        #expect(json["event_id"] as? Int == 42)
+        #expect(json["session_id"] as? String == "ABC-123")
+        #expect(files?.first?["content_type"] as? String == "image/jpeg")
+        #expect(files?.first?["size_bytes"] as? Int == 123)
+    }
+
+    @Test("CompleteRequest encodes correctly")
+    func completeRequestEncodes() throws {
+        let request = CompleteRequest(eventId: 7, sessionId: "SESSION-1", manifestPath: "events/7/sessions/SESSION-1/manifest.json")
+        let data = try JSONEncoder().encode(request)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+
+        #expect(json["event_id"] as? Int == 7)
+        #expect(json["session_id"] as? String == "SESSION-1")
+        #expect(json["manifest_path"] as? String == "events/7/sessions/SESSION-1/manifest.json")
+    }
+
+    @Test("SessionManifest encodes correctly")
+    func sessionManifestEncodes() throws {
+        let asset = SessionManifestAsset(
+            id: "strip0_video",
+            kind: .video,
+            stripIndex: 0,
+            sequenceIndex: 0,
+            contentType: "video/mp4",
+            path: "events/7/sessions/SESSION-1/video_0.mp4",
+            sizeBytes: 1234,
+            durationSeconds: 10.0,
+            posterPath: "events/7/sessions/SESSION-1/photo_0.jpg"
+        )
+        let manifest = SessionManifest(
+            version: 1,
+            eventId: 7,
+            sessionId: "SESSION-1",
+            createdAt: "2025-01-01T00:00:00Z",
+            publicGalleryURL: "https://example.com/s/SESSION-1",
+            assets: [asset]
+        )
+        let data = try JSONEncoder().encode(manifest)
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let assets = json["assets"] as? [[String: Any]]
+
+        #expect(json["event_id"] as? Int == 7)
+        #expect(json["session_id"] as? String == "SESSION-1")
+        #expect(json["public_gallery_url"] as? String == "https://example.com/s/SESSION-1")
+        #expect(assets?.first?["kind"] as? String == "video")
+        #expect(assets?.first?["content_type"] as? String == "video/mp4")
+        #expect(assets?.first?["duration_seconds"] as? Double == 10.0)
     }
 }
 
@@ -289,11 +352,11 @@ struct AppStateTests {
     @Test("startSession changes route to capture")
     func startSessionChangesRoute() {
         let state = AppState()
-        let session = Session(sessionId: 123, publicToken: "abc", universalURL: "https://example.com")
+        let session = Session(sessionId: "ABC-123", publicToken: "abc", universalURL: "https://example.com")
         
         state.startSession(with: session)
         
-        #expect(state.currentSession?.sessionId == 123)
+        #expect(state.currentSession?.sessionId == "ABC-123")
         if case .capture(.capturingStrip(let index)) = state.currentRoute {
             #expect(index == 0)
         } else {
@@ -304,7 +367,7 @@ struct AppStateTests {
     @Test("resetSession clears state and returns to idle")
     func resetSessionClearsState() {
         let state = AppState()
-        let session = Session(sessionId: 1, publicToken: "abc", universalURL: "https://example.com")
+        let session = Session(sessionId: "ABC-1", publicToken: "abc", universalURL: "https://example.com")
         state.startSession(with: session)
         
         state.resetSession()
@@ -312,7 +375,19 @@ struct AppStateTests {
         #expect(state.currentRoute == .idle)
         #expect(state.currentSession == nil)
         #expect(state.capturedStrips.isEmpty)
-        #expect(state.qrCodeData == nil)
+    }
+
+    @Test("beginUpload routes to qrDisplay and sets totals")
+    func beginUploadRoutesToQRDisplay() {
+        let state = AppState()
+        let strip = CapturedStrip(stripIndex: 0, videoURL: URL(string: "file://test")!, photoData: Data(), thumbnailData: nil)
+        state.capturedStrips = [strip]
+
+        state.beginUpload()
+
+        #expect(state.currentRoute == .qrDisplay)
+        #expect(state.totalAssetsToUpload == 2)
+        #expect(state.assetsUploaded == 0)
     }
     
     @Test("returnToEventSelection clears everything")
@@ -390,6 +465,56 @@ struct AppStateTests {
         state.capturedStrips = [strip1]
         
         #expect(state.allStripsCaptured == false)
+    }
+}
+
+// MARK: - Upload Queue Tests
+
+struct UploadQueueStoreTests {
+    
+    @Test("UploadQueueStore persists sessions round-trip")
+    func uploadQueueStoreRoundTrip() async throws {
+        let fileManager = FileManager.default
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let fileURL = documents.appendingPathComponent("upload_queue.json")
+        try? fileManager.removeItem(at: fileURL)
+        
+        let store = UploadQueueStore(fileManager: fileManager)
+        let asset = UploadQueueAsset(
+            id: UUID(),
+            kind: .photo,
+            stripIndex: 0,
+            sequenceIndex: 1,
+            fileName: "photo_0.jpg",
+            mimeType: "image/jpeg",
+            localURL: documents.appendingPathComponent("photo_0.jpg"),
+            remotePath: "events/1/sessions/SESSION-1/photo_0.jpg",
+            sizeBytes: 321,
+            durationSeconds: nil,
+            posterPath: nil,
+            state: .pending
+        )
+        let session = UploadQueueSession(
+            id: UUID().uuidString,
+            eventId: 1,
+            sessionId: "SESSION-1",
+            createdAt: "2025-01-01T00:00:00Z",
+            publicGalleryURL: "https://example.com/s/SESSION-1",
+            assets: [asset],
+            manifestState: .pending,
+            completeState: .pending
+        )
+        
+        try await store.addSession(session)
+        
+        let reloadedStore = UploadQueueStore(fileManager: fileManager)
+        let sessions = try await reloadedStore.sessions()
+        
+        #expect(sessions.count == 1)
+        #expect(sessions.first?.sessionId == "SESSION-1")
+        #expect(sessions.first?.assets.first?.remotePath == "events/1/sessions/SESSION-1/photo_0.jpg")
+        
+        try? fileManager.removeItem(at: fileURL)
     }
 }
 
@@ -471,25 +596,25 @@ struct EndpointTests {
     
     @Test("Upload asset endpoint has correct path")
     func uploadAssetEndpointPath() {
-        let endpoint = Endpoints.uploadAsset(sessionId: 123)
+        let endpoint = Endpoints.uploadAsset(sessionId: "ABC-123")
         
-        #expect(endpoint.path == "sessions/123/assets")
+        #expect(endpoint.path == "sessions/ABC-123/assets")
         #expect(endpoint.method == .POST)
     }
     
     @Test("QR code endpoint has correct path")
     func qrCodeEndpointPath() {
-        let endpoint = Endpoints.qrCode(sessionId: 456)
+        let endpoint = Endpoints.qrCode(sessionId: "ABC-456")
         
-        #expect(endpoint.path == "sessions/456/qr")
+        #expect(endpoint.path == "sessions/ABC-456/qr")
         #expect(endpoint.method == .GET)
     }
     
     @Test("Submit email endpoint has correct path")
     func submitEmailEndpointPath() {
-        let endpoint = Endpoints.submitEmail(sessionId: 789)
+        let endpoint = Endpoints.submitEmail(sessionId: "ABC-789")
         
-        #expect(endpoint.path == "sessions/789/email")
+        #expect(endpoint.path == "sessions/ABC-789/email")
         #expect(endpoint.method == .POST)
     }
     
@@ -532,15 +657,125 @@ struct AssetUploadMetadataTests {
 
 // MARK: - CaptureState Tests
 
+@Suite(.serialized)
 struct CaptureStateTests {
     
     @Test("Default capture configuration has correct values")
     func defaultCaptureConfig() {
+        // Reset to ensure test isolation
+        WorkerConfiguration.saveVideoDuration(10)
+
         let config = CaptureConfiguration.default
-        
+
         #expect(config.videoDuration == 10)
-        #expect(config.countdownSeconds == 3)
+        #expect(config.countdownSeconds == 0)
         #expect(config.photoCountdownSeconds == 1)
         #expect(config.stripCount == 3)
+    }
+
+    @Test("WorkerConfiguration saves and loads video duration")
+    func videoDurationPersistence() {
+        // Save custom duration
+        WorkerConfiguration.saveVideoDuration(7)
+
+        // Verify it's retrieved correctly
+        let duration = WorkerConfiguration.currentVideoDuration()
+        #expect(duration == 7)
+
+        // Cleanup
+        WorkerConfiguration.saveVideoDuration(10)
+    }
+
+    @Test("Video duration is clamped to valid range")
+    func videoDurationClamping() {
+        // Test minimum clamp
+        WorkerConfiguration.saveVideoDuration(1)
+        #expect(WorkerConfiguration.currentVideoDuration() == 3)
+
+        // Test maximum clamp
+        WorkerConfiguration.saveVideoDuration(100)
+        #expect(WorkerConfiguration.currentVideoDuration() == 10)
+
+        // Test valid range
+        WorkerConfiguration.saveVideoDuration(7)
+        #expect(WorkerConfiguration.currentVideoDuration() == 7)
+
+        // Cleanup
+        WorkerConfiguration.saveVideoDuration(10)
+    }
+
+    @Test("CaptureConfiguration respects saved video duration")
+    func captureConfigurationUsesPersistedValue() {
+        // Save custom duration
+        WorkerConfiguration.saveVideoDuration(5)
+
+        // Create configuration
+        let config = CaptureConfiguration.default
+        #expect(config.videoDuration == 5)
+
+        // Cleanup
+        WorkerConfiguration.saveVideoDuration(10)
+    }
+}
+
+// MARK: - Local Services Tests
+
+@MainActor
+struct LocalEventServiceTests {
+    
+    @Test("LocalEventService returns bundled events")
+    func localEventServiceReturnsEvents() async throws {
+        let service = LocalEventService()
+        let events = try await service.fetchEvents()
+        #expect(!events.isEmpty)
+    }
+    
+    @Test("LocalEventService returns event by id")
+    func localEventServiceFetchById() async throws {
+        let service = LocalEventService()
+        let events = try await service.fetchEvents()
+        let first = try #require(events.first)
+        let event = try await service.fetchEvent(id: first.id)
+        #expect(event.id == first.id)
+    }
+}
+
+// MARK: - Settings Tests
+
+@MainActor
+struct SettingsViewModelTests {
+    
+    @Test("Worker URL validation accepts valid URLs")
+    func workerURLValidationAcceptsValid() {
+        let viewModel = SettingsViewModel(healthCheck: { _ in true })
+        viewModel.baseURLString = "https://example.workers.dev"
+        #expect(viewModel.isURLValid == true)
+    }
+    
+    @Test("Worker URL validation rejects invalid URLs")
+    func workerURLValidationRejectsInvalid() {
+        let viewModel = SettingsViewModel(healthCheck: { _ in true })
+        viewModel.baseURLString = "not-a-url"
+        #expect(viewModel.isURLValid == false)
+    }
+    
+    @Test("Health check success sets success result")
+    func healthCheckSuccess() async {
+        let viewModel = SettingsViewModel(healthCheck: { _ in true })
+        viewModel.baseURLString = "https://example.workers.dev"
+        await viewModel.testConnection()
+        #expect(viewModel.connectionTestResult == .success)
+    }
+    
+    @Test("Health check failure sets failure result")
+    func healthCheckFailure() async {
+        let viewModel = SettingsViewModel(healthCheck: { _ in false })
+        viewModel.baseURLString = "https://example.workers.dev"
+        await viewModel.testConnection()
+        if case .failure = viewModel.connectionTestResult {
+            #expect(true)
+        } else {
+            Issue.record("Expected failure result")
+        }
     }
 }

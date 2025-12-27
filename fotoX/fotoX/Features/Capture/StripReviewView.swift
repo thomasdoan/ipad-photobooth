@@ -9,6 +9,7 @@ import SwiftUI
 import AVKit
 
 /// View for reviewing a captured strip (video + photo)
+// TODO: Revisit whether this view is still needed with auto-advance capture. Might be needed if we want to allow retakes.
 struct StripReviewView: View {
     let stripIndex: Int
     let videoURL: URL
@@ -272,4 +273,3 @@ struct CaptureSummaryView: View {
         }
     }
 }
-
