@@ -13,12 +13,14 @@ final class ServiceContainer: Sendable {
     let eventService: LocalEventService
     let sessionService: LocalSessionService
     let themeService: ThemeService
+    let stripGenerator: StripGenerator
     let uploadQueueWorker: UploadQueueWorker
-    
+
     init() {
         self.eventService = LocalEventService()
         self.sessionService = LocalSessionService()
         self.themeService = ThemeService()
-        self.uploadQueueWorker = UploadQueueWorker()
+        self.stripGenerator = StripGenerator()
+        self.uploadQueueWorker = UploadQueueWorker(stripGenerator: stripGenerator)
     }
 }

@@ -12,21 +12,24 @@ actor UploadQueueWorker {
     private let apiClient: WorkerAPIClient
     private let fileManager: FileManager
     private let uploadsDirectory: URL
+    private let stripGenerator: StripGenerator
     private var isProcessing = false
 
     init(
         store: UploadQueueStore = UploadQueueStore(),
         apiClient: WorkerAPIClient = WorkerAPIClient(),
-        fileManager: FileManager = .default
+        fileManager: FileManager = .default,
+        stripGenerator: StripGenerator = StripGenerator()
     ) {
         self.store = store
         self.apiClient = apiClient
         self.fileManager = fileManager
+        self.stripGenerator = stripGenerator
         let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
         self.uploadsDirectory = documents.appendingPathComponent("Uploads", isDirectory: true)
     }
 
-    func enqueueSession(eventId: Int, session: Session, strips: [CapturedStrip]) async throws {
+    func enqueueSession(eventId: Int, session: Session, strips: [CapturedStrip], logoData: Data? = nil) async throws {
         try ensureUploadsDirectory()
 
         let createdAt = ISO8601DateFormatter().string(from: Date())
@@ -34,6 +37,7 @@ actor UploadQueueWorker {
         try fileManager.createDirectory(at: sessionDir, withIntermediateDirectories: true)
 
         var assets: [UploadQueueAsset] = []
+        var videoURLs: [URL] = []
 
         for strip in strips {
             let photoFileName = "photo_\(strip.stripIndex).jpg"
@@ -67,6 +71,8 @@ actor UploadQueueWorker {
                 try fileManager.removeItem(at: videoPath)
             }
             try fileManager.moveItem(at: strip.videoURL, to: videoPath)
+            videoURLs.append(videoPath)
+
             let videoRemotePath = remotePath(
                 eventId: eventId,
                 sessionId: session.sessionId,
@@ -93,6 +99,24 @@ actor UploadQueueWorker {
             assets.append(photoAsset)
         }
 
+        // Generate photo and video strips
+        if strips.count >= 3 {
+            do {
+                let stripAssets = try await generateStripAssets(
+                    strips: strips,
+                    videoURLs: videoURLs,
+                    sessionDir: sessionDir,
+                    eventId: eventId,
+                    sessionId: session.sessionId,
+                    logoData: logoData
+                )
+                assets.append(contentsOf: stripAssets)
+            } catch {
+                // Log error but continue without strips - individual assets are still uploaded
+                print("Failed to generate strip assets: \(error)")
+            }
+        }
+
         let queueSession = UploadQueueSession(
             id: session.sessionId,
             eventId: eventId,
@@ -105,6 +129,95 @@ actor UploadQueueWorker {
         )
 
         try await store.addSession(queueSession)
+    }
+
+    /// Generates photo and video strip assets
+    private func generateStripAssets(
+        strips: [CapturedStrip],
+        videoURLs: [URL],
+        sessionDir: URL,
+        eventId: Int,
+        sessionId: String,
+        logoData: Data?
+    ) async throws -> [UploadQueueAsset] {
+        var assets: [UploadQueueAsset] = []
+
+        // Extract photo data from strips
+        let photos = strips.sorted(by: { $0.stripIndex < $1.stripIndex }).map { $0.photoData }
+
+        // Generate photo strip
+        let photoStripData = try await stripGenerator.generatePhotoStrip(
+            from: photos,
+            logoData: logoData
+        )
+
+        let photoStripFileName = "photo_strip.jpg"
+        let photoStripPath = sessionDir.appendingPathComponent(photoStripFileName)
+        try photoStripData.write(to: photoStripPath, options: .atomic)
+
+        let photoStripRemotePath = remotePath(
+            eventId: eventId,
+            sessionId: sessionId,
+            fileName: photoStripFileName
+        )
+
+        let photoStripAsset = UploadQueueAsset(
+            id: UUID(),
+            kind: .photoStrip,
+            stripIndex: AssetUploadMetadata.photoStripIndex,
+            sequenceIndex: 0,
+            fileName: photoStripFileName,
+            mimeType: "image/jpeg",
+            localURL: photoStripPath,
+            remotePath: photoStripRemotePath,
+            sizeBytes: photoStripData.count,
+            durationSeconds: nil,
+            posterPath: nil,
+            state: .pending
+        )
+        assets.append(photoStripAsset)
+
+        // Generate video strip
+        let sortedVideoURLs = videoURLs.sorted { url1, url2 in
+            // Extract strip index from filename (video_0.mov, video_1.mov, etc.)
+            let index1 = Int(url1.deletingPathExtension().lastPathComponent.replacingOccurrences(of: "video_", with: "")) ?? 0
+            let index2 = Int(url2.deletingPathExtension().lastPathComponent.replacingOccurrences(of: "video_", with: "")) ?? 0
+            return index1 < index2
+        }
+
+        let videoStripFileName = "video_strip.mov"
+        let videoStripPath = sessionDir.appendingPathComponent(videoStripFileName)
+
+        _ = try await stripGenerator.generateVideoStrip(
+            from: sortedVideoURLs,
+            to: videoStripPath,
+            logoData: logoData
+        )
+
+        let videoStripSize = try fileSize(at: videoStripPath)
+        let videoStripRemotePath = remotePath(
+            eventId: eventId,
+            sessionId: sessionId,
+            fileName: videoStripFileName
+        )
+
+        let videoStripAsset = UploadQueueAsset(
+            id: UUID(),
+            kind: .videoStrip,
+            stripIndex: AssetUploadMetadata.videoStripIndex,
+            sequenceIndex: 0,
+            fileName: videoStripFileName,
+            mimeType: "video/quicktime",
+            localURL: videoStripPath,
+            remotePath: videoStripRemotePath,
+            sizeBytes: videoStripSize,
+            durationSeconds: nil,
+            posterPath: photoStripRemotePath,
+            state: .pending
+        )
+        assets.append(videoStripAsset)
+
+        return assets
     }
 
     func startProcessing(
@@ -135,10 +248,11 @@ actor UploadQueueWorker {
         eventId: Int,
         session: Session,
         strips: [CapturedStrip],
+        logoData: Data? = nil,
         onProgress: (@MainActor @Sendable (String) -> Void)? = nil,
         onError: (@MainActor @Sendable (String, APIError) -> Void)? = nil
     ) async throws {
-        try await enqueueSession(eventId: eventId, session: session, strips: strips)
+        try await enqueueSession(eventId: eventId, session: session, strips: strips, logoData: logoData)
         await startProcessing(onProgress: onProgress, onError: onError)
     }
 

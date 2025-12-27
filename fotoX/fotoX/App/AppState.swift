@@ -113,7 +113,8 @@ final class AppState {
     
     /// Transitions to upload phase
     func beginUpload() {
-        totalAssetsToUpload = capturedStrips.count * 2 // video + photo per strip
+        // video + photo per strip + 2 for photo_strip and video_strip
+        totalAssetsToUpload = (capturedStrips.count * 2) + 2
         assetsUploaded = 0
         uploadError = nil
         emailSubmitted = false

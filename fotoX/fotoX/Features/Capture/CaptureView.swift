@@ -323,6 +323,9 @@ struct CaptureView: View {
             return
         }
 
+        // Get logo data for strip generation
+        let logoData = themeAssets?.logoData
+
         appState.beginUpload()
 
         Task {
@@ -331,6 +334,7 @@ struct CaptureView: View {
                     eventId: eventId,
                     session: session,
                     strips: strips,
+                    logoData: logoData,
                     onProgress: { sessionId in
                         if appState.currentSession?.sessionId == sessionId {
                             appState.assetUploaded()

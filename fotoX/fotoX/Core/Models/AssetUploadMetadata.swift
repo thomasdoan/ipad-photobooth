@@ -11,6 +11,8 @@ import Foundation
 enum AssetKind: String, Codable, Sendable {
     case photo
     case video
+    case photoStrip = "photo_strip"
+    case videoStrip = "video_strip"
 }
 
 /// Metadata attached to asset uploads
@@ -18,12 +20,18 @@ struct AssetUploadMetadata: Sendable {
     let kind: AssetKind
     let stripIndex: Int
     let sequenceIndex: Int
-    
+
     /// Sequence index for video (always 0)
     static let videoSequenceIndex = 0
-    
+
     /// Sequence index for photo (always 1, captured after video)
     static let photoSequenceIndex = 1
+
+    /// Strip index for photo strip (composite of all photos)
+    static let photoStripIndex = -1
+
+    /// Strip index for video strip (composite of all videos)
+    static let videoStripIndex = -1
 }
 
 /// Response from asset upload endpoint
