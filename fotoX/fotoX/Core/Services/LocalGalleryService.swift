@@ -131,6 +131,7 @@ struct LocalGalleryService: Sendable {
                     
                     // We don't know the eventId without manifest, skip unless we can match
                     // For now, include it if there are assets (caller filters by eventId from remote)
+                    // we have 1 event so will leave as is lmao
                     sessions.append(GallerySession(
                         id: sessionId,
                         sessionId: sessionId,
