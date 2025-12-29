@@ -24,11 +24,19 @@ export default {
 
     if (request.method === "GET" && url.pathname.startsWith("/api/e/")) {
       const eventId = url.pathname.replace("/api/e/", "")
+      const validationError = validateEventId(eventId)
+      if (validationError) {
+        return validationError
+      }
       return handleEventGalleryJSON(env, eventId)
     }
 
     if (request.method === "GET" && url.pathname.startsWith("/e/")) {
       const eventId = url.pathname.replace("/e/", "")
+      const validationError = validateEventId(eventId)
+      if (validationError) {
+        return validationError
+      }
       return handleEventGallery(env, baseURL, eventId)
     }
 
@@ -314,6 +322,24 @@ function html(title, body) {
 </html>`,
     { headers: { "Content-Type": "text/html; charset=utf-8" } }
   )
+}
+
+function validateEventId(eventId) {
+  if (!eventId || eventId.trim() === "") {
+    return json({ error: "Event ID is required" }, 400)
+  }
+
+  const numericEventId = Number(eventId)
+  if (!Number.isInteger(numericEventId) || numericEventId <= 0) {
+    return json({ error: "Event ID must be a valid positive integer" }, 400)
+  }
+
+  // Prevent path traversal attacks
+  if (eventId.includes("/") || eventId.includes("\\") || eventId.includes("..")) {
+    return json({ error: "Invalid Event ID format" }, 400)
+  }
+
+  return null
 }
 
 function requirePresignAuth(request, env) {
