@@ -742,8 +742,37 @@ struct LocalEventServiceTests {
 
 // MARK: - Settings Tests
 
+/// Mock URLProtocol that immediately fails requests without making network calls
+final class MockURLProtocol: URLProtocol {
+    override class func canInit(with request: URLRequest) -> Bool {
+        return true
+    }
+
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest {
+        return request
+    }
+
+    override func startLoading() {
+        // Immediately fail with a connection error (no network call)
+        let error = URLError(.cannotConnectToHost)
+        client?.urlProtocol(self, didFailWithError: error)
+    }
+
+    override func stopLoading() {}
+}
+
 @MainActor
 struct SettingsViewModelTests {
+
+    // Helper to create a mock URLSession that fails immediately without network calls
+    static func createMockSession() -> URLSession {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [MockURLProtocol.self]
+        config.timeoutIntervalForRequest = 0.1
+        config.timeoutIntervalForResource = 0.1
+        return URLSession(configuration: config)
+    }
+
     @Test("Worker URL validation accepts valid URLs")
     func workerURLValidationAcceptsValid() {
         let viewModel = SettingsViewModel(healthCheck: { _ in true })
@@ -783,10 +812,11 @@ struct SettingsViewModelTests {
     @Test("defaultHealthCheck constructs URL without trailing slash")
     func defaultHealthCheckURLWithoutTrailingSlash() async throws {
         let url = URL(string: "https://example.com")!
+        let mockSession = Self.createMockSession()
 
         // This should not crash - it constructs https://example.com/health
         do {
-            _ = try await SettingsViewModel.defaultHealthCheck(url: url)
+            _ = try await SettingsViewModel.defaultHealthCheck(url: url, session: mockSession)
         } catch {
             // Network errors are expected in tests, we're just checking it doesn't crash
             #expect(error is URLError)
@@ -796,10 +826,11 @@ struct SettingsViewModelTests {
     @Test("defaultHealthCheck constructs URL with trailing slash")
     func defaultHealthCheckURLWithTrailingSlash() async throws {
         let url = URL(string: "https://example.com/")!
+        let mockSession = Self.createMockSession()
 
         // This should not crash - it should handle trailing slash properly
         do {
-            _ = try await SettingsViewModel.defaultHealthCheck(url: url)
+            _ = try await SettingsViewModel.defaultHealthCheck(url: url, session: mockSession)
         } catch {
             // Network errors are expected in tests, we're just checking it doesn't crash
             #expect(error is URLError)
@@ -809,10 +840,11 @@ struct SettingsViewModelTests {
     @Test("defaultHealthCheck constructs URL with existing path")
     func defaultHealthCheckURLWithPath() async throws {
         let url = URL(string: "https://example.com/api/v1")!
+        let mockSession = Self.createMockSession()
 
         // This should append /health to existing path
         do {
-            _ = try await SettingsViewModel.defaultHealthCheck(url: url)
+            _ = try await SettingsViewModel.defaultHealthCheck(url: url, session: mockSession)
         } catch {
             // Network errors are expected in tests, we're just checking it doesn't crash
             #expect(error is URLError)
@@ -822,10 +854,11 @@ struct SettingsViewModelTests {
     @Test("defaultHealthCheck constructs URL with port")
     func defaultHealthCheckURLWithPort() async throws {
         let url = URL(string: "http://localhost:8080")!
+        let mockSession = Self.createMockSession()
 
         // This should preserve port when appending path
         do {
-            _ = try await SettingsViewModel.defaultHealthCheck(url: url)
+            _ = try await SettingsViewModel.defaultHealthCheck(url: url, session: mockSession)
         } catch {
             // Network errors are expected in tests, we're just checking it doesn't crash
             #expect(error is URLError)
@@ -835,10 +868,11 @@ struct SettingsViewModelTests {
     @Test("defaultHealthCheck constructs URL with query parameters")
     func defaultHealthCheckURLWithQuery() async throws {
         let url = URL(string: "https://example.com/api?key=value")!
+        let mockSession = Self.createMockSession()
 
         // This should handle URLs with query parameters
         do {
-            _ = try await SettingsViewModel.defaultHealthCheck(url: url)
+            _ = try await SettingsViewModel.defaultHealthCheck(url: url, session: mockSession)
         } catch {
             // Network errors are expected in tests, we're just checking it doesn't crash
             #expect(error is URLError)
@@ -848,9 +882,10 @@ struct SettingsViewModelTests {
     @Test("defaultHealthCheck handles localhost URLs")
     func defaultHealthCheckLocalhost() async throws {
         let url = URL(string: "http://localhost")!
+        let mockSession = Self.createMockSession()
 
         do {
-            _ = try await SettingsViewModel.defaultHealthCheck(url: url)
+            _ = try await SettingsViewModel.defaultHealthCheck(url: url, session: mockSession)
         } catch {
             // Network errors are expected, we're checking it doesn't crash
             #expect(error is URLError)
@@ -860,9 +895,10 @@ struct SettingsViewModelTests {
     @Test("defaultHealthCheck handles IP address URLs")
     func defaultHealthCheckIPAddress() async throws {
         let url = URL(string: "http://192.168.1.1")!
+        let mockSession = Self.createMockSession()
 
         do {
-            _ = try await SettingsViewModel.defaultHealthCheck(url: url)
+            _ = try await SettingsViewModel.defaultHealthCheck(url: url, session: mockSession)
         } catch {
             // Network errors are expected, we're checking it doesn't crash
             #expect(error is URLError)
@@ -875,9 +911,10 @@ struct SettingsViewModelTests {
         let originalURL = URL(string: "https://example.com")!
         let urlString = originalURL.absoluteString
         let reconstructedURL = URL(string: urlString)!
+        let mockSession = Self.createMockSession()
 
         do {
-            _ = try await SettingsViewModel.defaultHealthCheck(url: reconstructedURL)
+            _ = try await SettingsViewModel.defaultHealthCheck(url: reconstructedURL, session: mockSession)
         } catch {
             #expect(error is URLError)
         }
@@ -885,6 +922,7 @@ struct SettingsViewModelTests {
 
     @Test("defaultHealthCheck handles unusual but valid URLs")
     func defaultHealthCheckUnusualURLs() async throws {
+        let mockSession = Self.createMockSession()
         let testURLs = [
             "http://example.com.",  // Trailing dot
             "http://example.com//", // Double slash
@@ -895,7 +933,7 @@ struct SettingsViewModelTests {
         for urlString in testURLs {
             if let url = URL(string: urlString) {
                 do {
-                    _ = try await SettingsViewModel.defaultHealthCheck(url: url)
+                    _ = try await SettingsViewModel.defaultHealthCheck(url: url, session: mockSession)
                 } catch {
                     // Network errors expected
                     #expect(error is URLError)
@@ -918,5 +956,399 @@ struct SettingsViewModelTests {
 
         // Should have success result
         #expect(viewModel.connectionTestResult == .success)
+    }
+}
+
+// MARK: - GalleryAsset Tests
+
+struct GalleryAssetTests {
+
+    @Test("GalleryAsset isLocallyAvailable returns true when file exists")
+    func assetIsLocallyAvailableWhenFileExists() throws {
+        let fileManager = FileManager.default
+        let tempDir = fileManager.temporaryDirectory
+        let testFile = tempDir.appendingPathComponent("test_photo.jpg")
+
+        // Create a test file
+        try Data().write(to: testFile)
+
+        let asset = GalleryAsset(
+            id: "test-1",
+            kind: .photo,
+            stripIndex: 0,
+            remotePath: "events/1/sessions/session-1/photo_0.jpg",
+            localURL: testFile,
+            mimeType: "image/jpeg",
+            posterPath: nil,
+            localPosterURL: nil
+        )
+
+        #expect(asset.isLocallyAvailable == true)
+
+        // Cleanup
+        try? fileManager.removeItem(at: testFile)
+    }
+
+    @Test("GalleryAsset isLocallyAvailable returns false when file doesn't exist")
+    func assetIsLocallyAvailableWhenFileDoesNotExist() {
+        let nonExistentURL = URL(fileURLWithPath: "/tmp/nonexistent_\(UUID().uuidString).jpg")
+
+        let asset = GalleryAsset(
+            id: "test-2",
+            kind: .photo,
+            stripIndex: 0,
+            remotePath: "events/1/sessions/session-1/photo_0.jpg",
+            localURL: nonExistentURL,
+            mimeType: "image/jpeg",
+            posterPath: nil,
+            localPosterURL: nil
+        )
+
+        #expect(asset.isLocallyAvailable == false)
+    }
+
+    @Test("GalleryAsset isLocallyAvailable returns false when localURL is nil")
+    func assetIsLocallyAvailableWhenURLIsNil() {
+        let asset = GalleryAsset(
+            id: "test-3",
+            kind: .photo,
+            stripIndex: 0,
+            remotePath: "events/1/sessions/session-1/photo_0.jpg",
+            localURL: nil,
+            mimeType: "image/jpeg",
+            posterPath: nil,
+            localPosterURL: nil
+        )
+
+        #expect(asset.isLocallyAvailable == false)
+    }
+
+    @Test("GalleryAsset isPosterLocallyAvailable returns true when poster exists")
+    func posterIsLocallyAvailableWhenFileExists() throws {
+        let fileManager = FileManager.default
+        let tempDir = fileManager.temporaryDirectory
+        let posterFile = tempDir.appendingPathComponent("test_poster.jpg")
+
+        // Create a test poster file
+        try Data().write(to: posterFile)
+
+        let asset = GalleryAsset(
+            id: "test-video-1",
+            kind: .video,
+            stripIndex: 0,
+            remotePath: "events/1/sessions/session-1/video_0.mov",
+            localURL: tempDir.appendingPathComponent("test_video.mov"),
+            mimeType: "video/quicktime",
+            posterPath: "events/1/sessions/session-1/photo_0.jpg",
+            localPosterURL: posterFile
+        )
+
+        #expect(asset.isPosterLocallyAvailable == true)
+
+        // Cleanup
+        try? fileManager.removeItem(at: posterFile)
+    }
+
+    @Test("GalleryAsset isPosterLocallyAvailable returns false when poster doesn't exist")
+    func posterIsLocallyAvailableWhenFileDoesNotExist() {
+        let nonExistentURL = URL(fileURLWithPath: "/tmp/nonexistent_poster_\(UUID().uuidString).jpg")
+
+        let asset = GalleryAsset(
+            id: "test-video-2",
+            kind: .video,
+            stripIndex: 0,
+            remotePath: "events/1/sessions/session-1/video_0.mov",
+            localURL: URL(fileURLWithPath: "/tmp/video.mov"),
+            mimeType: "video/quicktime",
+            posterPath: "events/1/sessions/session-1/photo_0.jpg",
+            localPosterURL: nonExistentURL
+        )
+
+        #expect(asset.isPosterLocallyAvailable == false)
+    }
+
+    @Test("GalleryAsset isPosterLocallyAvailable returns false when localPosterURL is nil")
+    func posterIsLocallyAvailableWhenURLIsNil() {
+        let asset = GalleryAsset(
+            id: "test-video-3",
+            kind: .video,
+            stripIndex: 0,
+            remotePath: "events/1/sessions/session-1/video_0.mov",
+            localURL: nil,
+            mimeType: "video/quicktime",
+            posterPath: "events/1/sessions/session-1/photo_0.jpg",
+            localPosterURL: nil
+        )
+
+        #expect(asset.isPosterLocallyAvailable == false)
+    }
+
+    @Test("Photo assets have nil localPosterURL")
+    func photoAssetHasNilPosterURL() {
+        let asset = GalleryAsset(
+            id: "photo-1",
+            kind: .photo,
+            stripIndex: 0,
+            remotePath: "events/1/sessions/session-1/photo_0.jpg",
+            localURL: URL(fileURLWithPath: "/tmp/photo.jpg"),
+            mimeType: "image/jpeg",
+            posterPath: nil,
+            localPosterURL: nil
+        )
+
+        #expect(asset.localPosterURL == nil)
+        #expect(asset.posterPath == nil)
+    }
+}
+
+// MARK: - LocalGalleryService Tests
+
+struct LocalGalleryServiceTests {
+
+    @Test("LocalGalleryService populates localPosterURL for videos")
+    func localGalleryServicePopulatesPosterURL() async throws {
+        let fileManager = FileManager.default
+        let testUploadsDir = fileManager.temporaryDirectory.appendingPathComponent("test-uploads-\(UUID().uuidString)")
+        try fileManager.createDirectory(at: testUploadsDir, withIntermediateDirectories: true)
+
+        let sessionDir = testUploadsDir.appendingPathComponent("test-session")
+        try fileManager.createDirectory(at: sessionDir, withIntermediateDirectories: true)
+
+        // Create test files
+        let photoFile = sessionDir.appendingPathComponent("photo_0.jpg")
+        let videoFile = sessionDir.appendingPathComponent("video_0.mov")
+        try Data().write(to: photoFile)
+        try Data().write(to: videoFile)
+
+        // Create a manifest
+        let manifest = SessionManifest(
+            version: 1,
+            eventId: 1,
+            sessionId: "test-session",
+            createdAt: "2025-01-01T00:00:00Z",
+            publicGalleryURL: "https://example.com/s/test-session",
+            assets: [
+                SessionManifestAsset(
+                    id: "photo_0",
+                    kind: .photo,
+                    stripIndex: 0,
+                    sequenceIndex: 1,
+                    contentType: "image/jpeg",
+                    path: "events/1/sessions/test-session/photo_0.jpg",
+                    sizeBytes: 100,
+                    durationSeconds: nil,
+                    posterPath: nil
+                ),
+                SessionManifestAsset(
+                    id: "video_0",
+                    kind: .video,
+                    stripIndex: 0,
+                    sequenceIndex: 0,
+                    contentType: "video/quicktime",
+                    path: "events/1/sessions/test-session/video_0.mov",
+                    sizeBytes: 1000,
+                    durationSeconds: 10.0,
+                    posterPath: "events/1/sessions/test-session/photo_0.jpg"
+                )
+            ]
+        )
+
+        // Write manifest
+        let manifestFile = sessionDir.appendingPathComponent("manifest.json")
+        let manifestData = try JSONEncoder().encode(manifest)
+        try manifestData.write(to: manifestFile)
+
+        // Use LocalGalleryService to scan with test directory
+        let service = LocalGalleryService(fileManager: fileManager, uploadsDirectory: testUploadsDir)
+        let sessions = await service.fetchLocalSessions(eventId: 1)
+
+        // Find our test session
+        let testSession = sessions.first { $0.sessionId == "test-session" }
+        #expect(testSession != nil)
+
+        // Verify video asset has local poster URL
+        let videoAsset = testSession?.assets.first { $0.kind == .video }
+        #expect(videoAsset != nil)
+        #expect(videoAsset?.localPosterURL != nil)
+        #expect(videoAsset?.localPosterURL?.path.hasSuffix("photo_0.jpg") == true)
+
+        // Verify photo asset doesn't have poster URL
+        let photoAsset = testSession?.assets.first { $0.kind == .photo }
+        #expect(photoAsset != nil)
+        #expect(photoAsset?.localPosterURL == nil)
+
+        // Cleanup
+        try? fileManager.removeItem(at: testUploadsDir)
+    }
+
+    @Test("LocalGalleryService handles videos without local posters")
+    func localGalleryServiceHandlesVideosWithoutLocalPosters() async throws {
+        let fileManager = FileManager.default
+        let testUploadsDir = fileManager.temporaryDirectory.appendingPathComponent("test-uploads-\(UUID().uuidString)")
+        try fileManager.createDirectory(at: testUploadsDir, withIntermediateDirectories: true)
+
+        let sessionDir = testUploadsDir.appendingPathComponent("test-session-no-poster")
+        try fileManager.createDirectory(at: sessionDir, withIntermediateDirectories: true)
+
+        // Create only video file, no photo
+        let videoFile = sessionDir.appendingPathComponent("video_1.mov")
+        try Data().write(to: videoFile)
+
+        // Create a manifest with video but no corresponding photo
+        let manifest = SessionManifest(
+            version: 1,
+            eventId: 1,
+            sessionId: "test-session-no-poster",
+            createdAt: "2025-01-01T00:00:00Z",
+            publicGalleryURL: "https://example.com/s/test-session-no-poster",
+            assets: [
+                SessionManifestAsset(
+                    id: "video_1",
+                    kind: .video,
+                    stripIndex: 1,
+                    sequenceIndex: 0,
+                    contentType: "video/quicktime",
+                    path: "events/1/sessions/test-session-no-poster/video_1.mov",
+                    sizeBytes: 1000,
+                    durationSeconds: 10.0,
+                    posterPath: "events/1/sessions/test-session-no-poster/photo_1.jpg"
+                )
+            ]
+        )
+
+        // Write manifest
+        let manifestFile = sessionDir.appendingPathComponent("manifest.json")
+        let manifestData = try JSONEncoder().encode(manifest)
+        try manifestData.write(to: manifestFile)
+
+        // Use LocalGalleryService to scan with test directory
+        let service = LocalGalleryService(fileManager: fileManager, uploadsDirectory: testUploadsDir)
+        let sessions = await service.fetchLocalSessions(eventId: 1)
+
+        // Find our test session
+        let testSession = sessions.first { $0.sessionId == "test-session-no-poster" }
+        #expect(testSession != nil)
+
+        // Verify video asset has nil local poster URL (because photo doesn't exist)
+        let videoAsset = testSession?.assets.first { $0.kind == .video }
+        #expect(videoAsset != nil)
+        #expect(videoAsset?.localPosterURL == nil)
+        #expect(videoAsset?.posterPath != nil) // Remote poster path should still be set
+
+        // Cleanup
+        try? fileManager.removeItem(at: testUploadsDir)
+    }
+
+    @Test("LocalGalleryService populates posters for multiple strips")
+    func localGalleryServiceHandlesMultipleStrips() async throws {
+        let fileManager = FileManager.default
+        let testUploadsDir = fileManager.temporaryDirectory.appendingPathComponent("test-uploads-\(UUID().uuidString)")
+        try fileManager.createDirectory(at: testUploadsDir, withIntermediateDirectories: true)
+
+        let sessionDir = testUploadsDir.appendingPathComponent("test-session-multi")
+        try fileManager.createDirectory(at: sessionDir, withIntermediateDirectories: true)
+
+        // Create files for 3 strips
+        for i in 0..<3 {
+            let photoFile = sessionDir.appendingPathComponent("photo_\(i).jpg")
+            let videoFile = sessionDir.appendingPathComponent("video_\(i).mov")
+            try Data().write(to: photoFile)
+            try Data().write(to: videoFile)
+        }
+
+        // Create manifest with multiple strips
+        var manifestAssets: [SessionManifestAsset] = []
+        for i in 0..<3 {
+            manifestAssets.append(SessionManifestAsset(
+                id: "photo_\(i)",
+                kind: .photo,
+                stripIndex: i,
+                sequenceIndex: 1,
+                contentType: "image/jpeg",
+                path: "events/1/sessions/test-session-multi/photo_\(i).jpg",
+                sizeBytes: 100,
+                durationSeconds: nil,
+                posterPath: nil
+            ))
+            manifestAssets.append(SessionManifestAsset(
+                id: "video_\(i)",
+                kind: .video,
+                stripIndex: i,
+                sequenceIndex: 0,
+                contentType: "video/quicktime",
+                path: "events/1/sessions/test-session-multi/video_\(i).mov",
+                sizeBytes: 1000,
+                durationSeconds: 10.0,
+                posterPath: "events/1/sessions/test-session-multi/photo_\(i).jpg"
+            ))
+        }
+
+        let manifest = SessionManifest(
+            version: 1,
+            eventId: 1,
+            sessionId: "test-session-multi",
+            createdAt: "2025-01-01T00:00:00Z",
+            publicGalleryURL: "https://example.com/s/test-session-multi",
+            assets: manifestAssets
+        )
+
+        // Write manifest
+        let manifestFile = sessionDir.appendingPathComponent("manifest.json")
+        let manifestData = try JSONEncoder().encode(manifest)
+        try manifestData.write(to: manifestFile)
+
+        // Use LocalGalleryService to scan with test directory
+        let service = LocalGalleryService(fileManager: fileManager, uploadsDirectory: testUploadsDir)
+        let sessions = await service.fetchLocalSessions(eventId: 1)
+
+        // Find our test session
+        let testSession = sessions.first { $0.sessionId == "test-session-multi" }
+        #expect(testSession != nil)
+
+        // Verify all video assets have local poster URLs
+        let videoAssets = testSession?.assets.filter { $0.kind == .video } ?? []
+        #expect(videoAssets.count == 3)
+
+        for (index, videoAsset) in videoAssets.enumerated() {
+            #expect(videoAsset.localPosterURL != nil, "Video \(index) should have local poster URL")
+            #expect(videoAsset.localPosterURL?.path.hasSuffix("photo_\(videoAsset.stripIndex).jpg") == true)
+            #expect(videoAsset.isPosterLocallyAvailable == true)
+        }
+
+        // Cleanup
+        try? fileManager.removeItem(at: testUploadsDir)
+    }
+
+    @Test("LocalGalleryService reconstructAssets populates poster URLs correctly")
+    func reconstructAssetsPopulatesPosterURLs() async throws {
+        let fileManager = FileManager.default
+        let testUploadsDir = fileManager.temporaryDirectory.appendingPathComponent("test-uploads-\(UUID().uuidString)")
+        try fileManager.createDirectory(at: testUploadsDir, withIntermediateDirectories: true)
+
+        let sessionDir = testUploadsDir.appendingPathComponent("test-session-reconstruct")
+        try fileManager.createDirectory(at: sessionDir, withIntermediateDirectories: true)
+
+        // Create standard file patterns (no manifest)
+        let photoFile = sessionDir.appendingPathComponent("photo_0.jpg")
+        let videoFile = sessionDir.appendingPathComponent("video_0.mov")
+        try Data().write(to: photoFile)
+        try Data().write(to: videoFile)
+
+        // Use LocalGalleryService to scan with test directory (will use reconstructAssets since no manifest)
+        let service = LocalGalleryService(fileManager: fileManager, uploadsDirectory: testUploadsDir)
+        let sessions = await service.fetchLocalSessions(eventId: 1)
+
+        // Find our test session
+        let testSession = sessions.first { $0.sessionId == "test-session-reconstruct" }
+        #expect(testSession != nil)
+
+        // Verify video asset has local poster URL
+        let videoAsset = testSession?.assets.first { $0.kind == .video }
+        #expect(videoAsset != nil)
+        #expect(videoAsset?.localPosterURL != nil)
+        #expect(videoAsset?.isPosterLocallyAvailable == true)
+
+        // Cleanup
+        try? fileManager.removeItem(at: testUploadsDir)
     }
 }

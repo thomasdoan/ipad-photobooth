@@ -39,7 +39,9 @@ final class SettingsViewModel {
     private let healthCheck: @Sendable (URL) async throws -> Bool
     
     init() {
-        self.healthCheck = SettingsViewModel.defaultHealthCheck
+        self.healthCheck = { url in
+            try await SettingsViewModel.defaultHealthCheck(url: url)
+        }
         loadCurrentSettings()
     }
 
@@ -126,12 +128,12 @@ final class SettingsViewModel {
         isTestingConnection = false
     }
 
-    static func defaultHealthCheck(url: URL) async throws -> Bool {
+    static func defaultHealthCheck(url: URL, session: URLSession = .shared) async throws -> Bool {
         var request = URLRequest(url: url.appendingPathComponent("health"))
         request.httpMethod = "GET"
         request.timeoutInterval = 10
-        
-        let (_, response) = try await URLSession.shared.data(for: request)
+
+        let (_, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             return false
         }

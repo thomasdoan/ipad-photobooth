@@ -12,11 +12,15 @@ struct LocalGalleryService: Sendable {
     private let fileManager: FileManager
     private let uploadsDirectory: URL
     private let queueStore: UploadQueueStore
-    
-    init(fileManager: FileManager = .default) {
+
+    init(fileManager: FileManager = .default, uploadsDirectory: URL? = nil) {
         self.fileManager = fileManager
-        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        self.uploadsDirectory = documents.appendingPathComponent("Uploads", isDirectory: true)
+        if let uploadsDirectory = uploadsDirectory {
+            self.uploadsDirectory = uploadsDirectory
+        } else {
+            let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            self.uploadsDirectory = documents.appendingPathComponent("Uploads", isDirectory: true)
+        }
         self.queueStore = UploadQueueStore(fileManager: fileManager)
     }
     
