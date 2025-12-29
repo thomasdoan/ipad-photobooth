@@ -405,7 +405,20 @@ struct ThumbnailButton: View {
             }
         } else {
             // Video - load poster image if available
-            if let posterPath = asset.posterPath {
+            // Local-first: check if we have a local poster URL
+            if let localPosterURL = asset.localPosterURL, asset.isPosterLocallyAvailable {
+                AsyncImage(url: localPosterURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    default:
+                        videoPlaceholder
+                    }
+                }
+            } else if let posterPath = asset.posterPath {
+                // Fallback to remote poster
                 AsyncImage(url: WorkerAPIClient().assetURL(path: posterPath)) { phase in
                     switch phase {
                     case .success(let image):

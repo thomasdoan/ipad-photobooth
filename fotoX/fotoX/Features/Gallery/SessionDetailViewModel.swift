@@ -62,7 +62,8 @@ final class SessionDetailViewModel {
                     remotePath: manifestAsset.path,
                     localURL: nil, // Remote assets have no local URL
                     mimeType: manifestAsset.contentType,
-                    posterPath: manifestAsset.posterPath
+                    posterPath: manifestAsset.posterPath,
+                    localPosterURL: nil // Remote assets have no local poster
                 )
             }
         } catch {

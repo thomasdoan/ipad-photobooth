@@ -28,10 +28,18 @@ struct GalleryAsset: Identifiable, Equatable, Sendable {
     let mimeType: String
     /// Poster/thumbnail path for videos (points to a photo from the same strip)
     let posterPath: String?
-    
+    /// Local poster URL for videos (if the poster photo exists locally)
+    let localPosterURL: URL?
+
     /// Whether this asset can be loaded from local storage
     var isLocallyAvailable: Bool {
         guard let url = localURL else { return false }
+        return FileManager.default.fileExists(atPath: url.path)
+    }
+
+    /// Whether the poster is available locally
+    var isPosterLocallyAvailable: Bool {
+        guard let url = localPosterURL else { return false }
         return FileManager.default.fileExists(atPath: url.path)
     }
 }
