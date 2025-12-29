@@ -10,7 +10,8 @@ A production-quality iPad photobooth app built with SwiftUI. Designed to run loc
 - **Background Upload Queue** - Offline-tolerant uploads with retry
 - **QR Code Display** - Guests scan to access their gallery
 - **Email Collection** - Optional email input for photo delivery
-- **Operator Settings** - Configure Worker connection
+- **Event Gallery** - Browse all sessions for an event (local + cloud)
+- **Operator Settings** - Configure Worker connection, keep files after upload
 
 ## Requirements
 
@@ -200,8 +201,10 @@ Notes:
 | `/presign` | POST | Get presigned upload URLs |
 | `/upload` | PUT | Upload asset to R2 |
 | `/complete` | POST | Finalize session + index |
-| `/s/{session_id}` | GET | Session gallery page |
-| `/e/{event_id}` | GET | Event gallery page |
+| `/s/{session_id}` | GET | Session gallery page (HTML) |
+| `/e/{event_id}` | GET | Event gallery page (HTML) |
+| `/api/e/{event_id}` | GET | Event sessions list (JSON) |
+| `/asset` | GET | Proxy asset from R2 |
 
 ## Development
 

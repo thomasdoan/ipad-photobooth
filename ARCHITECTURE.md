@@ -37,6 +37,7 @@
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │                      SwiftUI Views                        │  │
 │  │  EventSelectionView │ IdleView │ CaptureView │ QRView     │  │
+│  │  GalleryView │ SessionDetailView │ SettingsView           │  │
 │  └───────────────────────────────────────────────────────────┘  │
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │                      ViewModels                           │  │
@@ -54,7 +55,7 @@
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │                       Services                            │  │
 │  │  LocalEventService │ LocalSessionService │ ThemeService   │  │
-│  │  UploadQueueWorker                                        │  │
+│  │  LocalGalleryService │ UploadQueueWorker                  │  │
 │  └───────────────────────────────────────────────────────────┘  │
 │  ┌───────────────────────────────────────────────────────────┐  │
 │  │                        Models                             │  │
@@ -124,10 +125,10 @@ View               ViewModel          UploadQueueWorker      WorkerAPIClient
                     └────────┬────────┘                       │
                              │ select event                   │
                              ▼                                │
-                    ┌─────────────────┐                       │
-            ┌──────►│      idle       │───────────────────────┤
-            │       └────────┬────────┘                       │
-            │                │ tap start                      │
+                    ┌─────────────────┐      ┌─────────────┐  │
+            ┌──────►│      idle       │─────►│   gallery   │  │
+            │       └────────┬────────┘◄─────│   (sheet)   │  │
+            │                │ tap start     └─────────────┘  │
             │                ▼                                │
             │       ┌─────────────────┐                       │
             │       │    capture      │                       │
@@ -197,6 +198,10 @@ fotoXApp
             ├──► QR
             │       └──► QRViewModel
             │
+            ├──► Gallery
+            │       └──► GalleryViewModel ──► LocalGalleryService
+            │                             ──► WorkerAPIClient
+            │
             └──► Settings
                     └──► SettingsViewModel
 ```
@@ -252,7 +257,8 @@ fotoX/fotoX/
 │   │   ├── Event.swift            # Event + nested Theme
 │   │   ├── Theme.swift            # Theme colors/assets
 │   │   ├── Session.swift          # Capture session
-│   │   └── AssetUploadMetadata.swift
+│   │   ├── AssetUploadMetadata.swift
+│   │   └── GalleryModels.swift    # Gallery session/asset models
 │   │
 │   ├── Networking/
 │   │   ├── WorkerAPIClient.swift  # Worker HTTP client
@@ -261,6 +267,7 @@ fotoX/fotoX/
 │   ├── Services/
 │   │   ├── LocalEventService.swift   # Bundled events
 │   │   ├── LocalSessionService.swift # Local sessions + QR
+│   │   ├── LocalGalleryService.swift # Local file discovery
 │   │   └── ThemeService.swift        # Theme asset loading
 │   │
 │   ├── Upload/
@@ -281,5 +288,6 @@ fotoX/fotoX/
     ├── Capture/                   # Video/photo capture
     ├── Upload/                    # Upload progress
     ├── QR/                        # QR + email screen
+    ├── Gallery/                   # Event gallery (local + remote)
     └── Settings/                  # Operator settings
 ```

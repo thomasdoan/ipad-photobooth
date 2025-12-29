@@ -126,7 +126,7 @@ final class SettingsViewModel {
         isTestingConnection = false
     }
 
-    private static func defaultHealthCheck(url: URL) async throws -> Bool {
+    static func defaultHealthCheck(url: URL) async throws -> Bool {
         var request = URLRequest(url: url.appendingPathComponent("health"))
         request.httpMethod = "GET"
         request.timeoutInterval = 10

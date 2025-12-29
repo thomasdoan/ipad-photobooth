@@ -138,9 +138,61 @@ Response:
 
 - Returns an HTML event gallery page using `index.json`.
 
+### GET /api/e/{event_id}
+
+Returns the event index as JSON (for app consumption).
+
+Response:
+```json
+{
+  "version": 1,
+  "event_id": 42,
+  "updated_at": "2025-02-01T18:22:40Z",
+  "sessions": [
+    {
+      "session_id": "8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B",
+      "created_at": "2025-02-01T18:20:15Z",
+      "thumb_path": "events/42/sessions/.../photo_0.jpg",
+      "gallery_path": "s/8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B"
+    }
+  ]
+}
+```
+
+Notes:
+- No authentication required (public endpoint)
+- Returns empty `sessions` array if no sessions exist yet
+
 ### GET /health
 
 - Returns `{ "status": "ok" }` for connectivity checks.
+
+### GET /asset
+
+Proxies assets from R2 with caching and range request support.
+
+Query parameters:
+- `path`: R2 object key (e.g., `events/42/sessions/.../photo_0.jpg`)
+
+Response:
+- Returns the asset with appropriate `Content-Type`
+- Supports `Range` header for video streaming (returns 206 Partial Content)
+- Adds `Accept-Ranges: bytes` and `Cache-Control: public, max-age=3600`
+
+Example:
+```
+GET /asset?path=events/42/sessions/ABC123/video_0.mov
+Range: bytes=0-1000000
+
+HTTP/1.1 206 Partial Content
+Content-Type: video/quicktime
+Content-Range: bytes 0-1000000/5000000
+Accept-Ranges: bytes
+```
+
+Notes:
+- No authentication required (public endpoint)
+- If `R2_PUBLIC_BASE_URL` is set, consider using direct R2 URLs instead
 
 ## Public Base URL
 

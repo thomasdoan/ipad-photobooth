@@ -22,13 +22,18 @@ export default {
       return handleSessionGallery(env, baseURL, sessionId)
     }
 
+    if (request.method === "GET" && url.pathname.startsWith("/api/e/")) {
+      const eventId = url.pathname.replace("/api/e/", "")
+      return handleEventGalleryJSON(env, eventId)
+    }
+
     if (request.method === "GET" && url.pathname.startsWith("/e/")) {
       const eventId = url.pathname.replace("/e/", "")
       return handleEventGallery(env, baseURL, eventId)
     }
 
     if (request.method === "GET" && url.pathname === "/asset") {
-      return handleAsset(env, url)
+      return handleAsset(env, url, request)
     }
 
     if (request.method === "GET" && url.pathname === "/health") {
@@ -168,6 +173,22 @@ async function handleSessionGallery(env, baseURL, sessionId) {
   return html("Gallery", `<h1>Session Gallery</h1><div class="grid">${tiles}</div>`)
 }
 
+async function handleEventGalleryJSON(env, eventId) {
+  const indexPath = `events/${eventId}/index.json`
+  const indexObject = await env.R2_BUCKET.get(indexPath)
+  if (!indexObject) {
+    return json({
+      version: 1,
+      event_id: Number(eventId),
+      updated_at: null,
+      sessions: [],
+    })
+  }
+
+  const index = await indexObject.json()
+  return json(index)
+}
+
 async function handleEventGallery(env, baseURL, eventId) {
   const indexPath = `events/${eventId}/index.json`
   const indexObject = await env.R2_BUCKET.get(indexPath)
@@ -188,17 +209,70 @@ async function handleEventGallery(env, baseURL, eventId) {
   return html("Event Gallery", `<h1>Event Gallery</h1><div class="grid">${tiles}</div>`)
 }
 
-async function handleAsset(env, url) {
+async function handleAsset(env, url, request) {
   const path = url.searchParams.get("path")
   if (!path) {
     return new Response("Missing path", { status: 400 })
   }
+
+  const rangeHeader = request.headers.get("Range")
+
+  // Handle Range requests for video streaming
+  if (rangeHeader) {
+    // First get object metadata to know the size
+    const headObject = await env.R2_BUCKET.head(path)
+    if (!headObject) {
+      return new Response("Not found", { status: 404 })
+    }
+
+    const fileSize = headObject.size
+    const contentType = headObject.httpMetadata?.contentType || "application/octet-stream"
+
+    // Parse Range header: "bytes=start-end" or "bytes=start-"
+    const rangeMatch = rangeHeader.match(/bytes=(\d+)-(\d*)/)
+    if (!rangeMatch) {
+      return new Response("Invalid Range header", { status: 416 })
+    }
+
+    const start = parseInt(rangeMatch[1], 10)
+    const end = rangeMatch[2] ? parseInt(rangeMatch[2], 10) : fileSize - 1
+
+    // Validate range
+    if (start >= fileSize || end >= fileSize || start > end) {
+      const headers = new Headers()
+      headers.set("Content-Range", `bytes */${fileSize}`)
+      return new Response("Range Not Satisfiable", { status: 416, headers })
+    }
+
+    // Fetch the requested range from R2
+    const object = await env.R2_BUCKET.get(path, {
+      range: { offset: start, length: end - start + 1 },
+    })
+
+    if (!object) {
+      return new Response("Not found", { status: 404 })
+    }
+
+    const headers = new Headers()
+    headers.set("Content-Type", contentType)
+    headers.set("Content-Length", String(end - start + 1))
+    headers.set("Content-Range", `bytes ${start}-${end}/${fileSize}`)
+    headers.set("Accept-Ranges", "bytes")
+    headers.set("Cache-Control", "public, max-age=3600")
+
+    return new Response(object.body, { status: 206, headers })
+  }
+
+  // Full file request (no Range header)
   const object = await env.R2_BUCKET.get(path)
   if (!object) {
     return new Response("Not found", { status: 404 })
   }
+
   const headers = new Headers()
   headers.set("Content-Type", object.httpMetadata?.contentType || "application/octet-stream")
+  headers.set("Content-Length", String(object.size))
+  headers.set("Accept-Ranges", "bytes")
   headers.set("Cache-Control", "public, max-age=3600")
   return new Response(object.body, { headers })
 }

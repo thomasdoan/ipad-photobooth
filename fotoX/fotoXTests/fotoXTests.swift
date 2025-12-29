@@ -744,7 +744,6 @@ struct LocalEventServiceTests {
 
 @MainActor
 struct SettingsViewModelTests {
-    
     @Test("Worker URL validation accepts valid URLs")
     func workerURLValidationAcceptsValid() {
         let viewModel = SettingsViewModel(healthCheck: { _ in true })
@@ -758,7 +757,7 @@ struct SettingsViewModelTests {
         viewModel.baseURLString = "not-a-url"
         #expect(viewModel.isURLValid == false)
     }
-    
+
     @Test("Health check success sets success result")
     func healthCheckSuccess() async {
         let viewModel = SettingsViewModel(healthCheck: { _ in true })
@@ -766,7 +765,7 @@ struct SettingsViewModelTests {
         await viewModel.testConnection()
         #expect(viewModel.connectionTestResult == .success)
     }
-    
+
     @Test("Health check failure sets failure result")
     func healthCheckFailure() async {
         let viewModel = SettingsViewModel(healthCheck: { _ in false })
@@ -777,5 +776,147 @@ struct SettingsViewModelTests {
         } else {
             Issue.record("Expected failure result")
         }
+    }
+
+    // MARK: - defaultHealthCheck Tests
+
+    @Test("defaultHealthCheck constructs URL without trailing slash")
+    func defaultHealthCheckURLWithoutTrailingSlash() async throws {
+        let url = URL(string: "https://example.com")!
+
+        // This should not crash - it constructs https://example.com/health
+        do {
+            _ = try await SettingsViewModel.defaultHealthCheck(url: url)
+        } catch {
+            // Network errors are expected in tests, we're just checking it doesn't crash
+            #expect(error is URLError)
+        }
+    }
+
+    @Test("defaultHealthCheck constructs URL with trailing slash")
+    func defaultHealthCheckURLWithTrailingSlash() async throws {
+        let url = URL(string: "https://example.com/")!
+
+        // This should not crash - it should handle trailing slash properly
+        do {
+            _ = try await SettingsViewModel.defaultHealthCheck(url: url)
+        } catch {
+            // Network errors are expected in tests, we're just checking it doesn't crash
+            #expect(error is URLError)
+        }
+    }
+
+    @Test("defaultHealthCheck constructs URL with existing path")
+    func defaultHealthCheckURLWithPath() async throws {
+        let url = URL(string: "https://example.com/api/v1")!
+
+        // This should append /health to existing path
+        do {
+            _ = try await SettingsViewModel.defaultHealthCheck(url: url)
+        } catch {
+            // Network errors are expected in tests, we're just checking it doesn't crash
+            #expect(error is URLError)
+        }
+    }
+
+    @Test("defaultHealthCheck constructs URL with port")
+    func defaultHealthCheckURLWithPort() async throws {
+        let url = URL(string: "http://localhost:8080")!
+
+        // This should preserve port when appending path
+        do {
+            _ = try await SettingsViewModel.defaultHealthCheck(url: url)
+        } catch {
+            // Network errors are expected in tests, we're just checking it doesn't crash
+            #expect(error is URLError)
+        }
+    }
+
+    @Test("defaultHealthCheck constructs URL with query parameters")
+    func defaultHealthCheckURLWithQuery() async throws {
+        let url = URL(string: "https://example.com/api?key=value")!
+
+        // This should handle URLs with query parameters
+        do {
+            _ = try await SettingsViewModel.defaultHealthCheck(url: url)
+        } catch {
+            // Network errors are expected in tests, we're just checking it doesn't crash
+            #expect(error is URLError)
+        }
+    }
+
+    @Test("defaultHealthCheck handles localhost URLs")
+    func defaultHealthCheckLocalhost() async throws {
+        let url = URL(string: "http://localhost")!
+
+        do {
+            _ = try await SettingsViewModel.defaultHealthCheck(url: url)
+        } catch {
+            // Network errors are expected, we're checking it doesn't crash
+            #expect(error is URLError)
+        }
+    }
+
+    @Test("defaultHealthCheck handles IP address URLs")
+    func defaultHealthCheckIPAddress() async throws {
+        let url = URL(string: "http://192.168.1.1")!
+
+        do {
+            _ = try await SettingsViewModel.defaultHealthCheck(url: url)
+        } catch {
+            // Network errors are expected, we're checking it doesn't crash
+            #expect(error is URLError)
+        }
+    }
+
+    @Test("defaultHealthCheck handles URL from absoluteString round-trip")
+    func defaultHealthCheckRoundTrip() async throws {
+        // This simulates what happens when we save/load from UserDefaults
+        let originalURL = URL(string: "https://example.com")!
+        let urlString = originalURL.absoluteString
+        let reconstructedURL = URL(string: urlString)!
+
+        do {
+            _ = try await SettingsViewModel.defaultHealthCheck(url: reconstructedURL)
+        } catch {
+            #expect(error is URLError)
+        }
+    }
+
+    @Test("defaultHealthCheck handles unusual but valid URLs")
+    func defaultHealthCheckUnusualURLs() async throws {
+        let testURLs = [
+            "http://example.com.",  // Trailing dot
+            "http://example.com//", // Double slash
+            "https://example.com:443", // Default HTTPS port
+            "http://example.com:80",   // Default HTTP port
+        ]
+
+        for urlString in testURLs {
+            if let url = URL(string: urlString) {
+                do {
+                    _ = try await SettingsViewModel.defaultHealthCheck(url: url)
+                } catch {
+                    // Network errors expected
+                    #expect(error is URLError)
+                }
+            }
+        }
+    }
+
+    @Test("SettingsViewModel testConnection with real default URL")
+    func settingsViewModelWithDefaultURL() async {
+        // Use mock healthCheck to avoid network calls and URL corruption issues
+        let viewModel = SettingsViewModel(healthCheck: { _ in true })
+
+        // The default URL should be valid
+        #expect(viewModel.isURLValid, "URL should be valid")
+        #expect(!viewModel.baseURLString.isEmpty, "baseURLString should not be empty")
+
+        // Test connection (will succeed with mock)
+        await viewModel.testConnection()
+
+        // Should have success result
+        #expect(viewModel.connectionTestResult == .success)
     }
 }

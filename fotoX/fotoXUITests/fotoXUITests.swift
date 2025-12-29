@@ -251,25 +251,26 @@ final class ErrorHandlingTests: FotoXUITestCase {
         // Open settings
         tapWhenReady(app.buttons["Settings"])
         XCTAssertTrue(waitForElement(app.navigationBars["Settings"]))
-        
+
         // Clear URL and enter invalid one
         let urlField = app.textFields.firstMatch
         XCTAssertTrue(urlField.exists)
         urlField.tap()
-        
-        // Select all and delete (works on iOS)
-        if let value = urlField.value as? String, !value.isEmpty {
-            urlField.doubleTap()
-            app.keys["delete"].tap()
+
+        // Clear the field by selecting all text and deleting
+        if let stringValue = urlField.value as? String, !stringValue.isEmpty {
+            // Delete each character one by one (most reliable method)
+            let deleteString = String(repeating: XCUIKeyboardKey.delete.rawValue, count: stringValue.count)
+            urlField.typeText(deleteString)
         }
-        
+
         // Type invalid URL
         urlField.typeText("not-valid")
-        
+
         // Try to test connection
         let testButton = app.buttons["Test Connection"]
         testButton.tap()
-        
+
         // THEN: Should show error
         sleep(1) // Wait for validation
         // Look for error message or invalid state
