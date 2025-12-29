@@ -111,6 +111,12 @@ xcodebuild archive \
 
 ## Testing
 
+Limit parallel testing workers if needed
+
+```
+-parallel-testing-worker-count 2
+```
+
 ### Run All Tests
 
 ```bash
@@ -319,23 +325,8 @@ rm -rf ~/Library/Developer/Xcode/DerivedData
               └──────────┘          └──────────┘
 ```
 
-## Contributing
+## Gotchas
 
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing`)
-3. Write tests for new functionality
-4. Ensure all tests pass (`Cmd+U`)
-5. Submit pull request
-
-## License
-
-[Add your license here]
-
-## Support
-
-For issues and questions:
-- Check [Troubleshooting](#troubleshooting) section
-- Open a GitHub issue
-- Contact the development team
+- **Public Gallery Endpoints** - Not all endpoints have authentication. Galleries are intentionally public for guest access. If adding sensitive information (emails, etc.) to the database, ensure it's stored securely and not exposed through public endpoints. 
 
 # apple-pi
