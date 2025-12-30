@@ -33,7 +33,7 @@ final class GalleryViewModel {
     
     // MARK: - Initialization
     
-    init(eventId: Int, localGalleryService: LocalGalleryService = LocalGalleryService(), apiClient: WorkerAPIClient = WorkerAPIClient()) {
+    init(eventId: Int, localGalleryService: LocalGalleryService = LocalGalleryService(), apiClient: WorkerAPIClient = .shared) {
         self.eventId = eventId
         self.localGalleryService = localGalleryService
         self.apiClient = apiClient

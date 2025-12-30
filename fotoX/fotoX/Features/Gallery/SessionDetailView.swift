@@ -244,7 +244,7 @@ struct PhotoAssetView: View {
             }
         } else {
             // Load from remote
-            AsyncImage(url: WorkerAPIClient().assetURL(path: asset.remotePath)) { phase in
+            AsyncImage(url: WorkerAPIClient.shared.assetURL(path: asset.remotePath)) { phase in
                 switch phase {
                 case .success(let image):
                     image
@@ -296,7 +296,7 @@ struct VideoAssetView: View {
         if let localURL = asset.localURL, asset.isLocallyAvailable {
             return localURL
         } else {
-            return WorkerAPIClient().assetURL(path: asset.remotePath)
+            return WorkerAPIClient.shared.assetURL(path: asset.remotePath)
         }
     }
     
@@ -392,7 +392,7 @@ struct ThumbnailButton: View {
                     }
                 }
             } else {
-                AsyncImage(url: WorkerAPIClient().assetURL(path: asset.remotePath)) { phase in
+                AsyncImage(url: WorkerAPIClient.shared.assetURL(path: asset.remotePath)) { phase in
                     switch phase {
                     case .success(let image):
                         image
@@ -419,7 +419,7 @@ struct ThumbnailButton: View {
                 }
             } else if let posterPath = asset.posterPath {
                 // Fallback to remote poster
-                AsyncImage(url: WorkerAPIClient().assetURL(path: posterPath)) { phase in
+                AsyncImage(url: WorkerAPIClient.shared.assetURL(path: posterPath)) { phase in
                     switch phase {
                     case .success(let image):
                         image

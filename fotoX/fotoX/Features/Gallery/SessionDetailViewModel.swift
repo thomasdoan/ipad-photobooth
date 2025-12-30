@@ -31,7 +31,7 @@ final class SessionDetailViewModel {
     
     // MARK: - Initialization
     
-    init(session: GallerySession, apiClient: WorkerAPIClient = WorkerAPIClient()) {
+    init(session: GallerySession, apiClient: WorkerAPIClient = .shared) {
         self.session = session
         self.apiClient = apiClient
         // Start with any assets the session already has (from local)

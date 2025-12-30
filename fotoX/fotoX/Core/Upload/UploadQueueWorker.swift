@@ -16,7 +16,7 @@ actor UploadQueueWorker {
 
     init(
         store: UploadQueueStore = UploadQueueStore(),
-        apiClient: WorkerAPIClient = WorkerAPIClient(),
+        apiClient: WorkerAPIClient = .shared,
         fileManager: FileManager = .default
     ) {
         self.store = store

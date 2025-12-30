@@ -8,6 +8,8 @@
 import Foundation
 
 struct WorkerAPIClient: Sendable {
+    static let shared = WorkerAPIClient()
+
     private let session: URLSession
 
     init(session: URLSession = .shared) {

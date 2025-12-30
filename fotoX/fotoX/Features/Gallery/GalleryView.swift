@@ -242,7 +242,7 @@ struct SessionCard: View {
             }
         } else if let thumbPath = session.thumbPath {
             // Load from remote
-            AsyncImage(url: WorkerAPIClient().assetURL(path: thumbPath)) { phase in
+            AsyncImage(url: WorkerAPIClient.shared.assetURL(path: thumbPath)) { phase in
                 switch phase {
                 case .success(let image):
                     image
