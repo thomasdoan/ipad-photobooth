@@ -194,7 +194,7 @@ struct SessionCard: View {
                 // Info
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        sourceIndicator
+                        SessionSourceIndicator(source: session.source, style: .labeled)
                         Spacer()
                         Text(formattedDate)
                             .font(.caption)
@@ -269,41 +269,6 @@ struct SessionCard: View {
             Image(systemName: "photo")
                 .font(.system(size: 32))
                 .foregroundStyle(.white.opacity(0.3))
-        }
-    }
-    
-    private var sourceIndicator: some View {
-        HStack(spacing: 4) {
-            switch session.source {
-            case .local:
-                Image(systemName: "ipad")
-                    .font(.caption2)
-                Text("Local")
-                    .font(.caption2)
-            case .remote:
-                Image(systemName: "cloud")
-                    .font(.caption2)
-                Text("Uploaded")
-                    .font(.caption2)
-            case .both:
-                Image(systemName: "checkmark.icloud")
-                    .font(.caption2)
-                Text("Synced")
-                    .font(.caption2)
-            }
-        }
-        .foregroundStyle(sourceColor)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 4)
-        .background(sourceColor.opacity(0.2))
-        .clipShape(Capsule())
-    }
-    
-    private var sourceColor: Color {
-        switch session.source {
-        case .local: return .orange
-        case .remote: return .blue
-        case .both: return .green
         }
     }
     

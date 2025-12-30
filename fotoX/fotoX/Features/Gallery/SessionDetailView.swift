@@ -75,7 +75,7 @@ struct SessionDetailView: View {
                 }
                 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    sourceIndicator
+                    SessionSourceIndicator(source: viewModel.session.source, style: .compact)
                 }
             }
         }
@@ -164,36 +164,7 @@ struct SessionDetailView: View {
     }
     
     // MARK: - Helpers
-    
-    private var sourceIndicator: some View {
-        HStack(spacing: 4) {
-            switch viewModel.session.source {
-            case .local:
-                Image(systemName: "ipad")
-                    .font(.caption)
-            case .remote:
-                Image(systemName: "cloud")
-                    .font(.caption)
-            case .both:
-                Image(systemName: "checkmark.icloud")
-                    .font(.caption)
-            }
-        }
-        .foregroundStyle(sourceColor)
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(sourceColor.opacity(0.2))
-        .clipShape(Capsule())
-    }
-    
-    private var sourceColor: Color {
-        switch viewModel.session.source {
-        case .local: return .orange
-        case .remote: return .blue
-        case .both: return .green
-        }
-    }
-    
+
     private var formattedDate: String {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
