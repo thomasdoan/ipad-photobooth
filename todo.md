@@ -1,5 +1,8 @@
 # TODO
 
+## Feature
+- [ ] Email support
+
 ## Performance Optimization
 - [ ] Fix expensive DateFormatter creation in gallery view
   - SessionCard creates 2 DateFormatters per cell render (24+ creations for 12 visible cells)
