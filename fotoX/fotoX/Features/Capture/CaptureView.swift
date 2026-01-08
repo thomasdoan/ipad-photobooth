@@ -52,14 +52,19 @@ struct CaptureView: View {
         ZStack {
             // Dark background
             Color.black.ignoresSafeArea()
-            
-            // Camera preview
-            CameraPreview(
-                cameraController: viewModel.cameraController,
-                isReady: viewModel.isCameraReady
-            )
-            .ignoresSafeArea()
-            
+
+            // Camera preview (uses SimulatorPreviewView when in simulator)
+            if viewModel.cameraController.isSimulator {
+                SimulatorPreviewView()
+                    .ignoresSafeArea()
+            } else {
+                CameraPreview(
+                    cameraController: viewModel.cameraController,
+                    isReady: viewModel.isCameraReady
+                )
+                .ignoresSafeArea()
+            }
+
             // Frame overlay if available
             if let frame = themeAssets?.photoFrame {
                 frame

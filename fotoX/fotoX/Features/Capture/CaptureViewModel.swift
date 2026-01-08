@@ -35,27 +35,33 @@ final class CaptureViewModel: @unchecked Sendable {
     let config: CaptureConfiguration
     
     // MARK: - Camera
-    
-    /// Camera controller
-    let cameraController: CameraController
-    
+
+    /// Camera controller (protocol-based for testability and simulator support)
+    let cameraController: any CameraControlling
+
     /// Current recording URL
     private var currentVideoURL: URL?
-    
+
     /// Current photo data
     private var currentPhotoData: Data?
-    
+
     // MARK: - Timers
-    
+
     private var countdownTimer: Timer?
     private var recordingTimer: Timer?
     private var recordingStartTime: Date?
-    
+
     // MARK: - Initialization
-    
-    init(config: CaptureConfiguration = .default) {
+
+    /// Creates a CaptureViewModel with the default camera controller for the environment
+    convenience init(config: CaptureConfiguration = .default) {
+        self.init(config: config, cameraController: CameraControllerFactory.makeController())
+    }
+
+    /// Creates a CaptureViewModel with a specific camera controller (for testing)
+    init(config: CaptureConfiguration = .default, cameraController: any CameraControlling) {
         self.config = config
-        self.cameraController = CameraController()
+        self.cameraController = cameraController
         self.cameraController.delegate = self
     }
     
@@ -260,24 +266,24 @@ final class CaptureViewModel: @unchecked Sendable {
 // MARK: - CameraControllerDelegate
 
 extension CaptureViewModel: CameraControllerDelegate {
-    func cameraController(_ controller: CameraController, didStartRecording url: URL) {
+    func cameraController(_ controller: any CameraControlling, didStartRecording url: URL) {
         currentVideoURL = url
     }
-    
-    func cameraController(_ controller: CameraController, didFinishRecording url: URL) {
+
+    func cameraController(_ controller: any CameraControlling, didFinishRecording url: URL) {
         currentVideoURL = url
-        
+
         // Trigger photo capture
         Task { @MainActor in
             await capturePhoto()
         }
     }
-    
-    func cameraController(_ controller: CameraController, didCapturePhoto data: Data) {
+
+    func cameraController(_ controller: any CameraControlling, didCapturePhoto data: Data) {
         // Photo captured, handled in capturePhoto()
     }
-    
-    func cameraController(_ controller: CameraController, didFailWithError error: CameraError) {
+
+    func cameraController(_ controller: any CameraControlling, didFailWithError error: CameraError) {
         Task { @MainActor in
             errorMessage = error.localizedDescription
             stripState = .error(error.localizedDescription)
