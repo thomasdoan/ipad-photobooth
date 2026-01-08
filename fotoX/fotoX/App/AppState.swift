@@ -63,6 +63,9 @@ final class AppState {
     /// Whether to show the settings sheet
     var showSettings: Bool = false
     
+    /// Whether to show the gallery sheet
+    var showGallery: Bool = false
+    
     // MARK: - Configuration
     
     /// Base URL for Worker (persisted)

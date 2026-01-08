@@ -64,6 +64,12 @@ struct RootView: View {
             case .settings:
                 SettingsView()
                     .transition(.opacity)
+                
+            case .gallery:
+                if let eventId = appState.selectedEvent?.id {
+                    GalleryView(eventId: eventId)
+                        .transition(.opacity)
+                }
             }
         }
         .animation(.easeInOut(duration: 0.3), value: appState.currentRoute)
@@ -86,6 +92,15 @@ struct RootView: View {
             set: { appState.showSettings = $0 }
         )) {
             SettingsView()
+        }
+        .sheet(isPresented: Binding(
+            get: { appState.showGallery },
+            set: { appState.showGallery = $0 }
+        )) {
+            if let eventId = appState.selectedEvent?.id {
+                GalleryView(eventId: eventId)
+                    .environment(appState)
+            }
         }
         .alert(
             "Error",

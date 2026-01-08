@@ -67,13 +67,17 @@ enum AppRoute {
     case eventSelection
     case idle
     case capture(CapturePhase)
-    case uploading
     case qrDisplay
     case settings
+    case gallery
 }
 
 // Navigate by changing state
 appState.currentRoute = .idle
+
+// Sheet-based navigation
+appState.showSettings = true
+appState.showGallery = true
 ```
 
 ## API Endpoints (Worker)
@@ -84,8 +88,10 @@ appState.currentRoute = .idle
 | `/presign` | POST | Get presigned upload URLs |
 | `/upload` | PUT | Upload asset to R2 |
 | `/complete` | POST | Finalize session + index |
-| `/s/{session_id}` | GET | Session gallery page |
-| `/e/{event_id}` | GET | Event gallery page |
+| `/s/{session_id}` | GET | Session gallery page (HTML) |
+| `/e/{event_id}` | GET | Event gallery page (HTML) |
+| `/api/e/{event_id}` | GET | Event sessions list (JSON) |
+| `/asset` | GET | Proxy asset from R2 |
 
 Base URL: `https://<worker>.workers.dev` (configurable)
 

@@ -1,0 +1,19 @@
+{
+  "name": "fotox-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Cloudflare Worker for FotoX photo booth application",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.5.0",
+    "vitest": "^2.1.0",
+    "wrangler": "^3.94.0"
+  }
+}

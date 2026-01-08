@@ -29,10 +29,12 @@ wrangler secret put PRESIGN_TOKEN
 - `POST /presign`
 - `PUT /upload`
 - `POST /complete`
-- `GET /s/:sessionId`
-- `GET /e/:eventId`
-- `GET /asset?path=...`
+- `GET /s/:sessionId` - Session gallery page (HTML)
+- `GET /e/:eventId` - Event gallery page (HTML)
+- `GET /api/e/:eventId` - Event sessions list (JSON, for app)
+- `GET /asset?path=...` - Proxy asset from R2
 - `GET /health`
 
 Authentication:
 - `/presign` and `/complete` require header `X-FotoX-Key: <PRESIGN_TOKEN>`
+- All other routes are public

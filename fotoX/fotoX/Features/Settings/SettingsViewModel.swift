@@ -22,6 +22,9 @@ final class SettingsViewModel {
     /// Video duration in seconds for capture
     var videoDuration: Double = 10
 
+    /// Whether to keep files on device after upload
+    var keepFilesAfterUpload: Bool = false
+
     /// Whether testing connection
     var isTestingConnection: Bool = false
     
@@ -36,7 +39,9 @@ final class SettingsViewModel {
     private let healthCheck: @Sendable (URL) async throws -> Bool
     
     init() {
-        self.healthCheck = SettingsViewModel.defaultHealthCheck
+        self.healthCheck = { url in
+            try await SettingsViewModel.defaultHealthCheck(url: url)
+        }
         loadCurrentSettings()
     }
 
@@ -52,6 +57,7 @@ final class SettingsViewModel {
         baseURLString = WorkerConfiguration.currentBaseURL().absoluteString
         presignToken = WorkerConfiguration.currentPresignToken() ?? ""
         videoDuration = WorkerConfiguration.currentVideoDuration()
+        keepFilesAfterUpload = WorkerConfiguration.keepFilesAfterUpload()
     }
     
     /// Validates the URL
@@ -77,6 +83,7 @@ final class SettingsViewModel {
         }
         WorkerConfiguration.savePresignToken(presignToken)
         WorkerConfiguration.saveVideoDuration(videoDuration)
+        WorkerConfiguration.saveKeepFilesAfterUpload(keepFilesAfterUpload)
         return true
     }
 
@@ -89,6 +96,7 @@ final class SettingsViewModel {
     func resetToDefault() {
         baseURLString = WorkerConfiguration.defaultBaseURL.absoluteString
         videoDuration = WorkerConfiguration.defaultVideoDuration
+        keepFilesAfterUpload = false
         _ = saveSettings()
         connectionTestResult = nil
     }
@@ -120,12 +128,12 @@ final class SettingsViewModel {
         isTestingConnection = false
     }
 
-    private static func defaultHealthCheck(url: URL) async throws -> Bool {
+    static func defaultHealthCheck(url: URL, session: URLSession = .shared) async throws -> Bool {
         var request = URLRequest(url: url.appendingPathComponent("health"))
         request.httpMethod = "GET"
         request.timeoutInterval = 10
-        
-        let (_, response) = try await URLSession.shared.data(for: request)
+
+        let (_, response) = try await session.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse else {
             return false
         }
