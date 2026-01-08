@@ -64,6 +64,4 @@ fastlane/test_output
 
 .env
 
-CLAUDE.md
-
 node_modules/
