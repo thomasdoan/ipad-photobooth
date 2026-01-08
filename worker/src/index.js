@@ -1,3 +1,6 @@
+import { GALLERY_CSS, CSS_HASH } from './gallery.css.js'
+import { GALLERY_JS, JS_HASH } from './gallery.js.js'
+
 const encoder = new TextEncoder()
 
 export default {
@@ -19,6 +22,10 @@ export default {
 
     if (request.method === "GET" && url.pathname.startsWith("/s/")) {
       const sessionId = url.pathname.replace("/s/", "")
+      const validationError = validateSessionId(sessionId)
+      if (validationError) {
+        return validationError
+      }
       return handleSessionGallery(env, baseURL, sessionId)
     }
 
@@ -48,6 +55,25 @@ export default {
       return json({ status: "ok" })
     }
 
+    // Static assets with aggressive caching
+    if (request.method === "GET" && url.pathname === `/static/gallery.${CSS_HASH}.css`) {
+      return new Response(GALLERY_CSS, {
+        headers: {
+          "Content-Type": "text/css; charset=utf-8",
+          "Cache-Control": "public, max-age=31536000, immutable"
+        }
+      })
+    }
+
+    if (request.method === "GET" && url.pathname === `/static/gallery.${JS_HASH}.js`) {
+      return new Response(GALLERY_JS, {
+        headers: {
+          "Content-Type": "application/javascript; charset=utf-8",
+          "Cache-Control": "public, max-age=31536000, immutable"
+        }
+      })
+    }
+
     return new Response("Not found", { status: 404 })
   },
 }
@@ -58,7 +84,17 @@ async function handlePresign(request, env, baseURL) {
     return authError
   }
 
-  const body = await request.json()
+  let body
+  try {
+    body = await request.json()
+  } catch (err) {
+    return json({ error: "Invalid JSON payload" }, 400)
+  }
+
+  if (!body.files || !Array.isArray(body.files)) {
+    return json({ error: "Invalid request format: files array required" }, 400)
+  }
+
   const secret = env.UPLOAD_SECRET
   if (!secret) {
     return json({ error: "UPLOAD_SECRET not configured" }, 500)
@@ -91,6 +127,15 @@ async function handleUpload(request, env, url) {
     return new Response("Missing parameters", { status: 400 })
   }
 
+  // Validate content-length (100MB limit for photos/videos)
+  const contentLength = request.headers.get("content-length")
+  if (contentLength) {
+    const sizeMB = parseInt(contentLength) / (1024 * 1024)
+    if (sizeMB > 100) {
+      return new Response("File too large (max 100MB)", { status: 413 })
+    }
+  }
+
   if (Date.now() / 1000 > expires) {
     return new Response("URL expired", { status: 403 })
   }
@@ -114,11 +159,17 @@ async function handleComplete(request, env) {
     return authError
   }
 
-  const body = await request.json()
+  let body
+  try {
+    body = await request.json()
+  } catch (err) {
+    return json({ error: "Invalid JSON payload" }, 400)
+  }
+
   const { event_id: eventId, session_id: sessionId, manifest_path: manifestPath } = body
 
   if (!eventId || !sessionId || !manifestPath) {
-    return json({ error: "Missing fields" }, 400)
+    return json({ error: "Missing fields: event_id, session_id, manifest_path required" }, 400)
   }
 
   const manifestObject = await env.R2_BUCKET.get(manifestPath)
@@ -127,6 +178,10 @@ async function handleComplete(request, env) {
   }
 
   const manifest = await manifestObject.json()
+
+  // Inject event_id into manifest so session gallery knows its parent
+  manifest.event_id = eventId
+
   const sessionIndexPath = `sessions/${sessionId}/manifest.json`
   await env.R2_BUCKET.put(sessionIndexPath, JSON.stringify(manifest), {
     httpMetadata: { contentType: "application/json" },
@@ -139,7 +194,7 @@ async function handleComplete(request, env) {
     index = await existing.json()
   }
 
-  const thumb = manifest.assets.find((asset) => asset.kind === "photo")?.path || manifest.assets[0]?.path
+  const thumb = manifest.assets.find((asset) => asset.kind === "strip")?.path || manifest.assets.find((asset) => asset.kind === "photo")?.path || manifest.assets[0]?.path
   const newEntry = {
     session_id: sessionId,
     created_at: manifest.created_at || new Date().toISOString(),
@@ -162,23 +217,89 @@ async function handleSessionGallery(env, baseURL, sessionId) {
   const manifestPath = `sessions/${sessionId}/manifest.json`
   const manifestObject = await env.R2_BUCKET.get(manifestPath)
   if (!manifestObject) {
-    return html("Processing", `<h1>Photos are processing</h1><p>Please check back soon.</p>`)
+    return html("Processing", `
+      <div class="empty-state">
+        <div class="spinner"></div>
+        <h1>Photos are processing</h1>
+        <p>Your photos are being prepared. Please check back in a moment.</p>
+        <button class="btn primary refresh-btn">Refresh Page</button>
+      </div>
+    `, env)
   }
 
   const manifest = await manifestObject.json()
   const assets = manifest.assets || []
+
+  // Sort assets if needed, or just map them
   const tiles = assets
-    .map((asset) => {
+    .map((asset, index) => {
       const url = assetURL(env, baseURL, asset.path)
+      const escapedUrl = escapeHtml(url)
+
+      let mediaContent = ''
+      let type = 'image'
+
+      let typeBadge = ''
       if (asset.kind === "video") {
+        type = 'video'
         const poster = asset.poster_path ? assetURL(env, baseURL, asset.poster_path) : ""
-        return `<video controls preload="metadata" poster="${poster}"><source src="${url}" type="${asset.content_type}"></video>`
+        const escapedPoster = escapeHtml(poster)
+        mediaContent = `<video src="${escapedUrl}" poster="${escapedPoster}" preload="metadata" playsinline muted loop></video>`
+        typeBadge = `<div class="type-badge"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></div>`
+      } else {
+        mediaContent = `<img src="${escapedUrl}" alt="Photo" loading="lazy" />`
       }
-      return `<img src="${url}" alt="Photo" loading="lazy" />`
+
+      return `
+        <div class="media-item" data-index="${index}" data-type="${escapeHtml(type)}" data-src="${escapedUrl}" tabindex="0" role="button" aria-label="View ${type} ${index + 1}">
+          ${mediaContent}
+          ${typeBadge}
+          <div class="overlay">
+            <div class="actions">
+              <button class="action-btn view-btn" data-index="${index}" aria-label="View fullscreen">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+              </button>
+              <a href="${escapedUrl}" download class="action-btn download-btn" target="_blank" aria-label="Download">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+              </a>
+              <button class="action-btn share-btn" data-url="${escapedUrl}" aria-label="Share">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      `
     })
     .join("")
 
-  return html("Gallery", `<h1>Session Gallery</h1><div class="grid">${tiles}</div>`)
+  // Inject the assets array for the lightbox script to use (with proper escaping)
+  const galleryAssets = assets.map(a => ({
+    type: a.kind || 'image',
+    src: assetURL(env, baseURL, a.path),
+    poster: a.poster_path ? assetURL(env, baseURL, a.poster_path) : null
+  }))
+  const scriptData = `<script>window.GALLERY_ASSETS = ${escapeJsonForScript(galleryAssets)};</script>`
+
+  // Escape header content
+  const eventId = manifest.event_id ? escapeHtml(String(manifest.event_id)) : ''
+  const itemCount = escapeHtml(String(assets.length))
+  const createdDate = escapeHtml(new Date(manifest.created_at || Date.now()).toLocaleDateString())
+
+  return html("Session Gallery", `
+    <header class="gallery-header">
+      <a href="/e/${eventId}" class="logo">FotoX</a>
+      <div class="meta">
+        <span>${itemCount} Items</span>
+        <span>•</span>
+        <span>${createdDate}</span>
+      </div>
+    </header>
+    <main class="gallery-grid" role="list">
+      ${tiles}
+    </main>
+    ${scriptData}
+    ${lightboxHtml()}
+  `, env)
 }
 
 async function handleEventGalleryJSON(env, eventId) {
@@ -201,20 +322,47 @@ async function handleEventGallery(env, baseURL, eventId) {
   const indexPath = `events/${eventId}/index.json`
   const indexObject = await env.R2_BUCKET.get(indexPath)
   if (!indexObject) {
-    return html("Event Gallery", `<h1>Event Gallery</h1><p>No sessions yet.</p>`)
+    return html("Event Gallery", `
+      <div class="empty-state">
+        <h1>Event Gallery</h1>
+        <p>No sessions have been uploaded yet.</p>
+      </div>
+    `, env)
   }
 
   const index = await indexObject.json()
   const sessions = index.sessions || []
   const tiles = sessions
     .map((session) => {
-      const thumb = assetURL(env, baseURL, session.thumb_path)
-      const link = `${baseURL}/${session.gallery_path}`
-      return `<a class="session" href="${link}"><img src="${thumb}" alt="Session" /><span>${session.created_at}</span></a>`
+      const thumb = escapeHtml(assetURL(env, baseURL, session.thumb_path))
+      const link = escapeHtml(`${baseURL}/${session.gallery_path}`)
+      const date = escapeHtml(new Date(session.created_at).toLocaleString())
+      return `
+        <a class="session-card" href="${link}">
+          <div class="session-media">
+            <img src="${thumb}" alt="Session thumbnail" loading="lazy" />
+            <div class="session-overlay">
+              <span>View Gallery</span>
+            </div>
+          </div>
+          <div class="session-info">
+             <span class="session-date">${date}</span>
+             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+        </a>`
     })
     .join("")
 
-  return html("Event Gallery", `<h1>Event Gallery</h1><div class="grid">${tiles}</div>`)
+  const escapedEventId = escapeHtml(String(eventId))
+  return html("Event Gallery", `
+    <header class="gallery-header">
+      <a href="/e/${escapedEventId}" class="logo">FotoX</a>
+      <h1>Event Gallery</h1>
+    </header>
+    <main class="gallery-grid" role="list">
+      ${tiles}
+    </main>
+  `, env)
 }
 
 async function handleAsset(env, url, request) {
@@ -299,29 +447,75 @@ function json(value, status = 200) {
   })
 }
 
-function html(title, body) {
+function html(title, body, env = null) {
+  // Build CSP based on R2 configuration
+  let imgSrc = "'self' data: blob:";
+  let mediaSrc = "'self' blob:";
+
+  // If R2_PUBLIC_BASE_URL is configured, add it to allowed sources
+  if (env?.R2_PUBLIC_BASE_URL) {
+    try {
+      const r2Domain = new URL(env.R2_PUBLIC_BASE_URL).origin;
+      imgSrc += ` ${r2Domain}`;
+      mediaSrc += ` ${r2Domain}`;
+    } catch (e) {
+      // Invalid URL, fall back to self-only
+      console.error('Invalid R2_PUBLIC_BASE_URL:', e);
+    }
+  }
+
+  const csp = `default-src 'self'; script-src 'self'; style-src 'self'; img-src ${imgSrc}; media-src ${mediaSrc};`;
+
   return new Response(
     `<!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>${title}</title>
-    <style>
-      body { font-family: Arial, sans-serif; background: #0f1115; color: #f5f5f5; margin: 0; padding: 24px; }
-      h1 { font-size: 28px; margin: 0 0 16px; }
-      .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; }
-      img, video { width: 100%; border-radius: 12px; background: #1c1f26; }
-      .session { display: grid; gap: 8px; text-decoration: none; color: inherit; }
-      .session span { font-size: 12px; opacity: 0.7; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>${escapeHtml(title)}</title>
+    <link rel="stylesheet" href="/static/gallery.${CSS_HASH}.css">
   </head>
   <body>
     ${body}
+    <script src="/static/gallery.${JS_HASH}.js"></script>
   </body>
 </html>`,
-    { headers: { "Content-Type": "text/html; charset=utf-8" } }
+    {
+      headers: {
+        "Content-Type": "text/html; charset=utf-8",
+        "Content-Security-Policy": csp
+      }
+    }
   )
+}
+
+function lightboxHtml() {
+  return `
+    <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer">
+      <div class="lb-header">
+        <span id="lb-counter" class="lb-counter" aria-live="polite"></span>
+        <button class="action-btn share-btn" id="lb-share" aria-label="Share">
+           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+        </button>
+        <a id="lb-download" href="#" class="action-btn" download target="_blank" aria-label="Download">
+           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        </a>
+        <button class="action-btn close-btn" aria-label="Close">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="lb-content">
+        <button class="lb-nav lb-prev" aria-label="Previous image">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <img id="lb-img" class="lb-media" src="" alt="Full size view" />
+        <video id="lb-video" class="lb-media" controls playsinline aria-label="Video player" style="display:none;"></video>
+        <button class="lb-nav lb-next" aria-label="Next image">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+        </button>
+      </div>
+    </div>
+  `
 }
 
 function validateEventId(eventId) {
@@ -337,6 +531,29 @@ function validateEventId(eventId) {
   // Prevent path traversal attacks
   if (eventId.includes("/") || eventId.includes("\\") || eventId.includes("..")) {
     return json({ error: "Invalid Event ID format" }, 400)
+  }
+
+  return null
+}
+
+function validateSessionId(sessionId) {
+  if (!sessionId || sessionId.trim() === "") {
+    return json({ error: "Session ID is required" }, 400)
+  }
+
+  // Enforce minimum and maximum length
+  if (sessionId.length < 3 || sessionId.length > 128) {
+    return json({ error: "Session ID must be 3-128 characters" }, 400)
+  }
+
+  // Session IDs must start and end with alphanumeric, can contain hyphens/underscores in middle
+  if (!/^[a-zA-Z0-9]([a-zA-Z0-9_-]*[a-zA-Z0-9])?$/.test(sessionId)) {
+    return json({ error: "Invalid Session ID format" }, 400)
+  }
+
+  // Prevent path traversal attacks
+  if (sessionId.includes("/") || sessionId.includes("\\") || sessionId.includes("..")) {
+    return json({ error: "Invalid Session ID format" }, 400)
   }
 
   return null
@@ -373,4 +590,21 @@ function base64Url(buffer) {
     binary += String.fromCharCode(b)
   })
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "")
+}
+
+function escapeHtml(str) {
+  if (str === null || str === undefined) return ''
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function escapeJsonForScript(obj) {
+  return JSON.stringify(obj)
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
 }
