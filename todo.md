@@ -25,8 +25,6 @@
   - Solution: Create VideoPlayerManager + replace TabView with lazy-loading ScrollView + fix lifecycle issues
   - See detailed plan: `/Users/thomas/.claude/plans/glimmering-twirling-starfish.md`
   - Expected: 10 videos = 1-3 AVPlayer instances (30-50MB)
-  - Files to modify:
-    - New: `fotoX/Core/Util/VideoPlayerManager.swift`
-    - `fotoX/Features/Gallery/SessionDetailView.swift`
+  - Files to modify: 
     - `fotoX/Features/Capture/StripReviewView.swift`
     - New: `fotoX/fotoXTests/VideoPlayerManagerTests.swift`
