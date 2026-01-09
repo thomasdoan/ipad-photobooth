@@ -33,6 +33,7 @@ struct fotoXApp: App {
 }
 
 /// Root view that handles navigation based on app state
+@MainActor
 struct RootView: View {
     @Environment(AppState.self) private var appState
     let services: ServiceContainer
@@ -73,6 +74,7 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: appState.currentRoute)
+        .fotoXStatusBarHidden()
         .task {
             await services.uploadQueueWorker.startProcessing(
                 onProgress: { sessionId in
@@ -92,6 +94,7 @@ struct RootView: View {
             set: { appState.showSettings = $0 }
         )) {
             SettingsView()
+                .fotoXStatusBarHidden()
         }
         .sheet(isPresented: Binding(
             get: { appState.showGallery },
@@ -100,6 +103,7 @@ struct RootView: View {
             if let eventId = appState.selectedEvent?.id {
                 GalleryView(eventId: eventId)
                     .environment(appState)
+                    .fotoXStatusBarHidden()
             }
         }
         .alert(
