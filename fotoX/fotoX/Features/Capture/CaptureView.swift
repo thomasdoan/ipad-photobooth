@@ -370,6 +370,8 @@ struct CaptureView: View {
                         footerText: footerText
                     )
                 } catch {
+                    // Log but continue - composite is optional.
+                    print("Composite rendering failed: \(error)")
                     compositeAssets = nil
                 }
 
@@ -394,13 +396,9 @@ struct CaptureView: View {
                     }
                 )
             } catch let error as APIError {
-                await MainActor.run {
-                    appState.uploadFailed(error: error)
-                }
+                appState.uploadFailed(error: error)
             } catch {
-                await MainActor.run {
-                    appState.uploadFailed(error: .unknown(error))
-                }
+                appState.uploadFailed(error: .unknown(error))
             }
         }
     }
