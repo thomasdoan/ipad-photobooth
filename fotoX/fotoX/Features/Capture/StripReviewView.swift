@@ -23,6 +23,7 @@ struct StripReviewView: View {
     
     @State private var playerManager = VideoPlayerManager()
     @State private var player: AVPlayer?
+    @State private var showingVideo = true
     
     @Environment(\.appTheme) private var theme
     
@@ -126,6 +127,29 @@ struct StripReviewView: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(theme.secondary.opacity(0.5))
         )
+    }
+
+    private func toggleButton(
+        title: String,
+        icon: String,
+        isSelected: Bool,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            HStack(spacing: 8) {
+                Image(systemName: icon)
+                Text(title)
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(isSelected ? theme.secondary : theme.accent.opacity(0.7))
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(isSelected ? theme.accent : Color.clear)
+            )
+        }
+        .buttonStyle(.plain)
     }
     
     // MARK: - Video Playback
