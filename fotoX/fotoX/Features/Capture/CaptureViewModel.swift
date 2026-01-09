@@ -230,7 +230,7 @@ final class CaptureViewModel: @unchecked Sendable {
 
     /// Whether review controls should be visible
     var showsReviewControls: Bool {
-        !config.autoAdvanceWithoutReview
+        config.manualAdvanceAfterReview || !config.autoAdvanceWithoutReview
     }
     
     /// Converts captured strips to the model format
@@ -312,6 +312,7 @@ final class CaptureViewModel: @unchecked Sendable {
     @MainActor
     private func startReviewTimer() {
         cancelReviewTask()
+        guard !config.manualAdvanceAfterReview else { return }
         let duration = reviewDuration
         reviewTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))

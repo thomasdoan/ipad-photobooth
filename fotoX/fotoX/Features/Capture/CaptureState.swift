@@ -60,6 +60,9 @@ struct CaptureConfiguration: Sendable {
     /// Short preview duration when auto-advancing without review
     let autoAdvancePreviewDuration: TimeInterval
 
+    /// Whether to require manual advance after review
+    let manualAdvanceAfterReview: Bool
+
     init(
         videoDuration: TimeInterval,
         countdownSeconds: Int,
@@ -67,7 +70,8 @@ struct CaptureConfiguration: Sendable {
         stripCount: Int,
         stripReviewDuration: TimeInterval = WorkerConfiguration.defaultStripReviewDuration,
         autoAdvanceWithoutReview: Bool = WorkerConfiguration.defaultAutoAdvanceWithoutReview,
-        autoAdvancePreviewDuration: TimeInterval = 1
+        autoAdvancePreviewDuration: TimeInterval = 1,
+        manualAdvanceAfterReview: Bool = WorkerConfiguration.defaultManualAdvanceAfterReview
     ) {
         self.videoDuration = videoDuration
         self.countdownSeconds = countdownSeconds
@@ -76,6 +80,7 @@ struct CaptureConfiguration: Sendable {
         self.stripReviewDuration = stripReviewDuration
         self.autoAdvanceWithoutReview = autoAdvanceWithoutReview
         self.autoAdvancePreviewDuration = autoAdvancePreviewDuration
+        self.manualAdvanceAfterReview = manualAdvanceAfterReview
     }
     
     /// Default configuration
@@ -87,7 +92,8 @@ struct CaptureConfiguration: Sendable {
             stripCount: 3,
             stripReviewDuration: WorkerConfiguration.currentStripReviewDuration(),
             autoAdvanceWithoutReview: WorkerConfiguration.autoAdvanceWithoutReview(),
-            autoAdvancePreviewDuration: 1
+            autoAdvancePreviewDuration: 1,
+            manualAdvanceAfterReview: WorkerConfiguration.manualAdvanceAfterReview()
         )
     }
 }

@@ -14,12 +14,14 @@ enum WorkerConfiguration {
     static let keepFilesAfterUploadKey = "keepFilesAfterUpload"
     static let stripReviewDurationKey = "stripReviewDuration"
     static let autoAdvanceWithoutReviewKey = "autoAdvanceWithoutReview"
+    static let manualAdvanceAfterReviewKey = "manualAdvanceAfterReview"
     static let defaultBaseURL = URL(string: "https://your-worker.workers.dev")!
     static let defaultVideoDuration: TimeInterval = 10
-    static let defaultStripReviewDuration: TimeInterval = 3
-    static let minStripReviewDuration: TimeInterval = 2
-    static let maxStripReviewDuration: TimeInterval = 5
+    static let defaultStripReviewDuration: TimeInterval = 5
+    static let minStripReviewDuration: TimeInterval = 5
+    static let maxStripReviewDuration: TimeInterval = 30
     static let defaultAutoAdvanceWithoutReview = false
+    static let defaultManualAdvanceAfterReview = false
 
     static func currentBaseURL() -> URL {
         if let urlString = UserDefaults.standard.string(forKey: baseURLKey),
@@ -80,6 +82,17 @@ enum WorkerConfiguration {
 
     static func saveAutoAdvanceWithoutReview(_ enabled: Bool) {
         UserDefaults.standard.set(enabled, forKey: autoAdvanceWithoutReviewKey)
+    }
+
+    static func manualAdvanceAfterReview() -> Bool {
+        if UserDefaults.standard.object(forKey: manualAdvanceAfterReviewKey) == nil {
+            return defaultManualAdvanceAfterReview
+        }
+        return UserDefaults.standard.bool(forKey: manualAdvanceAfterReviewKey)
+    }
+
+    static func saveManualAdvanceAfterReview(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: manualAdvanceAfterReviewKey)
     }
 
     static func keepFilesAfterUpload() -> Bool {

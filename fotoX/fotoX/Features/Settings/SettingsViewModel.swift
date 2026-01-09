@@ -23,10 +23,13 @@ final class SettingsViewModel {
     var videoDuration: Double = 10
 
     /// Review duration in seconds after each strip
-    var stripReviewDuration: Double = 3
+    var stripReviewDuration: Double = 5
 
     /// Whether to auto-advance without review controls
     var autoAdvanceWithoutReview: Bool = false
+
+    /// Whether to require manual advance after review
+    var manualAdvanceAfterReview: Bool = false
 
     /// Whether to keep files on device after upload
     var keepFilesAfterUpload: Bool = false
@@ -65,6 +68,7 @@ final class SettingsViewModel {
         videoDuration = WorkerConfiguration.currentVideoDuration()
         stripReviewDuration = WorkerConfiguration.currentStripReviewDuration()
         autoAdvanceWithoutReview = WorkerConfiguration.autoAdvanceWithoutReview()
+        manualAdvanceAfterReview = WorkerConfiguration.manualAdvanceAfterReview()
         keepFilesAfterUpload = WorkerConfiguration.keepFilesAfterUpload()
     }
     
@@ -93,6 +97,7 @@ final class SettingsViewModel {
         WorkerConfiguration.saveVideoDuration(videoDuration)
         WorkerConfiguration.saveStripReviewDuration(stripReviewDuration)
         WorkerConfiguration.saveAutoAdvanceWithoutReview(autoAdvanceWithoutReview)
+        WorkerConfiguration.saveManualAdvanceAfterReview(manualAdvanceAfterReview)
         WorkerConfiguration.saveKeepFilesAfterUpload(keepFilesAfterUpload)
         return true
     }
@@ -108,6 +113,7 @@ final class SettingsViewModel {
         videoDuration = WorkerConfiguration.defaultVideoDuration
         stripReviewDuration = WorkerConfiguration.defaultStripReviewDuration
         autoAdvanceWithoutReview = WorkerConfiguration.defaultAutoAdvanceWithoutReview
+        manualAdvanceAfterReview = WorkerConfiguration.defaultManualAdvanceAfterReview
         keepFilesAfterUpload = false
         _ = saveSettings()
         connectionTestResult = nil

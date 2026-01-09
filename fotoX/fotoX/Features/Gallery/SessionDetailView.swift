@@ -78,7 +78,7 @@ struct SessionDetailView: View {
                     SessionSourceIndicator(source: viewModel.session.source, style: .compact)
                 }
             }
-            .sheet(item: $focusedAsset) { asset in
+            .fullScreenCover(item: $focusedAsset) { asset in
                 AssetDetailView(asset: asset, playerManager: playerManager)
             }
         }
@@ -559,6 +559,7 @@ struct AssetDetailView: View {
                 isActive: true,
                 playerManager: playerManager
             )
+            .ignoresSafeArea()
         }
         .overlay(alignment: .topTrailing) {
             Button {
@@ -603,15 +604,11 @@ struct PhotoAssetView: View {
     let geometry: GeometryProxy
     
     var body: some View {
-        if asset.kind.isComposite {
+        ZStack {
+            Color.black
             photoContent
-                .frame(width: geometry.size.width, height: geometry.size.height)
-        } else {
-            ThemedStripFrame {
-                photoContent
-            }
-            .frame(width: geometry.size.width, height: geometry.size.height)
         }
+        .frame(width: geometry.size.width, height: geometry.size.height)
     }
     
     @ViewBuilder
@@ -623,8 +620,8 @@ struct PhotoAssetView: View {
                 case .success(let image):
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .failure:
                     errorView("Failed to load photo")
                 case .empty:
@@ -640,8 +637,8 @@ struct PhotoAssetView: View {
                 case .success(let image):
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: geometry.size.width, height: geometry.size.height)
+                        .scaledToFit()
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 case .failure:
                     errorView("Failed to load photo")
                 case .empty:
@@ -694,13 +691,12 @@ struct VideoAssetView: View {
     }
     
     var body: some View {
-        Group {
-            if asset.kind.isComposite {
-                videoContent
+        ZStack {
+            Color.black
+            if isActive, let player = player {
+                VideoPlayer(player: player)
             } else {
-                ThemedStripFrame {
-                    videoContent
-                }
+                posterView
             }
         }
         .frame(width: geometry.size.width, height: geometry.size.height)
@@ -713,16 +709,6 @@ struct VideoAssetView: View {
         .onDisappear {
             playerManager.stop(id: asset.id)
             player = nil
-        }
-    }
-
-    private var videoContent: some View {
-        ZStack {
-            if isActive, let player = player {
-                VideoPlayer(player: player)
-            } else {
-                posterView
-            }
         }
     }
     
