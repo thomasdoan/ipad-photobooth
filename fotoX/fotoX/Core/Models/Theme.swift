@@ -69,7 +69,7 @@ struct AppTheme: Equatable, Sendable {
             self.stripFrameURL = nil
         } else {
             self.stripFrameAssetName = nil
-            self.stripFrameURL = theme.stripFrameURL.flatMap { URL(string: $0) }
+            self.stripFrameURL = stripFrameValue.isEmpty ? nil : URL(string: stripFrameValue)
         }
         self.stripFooterText = theme.stripFooterText
     }

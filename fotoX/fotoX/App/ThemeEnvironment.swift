@@ -154,6 +154,7 @@ struct ThemedPhotoFrame: View {
 }
 
 /// Frame treatment for photo/video strips with theme-based styling.
+@MainActor
 struct ThemedStripFrame<Content: View>: View {
     @Environment(\.appTheme) private var theme
     @Environment(\.themeAssets) private var assets

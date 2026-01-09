@@ -645,7 +645,7 @@ extension AssetView {
     }
 }
 
-// MARK: - Thumbnail Button
+// MARK: - Strip Page Button
 
 struct StripPageButton: View {
     let title: String
@@ -670,113 +670,6 @@ struct StripPageButton: View {
             )
         }
         .buttonStyle(.plain)
-    }
-}
-
-struct ThumbnailButton: View {
-    let asset: GalleryAsset
-    let isSelected: Bool
-    let onTap: () -> Void
-    
-    var body: some View {
-        Button(action: onTap) {
-            ZStack {
-                thumbnailImage
-                    .frame(width: 60, height: 60)
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(isSelected ? Color.white : Color.clear, lineWidth: 2)
-                    )
-                
-                // Video indicator
-                if asset.kind == .video {
-                    Image(systemName: "play.circle.fill")
-                        .font(.title3)
-                        .foregroundStyle(.white)
-                        .shadow(radius: 2)
-                }
-            }
-        }
-        .buttonStyle(.plain)
-        .scaleEffect(isSelected ? 1.1 : 1.0)
-        .animation(.spring(response: 0.3), value: isSelected)
-    }
-    
-    @ViewBuilder
-    private var thumbnailImage: some View {
-        if asset.kind == .photo {
-            // Photo - load directly
-            if let localURL = asset.localURL, asset.isLocallyAvailable {
-                AsyncImage(url: localURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    default:
-                        thumbnailPlaceholder
-                    }
-                }
-            } else {
-                AsyncImage(url: WorkerAPIClient.shared.assetURL(path: asset.remotePath)) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    default:
-                        thumbnailPlaceholder
-                    }
-                }
-            }
-        } else {
-            // Video - load poster image if available
-            // Local-first: check if we have a local poster URL
-            if let localPosterURL = asset.localPosterURL, asset.isPosterLocallyAvailable {
-                AsyncImage(url: localPosterURL) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    default:
-                        videoPlaceholder
-                    }
-                }
-            } else if let posterPath = asset.posterPath {
-                // Fallback to remote poster
-                AsyncImage(url: WorkerAPIClient.shared.assetURL(path: posterPath)) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    default:
-                        videoPlaceholder
-                    }
-                }
-            } else {
-                videoPlaceholder
-            }
-        }
-    }
-    
-    private var videoPlaceholder: some View {
-        ZStack {
-            Color.gray.opacity(0.3)
-            Image(systemName: "video.fill")
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.5))
-        }
-    }
-    
-    private var thumbnailPlaceholder: some View {
-        ZStack {
-            Color.gray.opacity(0.3)
-            ProgressView()
-                .scaleEffect(0.6)
-        }
     }
 }
 

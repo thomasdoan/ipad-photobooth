@@ -292,7 +292,8 @@ struct AppThemeTests {
             logoURL: "http://example.com/logo.png",
             backgroundURL: nil,
             photoFrameURL: nil,
-            stripFrameURL: nil
+            stripFrameURL: nil,
+            stripFooterText: nil
         )
         
         let appTheme = AppTheme(from: theme)
@@ -339,7 +340,8 @@ struct AppStateTests {
             logoURL: nil,
             backgroundURL: nil,
             photoFrameURL: nil,
-            stripFrameURL: nil
+            stripFrameURL: nil,
+            stripFooterText: nil
         )
         let event = Event(id: 1, name: "Test Event", date: "2025-01-01", theme: theme)
         
@@ -403,7 +405,8 @@ struct AppStateTests {
             logoURL: nil,
             backgroundURL: nil,
             photoFrameURL: nil,
-            stripFrameURL: nil
+            stripFrameURL: nil,
+            stripFooterText: nil
         )
         let event = Event(id: 1, name: "Test", date: "2025-01-01", theme: theme)
         state.selectEvent(event)

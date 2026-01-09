@@ -193,6 +193,7 @@ struct StripReviewView: View {
 }
 
 /// Summary view showing all captured strips before upload
+@MainActor
 struct CaptureSummaryView: View {
     let strips: [CapturedStrip]
     let onRetake: (Int) -> Void

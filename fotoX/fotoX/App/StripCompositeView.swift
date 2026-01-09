@@ -51,6 +51,7 @@ enum StripCompositeMetrics {
     }
 }
 
+@MainActor
 struct StripCompositeView<SlotContent: View>: View {
     let slots: [StripSlot]
     let footerText: String

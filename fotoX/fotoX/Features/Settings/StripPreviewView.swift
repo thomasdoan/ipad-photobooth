@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+@MainActor
 struct StripPreviewView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
