@@ -15,6 +15,7 @@ struct StripReviewView: View {
     let stripCount: Int
     let videoURL: URL
     let photoData: Data
+    let aspectRatio: CGFloat
     let onRetake: () -> Void
     let onContinue: () -> Void
     let isLastStrip: Bool
@@ -103,7 +104,7 @@ struct StripReviewView: View {
 
                 if showingVideo, let player = player {
                     VideoPlayer(player: player)
-                        .aspectRatio(9.0 / 16.0, contentMode: .fit)
+                        .aspectRatio(aspectRatio, contentMode: .fit)
                 } else if let uiImage = UIImage(data: photoData) {
                     Image(uiImage: uiImage)
                         .resizable()
@@ -169,7 +170,7 @@ struct StripReviewView: View {
         ZStack {
             if let player = player {
                 VideoPlayer(player: player)
-                    .aspectRatio(9/16, contentMode: .fit)
+                    .aspectRatio(aspectRatio, contentMode: .fit)
             } else {
                 ProgressView()
                     .progressViewStyle(CircularProgressViewStyle(tint: theme.accent))
@@ -242,6 +243,7 @@ struct CaptureSummaryView: View {
     let strips: [CapturedStrip]
     let onRetake: (Int) -> Void
     let onFinish: () -> Void
+    let aspectRatio: CGFloat
     
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
@@ -271,7 +273,8 @@ struct CaptureSummaryView: View {
                 // Strip composite
                 StripCompositeView(
                     slots: stripSlots(),
-                    footerText: stripFooterText()
+                    footerText: stripFooterText(),
+                    slotAspectRatio: aspectRatio
                 ) { slot in
                     stripSlotContent(slot: slot, strips: strips)
                 }
@@ -333,7 +336,8 @@ struct CaptureSummaryView: View {
         return StripCompositeMetrics.sizeThatFits(
             maxWidth: maxWidth,
             maxHeight: maxHeight,
-            slotCount: 3
+            slotCount: 3,
+            slotAspectRatio: aspectRatio
         )
     }
 
@@ -343,7 +347,7 @@ struct CaptureSummaryView: View {
            let uiImage = UIImage(data: strip.photoData) {
             Image(uiImage: uiImage)
                 .resizable()
-                .aspectRatio(9.0 / 16.0, contentMode: .fill)
+                .aspectRatio(aspectRatio, contentMode: .fill)
         } else {
             ZStack {
                 theme.secondary.opacity(0.4)

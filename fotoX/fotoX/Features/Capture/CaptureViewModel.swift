@@ -36,6 +36,15 @@ final class CaptureViewModel: @unchecked Sendable {
     
     /// Configuration
     let config: CaptureConfiguration
+
+    /// Current aspect ratio setting (auto or fixed)
+    private var aspectRatioSetting: CaptureAspectRatio = WorkerConfiguration.currentCaptureAspectRatio()
+
+    /// Current layout orientation
+    private var layoutOrientation: LayoutOrientation = .portrait
+
+    /// Resolved aspect ratio for the active strip
+    private(set) var currentAspectRatio: CaptureAspectRatio = .ratio9x16
     
     // MARK: - Camera
 
@@ -78,6 +87,7 @@ final class CaptureViewModel: @unchecked Sendable {
             try await cameraController.setup()
             cameraController.startSession()
             isCameraReady = true
+            applyCurrentAspectRatioIfNeeded()
         } catch let error as CameraError {
             errorMessage = error.localizedDescription
             stripState = .error(error.localizedDescription)
@@ -107,6 +117,7 @@ final class CaptureViewModel: @unchecked Sendable {
         guard currentStripIndex < config.stripCount else { return }
 
         isSessionComplete = false
+        applyNextAspectRatioForNewStrip()
         if config.countdownSeconds > 0 {
             stripState = .countdown(remaining: config.countdownSeconds)
             startCountdownTimer()
@@ -175,14 +186,27 @@ final class CaptureViewModel: @unchecked Sendable {
             stripState = .error("Missing capture data")
             return
         }
-        
+
+        let aspectRatio = currentAspectRatio.widthToHeight
+        let processedPhotoData = MediaCropper.cropPhotoData(photoData, to: aspectRatio) ?? photoData
+
+        let processedVideoURL: URL
+        do {
+            processedVideoURL = try await MediaCropper.cropVideoIfNeeded(at: videoURL, to: aspectRatio)
+            if processedVideoURL != videoURL {
+                try? FileManager.default.removeItem(at: videoURL)
+            }
+        } catch {
+            processedVideoURL = videoURL
+        }
+
         // Generate thumbnail
-        let thumbnailData = await CameraController.generateThumbnail(from: videoURL)
-        
+        let thumbnailData = await CameraController.generateThumbnail(from: processedVideoURL)
+
         let strip = CapturedStripMedia(
             stripIndex: currentStripIndex,
-            videoURL: videoURL,
-            photoData: photoData,
+            videoURL: processedVideoURL,
+            photoData: processedPhotoData,
             thumbnailData: thumbnailData
         )
         
@@ -231,6 +255,26 @@ final class CaptureViewModel: @unchecked Sendable {
     /// Whether review controls should be visible
     var showsReviewControls: Bool {
         config.manualAdvanceAfterReview || !config.autoAdvanceWithoutReview
+    }
+
+    @MainActor
+    func updateAspectRatioSetting(_ setting: CaptureAspectRatio, orientation: LayoutOrientation) {
+        aspectRatioSetting = setting
+        layoutOrientation = orientation
+        if stripState == .ready {
+            applyNextAspectRatioForNewStrip()
+        }
+    }
+
+    @MainActor
+    private func applyNextAspectRatioForNewStrip() {
+        currentAspectRatio = aspectRatioSetting.resolved(for: layoutOrientation)
+        applyCurrentAspectRatioIfNeeded()
+    }
+
+    private func applyCurrentAspectRatioIfNeeded() {
+        guard isCameraReady else { return }
+        cameraController.updateCaptureAspectRatio(currentAspectRatio)
     }
     
     /// Converts captured strips to the model format

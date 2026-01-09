@@ -36,9 +36,19 @@ struct CaptureView: View {
         }
         .task {
             await viewModel.setupCamera()
+            viewModel.updateAspectRatioSetting(
+                appState.captureAspectRatioSetting,
+                orientation: appState.layoutOrientation
+            )
         }
         .onDisappear {
             viewModel.cleanup(deleteTemporaryFiles: false)
+        }
+        .onChange(of: appState.captureAspectRatioSetting) { _, newValue in
+            viewModel.updateAspectRatioSetting(newValue, orientation: appState.layoutOrientation)
+        }
+        .onChange(of: appState.layoutOrientation) { _, newValue in
+            viewModel.updateAspectRatioSetting(appState.captureAspectRatioSetting, orientation: newValue)
         }
         .onChange(of: viewModel.stripState) { oldState, newState in
             handleStateChange(from: oldState, to: newState)
@@ -127,6 +137,7 @@ struct CaptureView: View {
                         stripCount: viewModel.config.stripCount,
                         videoURL: pendingStrip.videoURL,
                         photoData: pendingStrip.photoData,
+                        aspectRatio: viewModel.currentAspectRatio.widthToHeight,
                         onRetake: {
                             viewModel.retakePendingStrip()
                         },
@@ -367,7 +378,8 @@ struct CaptureView: View {
                         strips: strips,
                         theme: theme,
                         assets: themeAssets,
-                        footerText: footerText
+                        footerText: footerText,
+                        slotAspectRatio: viewModel.currentAspectRatio.widthToHeight
                     )
                 } catch {
                     // Log but continue - composite is optional.

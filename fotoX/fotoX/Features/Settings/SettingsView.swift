@@ -52,6 +52,7 @@ struct SettingsView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button("Save") {
                         if viewModel.saveSettings() {
+                            appState.captureAspectRatioSetting = viewModel.captureAspectRatioSetting
                             updateAPIClient()
                             dismiss()
                         }
@@ -271,6 +272,30 @@ struct SettingsView: View {
                         Stepper("", value: $viewModel.stripReviewDuration, in: 5...30, step: 1)
                             .labelsHidden()
                     }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+
+                Divider()
+                    .padding(.leading, 16)
+
+                // Capture aspect ratio control
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Capture Aspect Ratio")
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+
+                    Picker("Capture Aspect Ratio", selection: $viewModel.captureAspectRatioSetting) {
+                        ForEach(CaptureAspectRatio.allCases) { ratio in
+                            Text(ratio.displayName).tag(ratio)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("captureAspectRatioPicker")
+
+                    Text("Auto uses 9:16 in portrait and 16:9 in landscape. Landscape recommended: 16:9 for video, 4:3 for photos/prints.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)

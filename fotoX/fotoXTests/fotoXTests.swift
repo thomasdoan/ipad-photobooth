@@ -224,6 +224,59 @@ struct ModelEncodingTests {
     }
 }
 
+// MARK: - Capture Aspect Ratio Tests
+
+struct CaptureAspectRatioTests {
+    @Test("Auto aspect ratio resolves by orientation")
+    func autoResolvesByOrientation() {
+        #expect(CaptureAspectRatio.auto.resolved(for: .portrait) == .ratio9x16)
+        #expect(CaptureAspectRatio.auto.resolved(for: .landscape) == .ratio16x9)
+    }
+
+    @Test("Aspect ratio values match expected ratios")
+    func ratioValuesMatchExpected() {
+        #expect(abs(CaptureAspectRatio.ratio9x16.widthToHeight - (9.0 / 16.0)) < 0.001)
+        #expect(abs(CaptureAspectRatio.ratio16x9.widthToHeight - (16.0 / 9.0)) < 0.001)
+        #expect(abs(CaptureAspectRatio.ratio4x3.widthToHeight - (4.0 / 3.0)) < 0.001)
+    }
+
+    @Test("Capture aspect ratio persists via WorkerConfiguration")
+    func captureAspectRatioPersistence() {
+        let defaults = UserDefaults.standard
+        let key = WorkerConfiguration.captureAspectRatioKey
+        let existingValue = defaults.string(forKey: key)
+        defer {
+            if let existingValue {
+                defaults.set(existingValue, forKey: key)
+            } else {
+                defaults.removeObject(forKey: key)
+            }
+        }
+
+        WorkerConfiguration.saveCaptureAspectRatio(.ratio4x3)
+        #expect(WorkerConfiguration.currentCaptureAspectRatio() == .ratio4x3)
+    }
+}
+
+struct AppStateAspectRatioTests {
+    @Test("AppState resolves auto aspect ratio from layout orientation")
+    func appStateAutoResolution() {
+        let previousSetting = WorkerConfiguration.currentCaptureAspectRatio()
+        defer {
+            WorkerConfiguration.saveCaptureAspectRatio(previousSetting)
+        }
+
+        let appState = AppState()
+        appState.captureAspectRatioSetting = .auto
+
+        appState.updateLayoutOrientation(for: CGSize(width: 1200, height: 800))
+        #expect(appState.resolvedCaptureAspectRatio == .ratio16x9)
+
+        appState.updateLayoutOrientation(for: CGSize(width: 800, height: 1200))
+        #expect(appState.resolvedCaptureAspectRatio == .ratio9x16)
+    }
+}
+
 // MARK: - Color Extension Tests
 
 struct ColorExtensionTests {
@@ -1554,6 +1607,8 @@ final class MockCameraController: CameraControlling, @unchecked Sendable {
     var stopRecordingCalled = false
     var capturePhotoCalled = false
     var cleanupTempFilesCalled = false
+    var updateAspectRatioCalled = false
+    var lastAspectRatio: CaptureAspectRatio?
 
     // Test data
     var mockPhotoData = Data("mock photo data".utf8)
@@ -1609,6 +1664,11 @@ final class MockCameraController: CameraControlling, @unchecked Sendable {
 
         delegate?.cameraController(self, didCapturePhoto: mockPhotoData)
         return mockPhotoData
+    }
+
+    func updateCaptureAspectRatio(_ aspectRatio: CaptureAspectRatio) {
+        updateAspectRatioCalled = true
+        lastAspectRatio = aspectRatio
     }
 
     func cleanupTempFiles() {

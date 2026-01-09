@@ -34,6 +34,9 @@ final class SettingsViewModel {
     /// Whether to keep files on device after upload
     var keepFilesAfterUpload: Bool = false
 
+    /// Capture aspect ratio setting
+    var captureAspectRatioSetting: CaptureAspectRatio = .auto
+
     /// Whether testing connection
     var isTestingConnection: Bool = false
     
@@ -70,6 +73,7 @@ final class SettingsViewModel {
         autoAdvanceWithoutReview = WorkerConfiguration.autoAdvanceWithoutReview()
         manualAdvanceAfterReview = WorkerConfiguration.manualAdvanceAfterReview()
         keepFilesAfterUpload = WorkerConfiguration.keepFilesAfterUpload()
+        captureAspectRatioSetting = WorkerConfiguration.currentCaptureAspectRatio()
     }
     
     /// Validates the URL
@@ -99,6 +103,7 @@ final class SettingsViewModel {
         WorkerConfiguration.saveAutoAdvanceWithoutReview(autoAdvanceWithoutReview)
         WorkerConfiguration.saveManualAdvanceAfterReview(manualAdvanceAfterReview)
         WorkerConfiguration.saveKeepFilesAfterUpload(keepFilesAfterUpload)
+        WorkerConfiguration.saveCaptureAspectRatio(captureAspectRatioSetting)
         return true
     }
 
@@ -115,6 +120,7 @@ final class SettingsViewModel {
         autoAdvanceWithoutReview = WorkerConfiguration.defaultAutoAdvanceWithoutReview
         manualAdvanceAfterReview = WorkerConfiguration.defaultManualAdvanceAfterReview
         keepFilesAfterUpload = false
+        captureAspectRatioSetting = WorkerConfiguration.defaultCaptureAspectRatio
         _ = saveSettings()
         connectionTestResult = nil
     }
