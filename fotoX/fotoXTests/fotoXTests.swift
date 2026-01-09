@@ -1643,6 +1643,7 @@ struct CaptureViewModelTests {
         #expect(viewModel.currentStripIndex == 0)
         #expect(viewModel.stripState == .ready)
         #expect(viewModel.capturedStrips.isEmpty)
+        #expect(viewModel.pendingStrip == nil)
         #expect(viewModel.isSessionComplete == false)
         #expect(viewModel.isCameraReady == false)
     }
@@ -1821,6 +1822,99 @@ struct CaptureViewModelTests {
         #expect(strips[0].stripIndex == 0)
         #expect(strips[0].videoURL == testURL)
         #expect(strips[0].photoData == testPhotoData)
+    }
+
+    @Test("Capture completes into review with pending strip")
+    func captureCompletesIntoReview() async throws {
+        let mockCamera = MockCameraController()
+        let config = CaptureConfiguration(
+            videoDuration: 0.05,
+            countdownSeconds: 0,
+            photoCountdownSeconds: 0,
+            stripCount: 1,
+            stripReviewDuration: 1
+        )
+        let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
+        await viewModel.setupCamera()
+
+        viewModel.startCapture()
+
+        try await Task.sleep(nanoseconds: 300_000_000)
+
+        #expect(viewModel.pendingStrip != nil)
+        #expect(viewModel.capturedStrips.isEmpty)
+        #expect(viewModel.stripState == .complete)
+    }
+
+    @Test("Auto-advance accepts pending strip after review")
+    func autoAdvanceAcceptsPendingStrip() async throws {
+        let mockCamera = MockCameraController()
+        let config = CaptureConfiguration(
+            videoDuration: 0.05,
+            countdownSeconds: 0,
+            photoCountdownSeconds: 0,
+            stripCount: 1,
+            stripReviewDuration: 0.05
+        )
+        let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
+        await viewModel.setupCamera()
+
+        viewModel.startCapture()
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        #expect(viewModel.capturedStrips.count == 1)
+        #expect(viewModel.isSessionComplete)
+    }
+
+    @Test("Retake discards pending strip and restarts capture")
+    func retakeDiscardsPendingStrip() async throws {
+        let mockCamera = MockCameraController()
+        let config = CaptureConfiguration(
+            videoDuration: 0.2,
+            countdownSeconds: 0,
+            photoCountdownSeconds: 0,
+            stripCount: 1,
+            stripReviewDuration: 1
+        )
+        let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
+        await viewModel.setupCamera()
+
+        viewModel.startCapture()
+        try await Task.sleep(nanoseconds: 400_000_000)
+
+        #expect(viewModel.pendingStrip != nil)
+
+        viewModel.retakePendingStrip()
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        #expect(viewModel.pendingStrip == nil)
+        #expect(viewModel.capturedStrips.isEmpty)
+        if case .recording = viewModel.stripState {
+            #expect(true)
+        } else if case .countdown = viewModel.stripState {
+            #expect(true)
+        } else {
+            Issue.record("Expected capture to restart after retake")
+        }
+    }
+
+    @Test("Auto-advance without review hides controls and uses short preview")
+    func autoAdvanceWithoutReviewSettings() {
+        let mockCamera = MockCameraController()
+        let config = CaptureConfiguration(
+            videoDuration: 1,
+            countdownSeconds: 0,
+            photoCountdownSeconds: 0,
+            stripCount: 1,
+            stripReviewDuration: 3,
+            autoAdvanceWithoutReview: true,
+            autoAdvancePreviewDuration: 0.25
+        )
+        let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
+
+        #expect(viewModel.showsReviewControls == false)
+        #expect(viewModel.reviewDuration == 0.25)
     }
 
     @Test("Recording error sets error state")

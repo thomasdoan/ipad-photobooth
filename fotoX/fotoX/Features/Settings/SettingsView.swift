@@ -248,6 +248,54 @@ struct SettingsView: View {
                 Divider()
                     .padding(.leading, 16)
 
+                // Review duration control
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Review Duration")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+
+                        Text("Time to preview each strip before advancing")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    HStack(spacing: 12) {
+                        Text("\(Int(viewModel.stripReviewDuration))s")
+                            .font(.headline.monospacedDigit())
+                            .foregroundStyle(.primary)
+                            .frame(minWidth: 40, alignment: .trailing)
+
+                        Stepper("", value: $viewModel.stripReviewDuration, in: 2...5, step: 1)
+                            .labelsHidden()
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+
+                Divider()
+                    .padding(.leading, 16)
+
+                // Auto-advance without review toggle
+                Toggle(isOn: $viewModel.autoAdvanceWithoutReview) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Auto-Advance Without Review")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+
+                        Text("Show a brief preview and skip review controls")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+
+                Divider()
+                    .padding(.leading, 16)
+
                 // Keep files toggle
                 Toggle(isOn: $viewModel.keepFilesAfterUpload) {
                     VStack(alignment: .leading, spacing: 4) {

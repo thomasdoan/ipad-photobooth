@@ -50,6 +50,33 @@ struct CaptureConfiguration: Sendable {
     
     /// Total number of strips to capture
     let stripCount: Int
+
+    /// Review duration after each strip (seconds)
+    let stripReviewDuration: TimeInterval
+
+    /// Whether to auto-advance with minimal review UI
+    let autoAdvanceWithoutReview: Bool
+
+    /// Short preview duration when auto-advancing without review
+    let autoAdvancePreviewDuration: TimeInterval
+
+    init(
+        videoDuration: TimeInterval,
+        countdownSeconds: Int,
+        photoCountdownSeconds: Int,
+        stripCount: Int,
+        stripReviewDuration: TimeInterval = WorkerConfiguration.defaultStripReviewDuration,
+        autoAdvanceWithoutReview: Bool = WorkerConfiguration.defaultAutoAdvanceWithoutReview,
+        autoAdvancePreviewDuration: TimeInterval = 1
+    ) {
+        self.videoDuration = videoDuration
+        self.countdownSeconds = countdownSeconds
+        self.photoCountdownSeconds = photoCountdownSeconds
+        self.stripCount = stripCount
+        self.stripReviewDuration = stripReviewDuration
+        self.autoAdvanceWithoutReview = autoAdvanceWithoutReview
+        self.autoAdvancePreviewDuration = autoAdvancePreviewDuration
+    }
     
     /// Default configuration
     static var `default`: CaptureConfiguration {
@@ -57,7 +84,10 @@ struct CaptureConfiguration: Sendable {
             videoDuration: WorkerConfiguration.currentVideoDuration(),
             countdownSeconds: 0,
             photoCountdownSeconds: 1,
-            stripCount: 3
+            stripCount: 3,
+            stripReviewDuration: WorkerConfiguration.currentStripReviewDuration(),
+            autoAdvanceWithoutReview: WorkerConfiguration.autoAdvanceWithoutReview(),
+            autoAdvancePreviewDuration: 1
         )
     }
 }
