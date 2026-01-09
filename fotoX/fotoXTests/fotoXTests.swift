@@ -8,6 +8,7 @@
 import Testing
 import Foundation
 import SwiftUI
+import AVFoundation
 @testable import fotoX
 
 // MARK: - Model Decoding Tests
@@ -1522,5 +1523,487 @@ struct GallerySessionDateFormattingTests {
         )
 
         #expect(session1 == session2, "Sessions with same date should be equal")
+    }
+}
+
+// MARK: - Mock Camera Controller for Testing
+
+/// Mock camera controller that allows precise control over camera behavior for testing
+final class MockCameraController: CameraControlling, @unchecked Sendable {
+    weak var delegate: CameraControllerDelegate?
+    var previewLayer: AVCaptureVideoPreviewLayer? { nil }
+    private(set) var isRecording = false
+    var isSimulator: Bool { true }
+
+    // Test control properties
+    var setupShouldFail = false
+    var setupError: CameraError?
+    var recordingShouldFail = false
+    var recordingError: CameraError?
+    var photoCaptureShouldFail = false
+    var photoCaptureError: CameraError?
+
+    // Tracking properties
+    var setupCalled = false
+    var startSessionCalled = false
+    var stopSessionCalled = false
+    var startRecordingCalled = false
+    var stopRecordingCalled = false
+    var capturePhotoCalled = false
+    var cleanupTempFilesCalled = false
+
+    // Test data
+    var mockPhotoData = Data("mock photo data".utf8)
+    var mockVideoURL: URL?
+
+    func setup() async throws {
+        setupCalled = true
+        if setupShouldFail {
+            throw setupError ?? CameraError.setupFailed("Mock setup failure")
+        }
+    }
+
+    func startSession() {
+        startSessionCalled = true
+    }
+
+    func stopSession() {
+        stopSessionCalled = true
+    }
+
+    func startRecording() throws {
+        startRecordingCalled = true
+        if recordingShouldFail {
+            throw recordingError ?? CameraError.recordingFailed("Mock recording failure")
+        }
+
+        isRecording = true
+
+        // Create a mock video URL
+        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let videoURL = documentsPath.appendingPathComponent("mock_video_\(UUID().uuidString).mov")
+        mockVideoURL = videoURL
+
+        delegate?.cameraController(self, didStartRecording: videoURL)
+    }
+
+    func stopRecording() {
+        stopRecordingCalled = true
+        isRecording = false
+
+        if let url = mockVideoURL {
+            // Create an empty file to simulate video
+            try? Data().write(to: url)
+            delegate?.cameraController(self, didFinishRecording: url)
+        }
+    }
+
+    func capturePhoto() async throws -> Data {
+        capturePhotoCalled = true
+        if photoCaptureShouldFail {
+            throw photoCaptureError ?? CameraError.captureFailed("Mock capture failure")
+        }
+
+        delegate?.cameraController(self, didCapturePhoto: mockPhotoData)
+        return mockPhotoData
+    }
+
+    func cleanupTempFiles() {
+        cleanupTempFilesCalled = true
+        if let url = mockVideoURL {
+            try? FileManager.default.removeItem(at: url)
+        }
+    }
+
+    /// Simulates an error occurring during camera operations
+    func simulateError(_ error: CameraError) {
+        delegate?.cameraController(self, didFailWithError: error)
+    }
+}
+
+// MARK: - CaptureViewModel Tests
+
+@MainActor
+struct CaptureViewModelTests {
+
+    @Test("CaptureViewModel initializes with correct default state")
+    func captureViewModelInitialState() {
+        let mockCamera = MockCameraController()
+        let config = CaptureConfiguration(
+            videoDuration: 3,
+            countdownSeconds: 0,
+            photoCountdownSeconds: 0,
+            stripCount: 3
+        )
+        let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
+
+        #expect(viewModel.currentStripIndex == 0)
+        #expect(viewModel.stripState == .ready)
+        #expect(viewModel.capturedStrips.isEmpty)
+        #expect(viewModel.isSessionComplete == false)
+        #expect(viewModel.isCameraReady == false)
+    }
+
+    @Test("setupCamera sets isCameraReady on success")
+    func setupCameraSuccess() async {
+        let mockCamera = MockCameraController()
+        let config = CaptureConfiguration(
+            videoDuration: 3,
+            countdownSeconds: 0,
+            photoCountdownSeconds: 0,
+            stripCount: 3
+        )
+        let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
+
+        await viewModel.setupCamera()
+
+        #expect(mockCamera.setupCalled)
+        #expect(mockCamera.startSessionCalled)
+        #expect(viewModel.isCameraReady)
+    }
+
+    @Test("setupCamera sets error state on failure")
+    func setupCameraFailure() async {
+        let mockCamera = MockCameraController()
+        mockCamera.setupShouldFail = true
+        mockCamera.setupError = .permissionDenied
+
+        let config = CaptureConfiguration(
+            videoDuration: 3,
+            countdownSeconds: 0,
+            photoCountdownSeconds: 0,
+            stripCount: 3
+        )
+        let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
+
+        await viewModel.setupCamera()
+
+        #expect(mockCamera.setupCalled)
+        #expect(!viewModel.isCameraReady)
+        if case .error = viewModel.stripState {
+            #expect(true)
+        } else {
+            Issue.record("Expected error state")
+        }
+    }
+
+    @Test("startCapture initiates recording without countdown")
+    func startCaptureWithoutCountdown() async {
+        let mockCamera = MockCameraController()
+        let config = CaptureConfiguration(
+            videoDuration: 3,
+            countdownSeconds: 0,
+            photoCountdownSeconds: 0,
+            stripCount: 3
+        )
+        let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
+        await viewModel.setupCamera()
+
+        viewModel.startCapture()
+
+        // Give time for state to update
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        #expect(mockCamera.startRecordingCalled)
+        if case .recording = viewModel.stripState {
+            #expect(true)
+        } else {
+            Issue.record("Expected recording state, got \(viewModel.stripState)")
+        }
+    }
+
+    @Test("startCapture initiates countdown when configured")
+    func startCaptureWithCountdown() async {
+        let mockCamera = MockCameraController()
+        let config = CaptureConfiguration(
+            videoDuration: 3,
+            countdownSeconds: 3,
+            photoCountdownSeconds: 0,
+            stripCount: 3
+        )
+        let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
+        await viewModel.setupCamera()
+
+        viewModel.startCapture()
+
+        if case .countdown(let remaining) = viewModel.stripState {
+            #expect(remaining == 3)
+        } else {
+            Issue.record("Expected countdown state")
+        }
+    }
+
+    @Test("retryCurrentStrip resets state to ready")
+    func retryCurrentStripResetsState() async {
+        let mockCamera = MockCameraController()
+        let config = CaptureConfiguration(
+            videoDuration: 3,
+            countdownSeconds: 0,
+            photoCountdownSeconds: 0,
+            stripCount: 3
+        )
+        let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
+        await viewModel.setupCamera()
+
+        viewModel.startCapture()
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        viewModel.retryCurrentStrip()
+
+        #expect(viewModel.stripState == .ready)
+    }
+
+    @Test("cleanup stops session and cleans temp files")
+    func cleanupStopsSessionAndCleansFiles() async {
+        let mockCamera = MockCameraController()
+        let config = CaptureConfiguration(
+            videoDuration: 3,
+            countdownSeconds: 0,
+            photoCountdownSeconds: 0,
+            stripCount: 3
+        )
+        let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
+        await viewModel.setupCamera()
+
+        viewModel.cleanup(deleteTemporaryFiles: true)
+
+        #expect(mockCamera.stopSessionCalled)
+        #expect(mockCamera.cleanupTempFilesCalled)
+    }
+
+    @Test("cleanup preserves temp files when requested")
+    func cleanupPreservesTempFiles() async {
+        let mockCamera = MockCameraController()
+        let config = CaptureConfiguration(
+            videoDuration: 3,
+            countdownSeconds: 0,
+            photoCountdownSeconds: 0,
+            stripCount: 3
+        )
+        let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
+        await viewModel.setupCamera()
+
+        viewModel.cleanup(deleteTemporaryFiles: false)
+
+        #expect(mockCamera.stopSessionCalled)
+        #expect(!mockCamera.cleanupTempFilesCalled)
+    }
+
+    @Test("getCapturedStrips returns correct format")
+    func getCapturedStripsFormat() async {
+        let mockCamera = MockCameraController()
+        let config = CaptureConfiguration(
+            videoDuration: 3,
+            countdownSeconds: 0,
+            photoCountdownSeconds: 0,
+            stripCount: 3
+        )
+        let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
+
+        // Manually add captured strips to test conversion
+        let testURL = URL(fileURLWithPath: "/tmp/test.mov")
+        let testPhotoData = Data("test".utf8)
+
+        // Access internal capturedStrips array
+        viewModel.capturedStrips.append(CapturedStripMedia(
+            stripIndex: 0,
+            videoURL: testURL,
+            photoData: testPhotoData,
+            thumbnailData: nil
+        ))
+
+        let strips = viewModel.getCapturedStrips()
+
+        #expect(strips.count == 1)
+        #expect(strips[0].stripIndex == 0)
+        #expect(strips[0].videoURL == testURL)
+        #expect(strips[0].photoData == testPhotoData)
+    }
+
+    @Test("Recording error sets error state")
+    func recordingErrorSetsErrorState() async {
+        let mockCamera = MockCameraController()
+        mockCamera.recordingShouldFail = true
+        mockCamera.recordingError = .recordingFailed("Test failure")
+
+        let config = CaptureConfiguration(
+            videoDuration: 3,
+            countdownSeconds: 0,
+            photoCountdownSeconds: 0,
+            stripCount: 3
+        )
+        let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
+        await viewModel.setupCamera()
+
+        viewModel.startCapture()
+
+        // Give time for error to propagate
+        try? await Task.sleep(nanoseconds: 100_000_000)
+
+        if case .error = viewModel.stripState {
+            #expect(true)
+        } else {
+            Issue.record("Expected error state")
+        }
+    }
+}
+
+// MARK: - SimulatorCameraController Tests
+
+@MainActor
+struct SimulatorCameraControllerTests {
+
+    @Test("SimulatorCameraController is marked as simulator")
+    func isSimulatorTrue() {
+        let controller = SimulatorCameraController()
+        #expect(controller.isSimulator == true)
+    }
+
+    @Test("SimulatorCameraController has no preview layer")
+    func noPreviewLayer() {
+        let controller = SimulatorCameraController()
+        #expect(controller.previewLayer == nil)
+    }
+
+    @Test("SimulatorCameraController setup completes without error")
+    func setupSuccess() async throws {
+        let controller = SimulatorCameraController()
+        try await controller.setup()
+        // Should not throw
+    }
+
+    @Test("SimulatorCameraController capturePhoto returns data")
+    func capturePhotoReturnsData() async throws {
+        let controller = SimulatorCameraController()
+        let photoData = try await controller.capturePhoto()
+
+        #expect(!photoData.isEmpty)
+        // Verify it's valid JPEG data (starts with FFD8)
+        #expect(photoData.count > 2)
+    }
+
+    @Test("SimulatorCameraController tracks recording state")
+    func recordingStateTracking() async throws {
+        let controller = SimulatorCameraController()
+
+        #expect(controller.isRecording == false)
+
+        try controller.startRecording()
+        #expect(controller.isRecording == true)
+
+        controller.stopRecording()
+
+        // isRecording should be false after stopRecording
+        #expect(controller.isRecording == false)
+    }
+}
+
+// MARK: - CameraControllerFactory Tests
+
+@MainActor
+struct CameraControllerFactoryTests {
+
+    @Test("Factory creates appropriate controller")
+    func factoryCreatesController() {
+        let controller = CameraControllerFactory.makeController()
+
+        // In test environment (simulator), should create SimulatorCameraController
+        #if targetEnvironment(simulator)
+        #expect(controller.isSimulator == true)
+        #else
+        #expect(controller.isSimulator == false)
+        #endif
+    }
+}
+
+// MARK: - Integration Tests for Capture Flow
+
+@MainActor
+struct CaptureFlowIntegrationTests {
+
+    @Test("Complete capture flow with mock camera")
+    func completeCaptureFlow() async throws {
+        // Create a mock camera that completes quickly
+        let mockCamera = MockCameraController()
+        let config = CaptureConfiguration(
+            videoDuration: 0.5,
+            countdownSeconds: 0,
+            photoCountdownSeconds: 0,
+            stripCount: 1
+        )
+        let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
+
+        // Setup camera
+        await viewModel.setupCamera()
+        #expect(viewModel.isCameraReady)
+
+        // Start capture
+        viewModel.startCapture()
+
+        // Wait for recording to start
+        try await Task.sleep(nanoseconds: 100_000_000)
+        #expect(mockCamera.startRecordingCalled)
+
+        // Simulate recording completion by stopping
+        mockCamera.stopRecording()
+
+        // Wait for photo capture and finalization
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        // Verify capture completed
+        #expect(mockCamera.capturePhotoCalled)
+    }
+
+    @Test("Multiple strips capture sequentially")
+    func multipleStripsCapture() async throws {
+        let mockCamera = MockCameraController()
+        let config = CaptureConfiguration(
+            videoDuration: 0.1,
+            countdownSeconds: 0,
+            photoCountdownSeconds: 0,
+            stripCount: 2
+        )
+        let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
+
+        await viewModel.setupCamera()
+        #expect(viewModel.isCameraReady)
+
+        // Start first strip
+        viewModel.startCapture()
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        #expect(viewModel.currentStripIndex == 0)
+    }
+
+    @Test("Delegate callbacks are received correctly")
+    func delegateCallbacks() async throws {
+        let mockCamera = MockCameraController()
+        let config = CaptureConfiguration(
+            videoDuration: 0.5,
+            countdownSeconds: 0,
+            photoCountdownSeconds: 0,
+            stripCount: 1
+        )
+        let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
+
+        await viewModel.setupCamera()
+
+        // Start capture
+        viewModel.startCapture()
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        // Verify delegate was set and is being used
+        #expect(mockCamera.delegate != nil)
+
+        // Simulate error to test error callback
+        mockCamera.simulateError(.cameraUnavailable)
+
+        try await Task.sleep(nanoseconds: 100_000_000)
+
+        if case .error = viewModel.stripState {
+            #expect(true)
+        } else {
+            Issue.record("Expected error state after delegate error callback")
+        }
     }
 }

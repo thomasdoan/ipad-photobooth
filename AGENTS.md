@@ -189,3 +189,5 @@ If unclear on a task, ask about:
 2. Should this work offline or require Worker connection?
 3. Is this user-facing or operator-only feature?
 4. Should it be covered by tests?
+
+@import CLAUDE.md

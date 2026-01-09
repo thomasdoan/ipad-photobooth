@@ -10,10 +10,46 @@ import UIKit
 
 /// Delegate protocol for camera events
 protocol CameraControllerDelegate: AnyObject {
-    func cameraController(_ controller: CameraController, didStartRecording url: URL)
-    func cameraController(_ controller: CameraController, didFinishRecording url: URL)
-    func cameraController(_ controller: CameraController, didCapturePhoto data: Data)
-    func cameraController(_ controller: CameraController, didFailWithError error: CameraError)
+    func cameraController(_ controller: any CameraControlling, didStartRecording url: URL)
+    func cameraController(_ controller: any CameraControlling, didFinishRecording url: URL)
+    func cameraController(_ controller: any CameraControlling, didCapturePhoto data: Data)
+    func cameraController(_ controller: any CameraControlling, didFailWithError error: CameraError)
+}
+
+/// Protocol abstracting camera functionality for testability and simulator support
+protocol CameraControlling: AnyObject, Sendable {
+    /// Delegate for camera events
+    var delegate: CameraControllerDelegate? { get set }
+
+    /// The preview layer for displaying camera feed (nil for simulator)
+    var previewLayer: AVCaptureVideoPreviewLayer? { get }
+
+    /// Whether the camera is currently recording
+    var isRecording: Bool { get }
+
+    /// Whether this is a simulator camera (for UI adaptation)
+    var isSimulator: Bool { get }
+
+    /// Sets up the camera
+    func setup() async throws
+
+    /// Starts the capture session
+    func startSession()
+
+    /// Stops the capture session
+    func stopSession()
+
+    /// Starts video recording
+    func startRecording() throws
+
+    /// Stops video recording
+    func stopRecording()
+
+    /// Captures a photo
+    func capturePhoto() async throws -> Data
+
+    /// Cleans up temporary files
+    func cleanupTempFiles()
 }
 
 /// Camera-related errors
@@ -44,27 +80,30 @@ enum CameraError: Error, LocalizedError {
 }
 
 /// Controller for camera operations (video recording + photo capture)
-final class CameraController: NSObject, @unchecked Sendable {
+final class CameraController: NSObject, CameraControlling, @unchecked Sendable {
     // MARK: - Constants
-    
+
     /// Video rotation angle for portrait orientation (degrees clockwise)
     private static let videoRotationAngle: CGFloat = 270
-    
+
     // MARK: - Properties
-    
+
     weak var delegate: CameraControllerDelegate?
-    
+
     /// The capture session
     let captureSession = AVCaptureSession()
-    
+
     /// Preview layer for displaying camera feed
     private(set) var previewLayer: AVCaptureVideoPreviewLayer?
-    
+
     /// Current recording URL
     private var currentRecordingURL: URL?
-    
+
     /// Whether currently recording
     private(set) var isRecording = false
+
+    /// Whether this is a simulator camera
+    var isSimulator: Bool { false }
     
     /// Video output for recording
     private var movieOutput: AVCaptureMovieFileOutput?
