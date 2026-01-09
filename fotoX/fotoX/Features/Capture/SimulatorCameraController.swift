@@ -5,9 +5,13 @@
 //  Simulated camera for iOS Simulator testing
 //
 
+import Foundation
 import AVFoundation
-import UIKit
+import CoreGraphics
 import CoreImage
+import CoreText
+import ImageIO
+import UniformTypeIdentifiers
 import os
 
 /// Simulated camera controller for testing in iOS Simulator
@@ -38,10 +42,20 @@ final class SimulatorCameraController: CameraControlling {
 
     private nonisolated static let logger = Logger(subsystem: "fotoX", category: "SimulatorCamera")
 
+    private struct SampleColor: Sendable {
+        let red: CGFloat
+        let green: CGFloat
+        let blue: CGFloat
+    }
+
     /// Sample image colors for generating frames
-    private nonisolated(unsafe) static let sampleColors: [UIColor] = [
-        .systemBlue, .systemPurple, .systemPink,
-        .systemOrange, .systemYellow, .systemGreen
+    private nonisolated static let sampleColors: [SampleColor] = [
+        SampleColor(red: 0.0, green: 0.48, blue: 1.0),
+        SampleColor(red: 0.69, green: 0.32, blue: 0.87),
+        SampleColor(red: 1.0, green: 0.18, blue: 0.33),
+        SampleColor(red: 1.0, green: 0.58, blue: 0.0),
+        SampleColor(red: 1.0, green: 0.8, blue: 0.0),
+        SampleColor(red: 0.0, green: 0.8, blue: 0.4)
     ]
 
     /// Current color index for variety
@@ -65,9 +79,9 @@ final class SimulatorCameraController: CameraControlling {
         guard !isRecording else { return }
 
         // Create unique file URL
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let tempDirectory = FileManager.default.temporaryDirectory
         let videoFileName = "strip_\(UUID().uuidString).mov"
-        let videoURL = documentsPath.appendingPathComponent(videoFileName)
+        let videoURL = tempDirectory.appendingPathComponent(videoFileName)
 
         currentRecordingURL = videoURL
         isRecording = true
@@ -84,20 +98,14 @@ final class SimulatorCameraController: CameraControlling {
 
         let actualDuration = recordingStartTime.map { Date().timeIntervalSince($0) } ?? 3.0
 
-        // Generate the video file asynchronously
-        Task.detached { [weak self] in
+        Task {
             do {
-                try self?.generateSampleVideo(at: videoURL, duration: actualDuration)
-
-                await MainActor.run {
-                    guard let self = self else { return }
-                    self.delegate?.cameraController(self, didFinishRecording: videoURL)
-                }
+                try await Task.detached { [videoURL, actualDuration] in
+                    try Self.generateSampleVideo(at: videoURL, duration: actualDuration)
+                }.value
+                delegate?.cameraController(self, didFinishRecording: videoURL)
             } catch {
-                await MainActor.run {
-                    guard let self = self else { return }
-                    self.delegate?.cameraController(self, didFailWithError: .recordingFailed(error.localizedDescription))
-                }
+                delegate?.cameraController(self, didFailWithError: .recordingFailed(error.localizedDescription))
             }
         }
     }
@@ -117,25 +125,97 @@ final class SimulatorCameraController: CameraControlling {
     }
 
     func cleanupTempFiles() {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        let tempDirectory = FileManager.default.temporaryDirectory
         let fileManager = FileManager.default
 
         do {
-            let files = try fileManager.contentsOfDirectory(at: documentsPath, includingPropertiesForKeys: nil)
+            let files = try fileManager.contentsOfDirectory(at: tempDirectory, includingPropertiesForKeys: nil)
             for file in files
             where file.pathExtension == "mov"
             && file.lastPathComponent.hasPrefix("strip_") {
                 try? fileManager.removeItem(at: file)
             }
         } catch {
-            print("Failed to cleanup temp files: \(error)")
+            Self.logger.error("Failed to cleanup temp files: \(String(describing: error))")
         }
     }
 
     // MARK: - Sample Content Generation
 
+    private nonisolated static func makeColor(
+        red: CGFloat,
+        green: CGFloat,
+        blue: CGFloat,
+        alpha: CGFloat,
+        in colorSpace: CGColorSpace
+    ) -> CGColor? {
+        CGColor(colorSpace: colorSpace, components: [red, green, blue, alpha])
+    }
+
+    private nonisolated static func makeColor(
+        _ color: SampleColor,
+        alpha: CGFloat = 1.0,
+        in colorSpace: CGColorSpace
+    ) -> CGColor? {
+        makeColor(red: color.red, green: color.green, blue: color.blue, alpha: alpha, in: colorSpace)
+    }
+
+    private nonisolated static func makeTextLine(
+        _ text: String,
+        fontName: String,
+        fontSize: CGFloat,
+        color: CGColor
+    ) -> (CTLine, CGRect) {
+        let font = CTFontCreateWithName(fontName as CFString, fontSize, nil)
+        let attributes: [NSAttributedString.Key: Any] = [
+            NSAttributedString.Key(kCTFontAttributeName as String): font,
+            NSAttributedString.Key(kCTForegroundColorAttributeName as String): color
+        ]
+        let attributedString = NSAttributedString(string: text, attributes: attributes)
+        let line = CTLineCreateWithAttributedString(attributedString)
+        let bounds = CTLineGetBoundsWithOptions(line, [.useGlyphPathBounds, .useOpticalBounds])
+        return (line, bounds)
+    }
+
+    private nonisolated static func drawCenteredText(
+        _ text: String,
+        in context: CGContext,
+        canvasSize: CGSize,
+        fontName: String,
+        fontSize: CGFloat,
+        color: CGColor
+    ) {
+        let (line, bounds) = makeTextLine(text, fontName: fontName, fontSize: fontSize, color: color)
+        let x = (canvasSize.width - bounds.width) / 2 - bounds.origin.x
+        let y = (canvasSize.height - bounds.height) / 2 - bounds.origin.y
+        context.saveGState()
+        context.textMatrix = .identity
+        context.textPosition = CGPoint(x: x, y: y)
+        CTLineDraw(line, context)
+        context.restoreGState()
+    }
+
+    private nonisolated static func drawCenteredTextAtTop(
+        _ text: String,
+        in context: CGContext,
+        canvasSize: CGSize,
+        top: CGFloat,
+        fontName: String,
+        fontSize: CGFloat,
+        color: CGColor
+    ) {
+        let (line, bounds) = makeTextLine(text, fontName: fontName, fontSize: fontSize, color: color)
+        let x = (canvasSize.width - bounds.width) / 2 - bounds.origin.x
+        let y = top - (bounds.origin.y + bounds.height)
+        context.saveGState()
+        context.textMatrix = .identity
+        context.textPosition = CGPoint(x: x, y: y)
+        CTLineDraw(line, context)
+        context.restoreGState()
+    }
+
     /// Generates a sample video file at the specified URL
-    private nonisolated func generateSampleVideo(at url: URL, duration: TimeInterval) throws {
+    private nonisolated static func generateSampleVideo(at url: URL, duration: TimeInterval) throws {
         let width = 1080
         let height = 1920 // 9:16 portrait
         let frameRate: Int32 = 30
@@ -179,7 +259,7 @@ final class SimulatorCameraController: CameraControlling {
             let presentationTime = CMTime(value: CMTimeValue(frameIndex), timescale: frameRate)
             let progress = Double(frameIndex) / Double(totalFrames)
 
-            if let pixelBuffer = createSamplePixelBuffer(width: width, height: height, progress: progress) {
+            if let pixelBuffer = Self.createSamplePixelBuffer(width: width, height: height, progress: progress) {
                 adaptor.append(pixelBuffer, withPresentationTime: presentationTime)
             }
         }
@@ -199,7 +279,7 @@ final class SimulatorCameraController: CameraControlling {
     }
 
     /// Creates a pixel buffer with gradient colors and animation
-    private nonisolated func createSamplePixelBuffer(width: Int, height: Int, progress: Double) -> CVPixelBuffer? {
+    private nonisolated static func createSamplePixelBuffer(width: Int, height: Int, progress: Double) -> CVPixelBuffer? {
         var pixelBuffer: CVPixelBuffer?
 
         let attrs: [String: Any] = [
@@ -231,6 +311,8 @@ final class SimulatorCameraController: CameraControlling {
             bitmapInfo: CGImageAlphaInfo.noneSkipFirst.rawValue
         ) else { return nil }
 
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
+
         // Create animated gradient background
         let colorIndex1 = Int(progress * 3) % Self.sampleColors.count
         let colorIndex2 = (colorIndex1 + 1) % Self.sampleColors.count
@@ -238,11 +320,17 @@ final class SimulatorCameraController: CameraControlling {
         let color1 = Self.sampleColors[colorIndex1]
         let color2 = Self.sampleColors[colorIndex2]
 
-        let gradient = CGGradient(
-            colorsSpace: CGColorSpaceCreateDeviceRGB(),
-            colors: [color1.cgColor, color2.cgColor] as CFArray,
-            locations: [0, 1]
-        )
+        let color1CG = Self.makeColor(color1, in: colorSpace)
+        let color2CG = Self.makeColor(color2, in: colorSpace)
+        let gradient = color1CG.flatMap { firstColor in
+            color2CG.flatMap { secondColor in
+                CGGradient(
+                    colorsSpace: colorSpace,
+                    colors: [firstColor, secondColor] as CFArray,
+                    locations: [0, 1]
+                )
+            }
+        }
 
         if let gradient {
             context.drawLinearGradient(
@@ -253,39 +341,29 @@ final class SimulatorCameraController: CameraControlling {
             )
         } else {
             // CGGradient(colorsSpace:colors:locations:) can return nil; if `gradient` is missing, fill a solid background so the frame renders.
-            context.setFillColor(color1.cgColor)
-            context.fill(CGRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height)))
+            Self.logger.error("Failed to create gradient for simulator video frame.")
+            let fallbackColor = color1CG ?? Self.makeColor(red: 0.2, green: 0.2, blue: 0.2, alpha: 1.0, in: colorSpace)
+            if let fallbackColor {
+                context.setFillColor(fallbackColor)
+                context.fill(CGRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height)))
+            }
         }
 
         // Add "SIMULATOR" text
-        context.setFillColor(UIColor.white.withAlphaComponent(0.8).cgColor)
-
-        let text = "SIMULATOR"
-        let fontSize = CGFloat(width) / 8
-        let font = UIFont.boldSystemFont(ofSize: fontSize)
-        let textAttributes: [NSAttributedString.Key: Any] = [
-            .font: font,
-            .foregroundColor: UIColor.white.withAlphaComponent(0.8)
-        ]
-
-        let textSize = text.size(withAttributes: textAttributes)
-        let textRect = CGRect(
-            x: (CGFloat(width) - textSize.width) / 2,
-            y: (CGFloat(height) - textSize.height) / 2,
-            width: textSize.width,
-            height: textSize.height
-        )
-
-        // Draw text using UIGraphics
-        UIGraphicsPushContext(context)
-        context.translateBy(x: 0, y: CGFloat(height))
-        context.scaleBy(x: 1, y: -1)
-        text.draw(in: textRect, withAttributes: textAttributes)
-        UIGraphicsPopContext()
+        if let textColor = Self.makeColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.8, in: colorSpace) {
+            let fontSize = CGFloat(width) / 8
+            Self.drawCenteredText(
+                "SIMULATOR",
+                in: context,
+                canvasSize: CGSize(width: CGFloat(width), height: CGFloat(height)),
+                fontName: "Helvetica-Bold",
+                fontSize: fontSize,
+                color: textColor
+            )
+        }
 
         // Add recording indicator circle (pulsing)
         let pulse = sin(progress * .pi * 8) * 0.3 + 0.7
-        context.setFillColor(UIColor.red.withAlphaComponent(CGFloat(pulse)).cgColor)
         let indicatorSize: CGFloat = 40
         let indicatorRect = CGRect(
             x: 60,
@@ -293,79 +371,115 @@ final class SimulatorCameraController: CameraControlling {
             width: indicatorSize,
             height: indicatorSize
         )
-        context.fillEllipse(in: indicatorRect)
+        if let indicatorColor = Self.makeColor(red: 1.0, green: 0.0, blue: 0.0, alpha: CGFloat(pulse), in: colorSpace) {
+            context.setFillColor(indicatorColor)
+            context.fillEllipse(in: indicatorRect)
+        }
 
         return buffer
     }
 
     /// Generates a sample photo as JPEG data
     private nonisolated static func generateSamplePhoto(colorIndex: Int) throws -> Data {
-        let size = CGSize(width: 1080, height: 1920)
+        let width = 1080
+        let height = 1920
+        let size = CGSize(width: width, height: height)
+        let colorSpace = CGColorSpaceCreateDeviceRGB()
 
-        let renderer = UIGraphicsImageRenderer(size: size)
-        let image = renderer.image { context in
-            // Gradient background
-            let color1 = Self.sampleColors[colorIndex % Self.sampleColors.count]
-            let color2 = Self.sampleColors[(colorIndex + 1) % Self.sampleColors.count]
-
-            let gradient = CGGradient(
-                colorsSpace: CGColorSpaceCreateDeviceRGB(),
-                colors: [color1.cgColor, color2.cgColor] as CFArray,
-                locations: [0, 1]
-            )
-
-            if let gradient {
-                context.cgContext.drawLinearGradient(
-                    gradient,
-                    start: .zero,
-                    end: CGPoint(x: size.width, y: size.height),
-                    options: []
-                )
-            } else {
-                Self.logger.error("Failed to create gradient for simulator sample photo.")
-                context.cgContext.setFillColor(color1.cgColor)
-                context.cgContext.fill(CGRect(origin: .zero, size: size))
-            }
-
-            // Add "PHOTO" text
-            let text = "PHOTO"
-            let fontSize = size.width / 6
-            let font = UIFont.boldSystemFont(ofSize: fontSize)
-            let textAttributes: [NSAttributedString.Key: Any] = [
-                .font: font,
-                .foregroundColor: UIColor.white.withAlphaComponent(0.9)
-            ]
-
-            let textSize = text.size(withAttributes: textAttributes)
-            let textRect = CGRect(
-                x: (size.width - textSize.width) / 2,
-                y: (size.height - textSize.height) / 2,
-                width: textSize.width,
-                height: textSize.height
-            )
-            text.draw(in: textRect, withAttributes: textAttributes)
-
-            // Add timestamp
-            let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
-            let timestampFont = UIFont.systemFont(ofSize: 36)
-            let timestampAttributes: [NSAttributedString.Key: Any] = [
-                .font: timestampFont,
-                .foregroundColor: UIColor.white.withAlphaComponent(0.7)
-            ]
-            let timestampSize = timestamp.size(withAttributes: timestampAttributes)
-            let timestampRect = CGRect(
-                x: (size.width - timestampSize.width) / 2,
-                y: size.height - 150,
-                width: timestampSize.width,
-                height: timestampSize.height
-            )
-            timestamp.draw(in: timestampRect, withAttributes: timestampAttributes)
-        }
-
-        guard let jpegData = image.jpegData(compressionQuality: 0.8) else {
+        guard let context = CGContext(
+            data: nil,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: width * 4,
+            space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else {
             throw JPEGEncodingError.failedToEncode
         }
-        return jpegData
+
+        // Gradient background
+        let color1 = Self.sampleColors[colorIndex % Self.sampleColors.count]
+        let color2 = Self.sampleColors[(colorIndex + 1) % Self.sampleColors.count]
+        let color1CG = Self.makeColor(color1, in: colorSpace)
+        let color2CG = Self.makeColor(color2, in: colorSpace)
+        let gradient = color1CG.flatMap { firstColor in
+            color2CG.flatMap { secondColor in
+                CGGradient(
+                    colorsSpace: colorSpace,
+                    colors: [firstColor, secondColor] as CFArray,
+                    locations: [0, 1]
+                )
+            }
+        }
+
+        if let gradient {
+            context.drawLinearGradient(
+                gradient,
+                start: .zero,
+                end: CGPoint(x: size.width, y: size.height),
+                options: []
+            )
+        } else {
+            Self.logger.error("Failed to create gradient for simulator sample photo.")
+            let fallbackColor = color1CG ?? Self.makeColor(red: 0.2, green: 0.2, blue: 0.2, alpha: 1.0, in: colorSpace)
+            if let fallbackColor {
+                context.setFillColor(fallbackColor)
+                context.fill(CGRect(origin: .zero, size: size))
+            }
+        }
+
+        // Add "PHOTO" text
+        if let textColor = Self.makeColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.9, in: colorSpace) {
+            Self.drawCenteredText(
+                "PHOTO",
+                in: context,
+                canvasSize: size,
+                fontName: "Helvetica-Bold",
+                fontSize: size.width / 6,
+                color: textColor
+            )
+        }
+
+        // Add timestamp
+        let timestamp = DateFormatter.localizedString(from: Date(), dateStyle: .none, timeStyle: .medium)
+        if let timestampColor = Self.makeColor(red: 1.0, green: 1.0, blue: 1.0, alpha: 0.7, in: colorSpace) {
+            Self.drawCenteredTextAtTop(
+                timestamp,
+                in: context,
+                canvasSize: size,
+                top: 150,
+                fontName: "Helvetica",
+                fontSize: 36,
+                color: timestampColor
+            )
+        }
+
+        guard let cgImage = context.makeImage() else {
+            throw JPEGEncodingError.failedToEncode
+        }
+
+        let data = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            data,
+            UTType.jpeg.identifier as CFString,
+            1,
+            nil
+        ) else {
+            throw JPEGEncodingError.failedToEncode
+        }
+
+        CGImageDestinationAddImage(
+            destination,
+            cgImage,
+            [kCGImageDestinationLossyCompressionQuality: 0.8] as CFDictionary
+        )
+
+        guard CGImageDestinationFinalize(destination) else {
+            throw JPEGEncodingError.failedToEncode
+        }
+
+        return data as Data
     }
 }
 
