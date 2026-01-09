@@ -222,6 +222,10 @@ final class CaptureViewModel: @unchecked Sendable {
             remaining -= 1
             
             Task { @MainActor in
+                if case .error = self.stripState {
+                    timer.invalidate()
+                    return
+                }
                 if remaining > 0 {
                     self.stripState = .countdown(remaining: remaining)
                 } else {
@@ -245,6 +249,10 @@ final class CaptureViewModel: @unchecked Sendable {
             let elapsed = Date().timeIntervalSince(startTime)
             
             Task { @MainActor in
+                if case .error = self.stripState {
+                    timer.invalidate()
+                    return
+                }
                 if elapsed >= self.config.videoDuration {
                     timer.invalidate()
                     self.recordingComplete()
@@ -285,6 +293,7 @@ extension CaptureViewModel: CameraControllerDelegate {
 
     func cameraController(_ controller: any CameraControlling, didFailWithError error: CameraError) {
         Task { @MainActor in
+            invalidateTimers()
             errorMessage = error.localizedDescription
             stripState = .error(error.localizedDescription)
         }

@@ -87,18 +87,20 @@ final class SimulatorCameraController: CameraControlling {
                 try self?.generateSampleVideo(at: videoURL, duration: actualDuration)
 
                 await MainActor.run {
-                    self?.delegate?.cameraController(self!, didFinishRecording: videoURL)
+                    guard let self = self else { return }
+                    self.delegate?.cameraController(self, didFinishRecording: videoURL)
                 }
             } catch {
                 await MainActor.run {
-                    self?.delegate?.cameraController(self!, didFailWithError: .recordingFailed(error.localizedDescription))
+                    guard let self = self else { return }
+                    self.delegate?.cameraController(self, didFailWithError: .recordingFailed(error.localizedDescription))
                 }
             }
         }
     }
 
     func capturePhoto() async throws -> Data {
-        let photoData = generateSamplePhoto()
+        let photoData = try generateSamplePhoto()
         delegate?.cameraController(self, didCapturePhoto: photoData)
         return photoData
     }
@@ -278,7 +280,7 @@ final class SimulatorCameraController: CameraControlling {
     }
 
     /// Generates a sample photo as JPEG data
-    private func generateSamplePhoto() -> Data {
+    private func generateSamplePhoto() throws -> Data {
         let size = CGSize(width: 1080, height: 1920)
 
         let renderer = UIGraphicsImageRenderer(size: size)
@@ -337,11 +339,14 @@ final class SimulatorCameraController: CameraControlling {
         }
 
         guard let jpegData = image.jpegData(compressionQuality: 0.8) else {
-            print("Warning: Failed to generate JPEG data for sample photo")
-            return Data()
+            throw JPEGEncodingError.failedToEncode
         }
         return jpegData
     }
+}
+
+private enum JPEGEncodingError: Error {
+    case failedToEncode
 }
 
 // MARK: - Camera Controller Factory

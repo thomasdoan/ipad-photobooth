@@ -1678,6 +1678,7 @@ struct CaptureViewModelTests {
 
 // MARK: - SimulatorCameraController Tests
 
+@MainActor
 struct SimulatorCameraControllerTests {
 
     @Test("SimulatorCameraController is marked as simulator")
@@ -1727,6 +1728,7 @@ struct SimulatorCameraControllerTests {
 
 // MARK: - CameraControllerFactory Tests
 
+@MainActor
 struct CameraControllerFactoryTests {
 
     @Test("Factory creates appropriate controller")
