@@ -7,6 +7,7 @@
 
 import Foundation
 import Observation
+import os
 
 /// ViewModel for displaying event gallery with local and remote sessions
 @Observable
@@ -33,6 +34,7 @@ final class GalleryViewModel {
 
     /// Shared ISO8601 date formatter for parsing timestamps
     private static let iso8601Formatter = ISO8601DateFormatter()
+    private static let logger = Logger(subsystem: "fotoX", category: "DateParsing")
     
     // MARK: - Initialization
     
@@ -76,7 +78,13 @@ final class GalleryViewModel {
             var sessions: [GallerySession] = []
             sessions.reserveCapacity(eventIndex.sessions.count)
             for indexSession in eventIndex.sessions {
-                let createdAt = Self.iso8601Formatter.date(from: indexSession.createdAt) ?? Date()
+                let createdAt: Date
+                if let parsedDate = Self.iso8601Formatter.date(from: indexSession.createdAt) {
+                    createdAt = parsedDate
+                } else {
+                    Self.logger.warning("Failed to parse remote session date: \(indexSession.createdAt)")
+                    createdAt = Date()
+                }
                 sessions.append(GallerySession(
                     id: indexSession.sessionId,
                     sessionId: indexSession.sessionId,
@@ -91,11 +99,8 @@ final class GalleryViewModel {
             }
             return sessions
         } catch {
-            // Don't fail entirely if remote is unavailable - show local only
             await MainActor.run {
-                if sessions.isEmpty {
-                    errorMessage = "Could not load remote sessions: \(error.localizedDescription)"
-                }
+                errorMessage = "Could not load remote sessions: \(error.localizedDescription)"
             }
             return []
         }

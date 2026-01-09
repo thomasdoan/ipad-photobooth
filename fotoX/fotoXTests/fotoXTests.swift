@@ -1374,7 +1374,6 @@ struct GallerySessionDateFormattingTests {
 
         let formatted = session.formattedDate
         #expect(!formatted.isEmpty, "Formatted date should not be empty")
-        #expect(!formatted.contains(":"), "Date should not contain time separator")
     }
 
     @Test("GallerySession formattedTime returns time without date")

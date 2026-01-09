@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import os
 
 /// Service for discovering locally stored session files
 struct LocalGalleryService: Sendable {
@@ -15,6 +16,7 @@ struct LocalGalleryService: Sendable {
 
     /// Shared ISO8601 date formatter for parsing timestamps
     private static let iso8601Formatter = ISO8601DateFormatter()
+    private static let logger = Logger(subsystem: "fotoX", category: "DateParsing")
 
     init(fileManager: FileManager = .default, uploadsDirectory: URL? = nil) {
         self.fileManager = fileManager
@@ -67,7 +69,13 @@ struct LocalGalleryService: Sendable {
                 
                 guard !assets.isEmpty else { continue }
 
-                let createdAt = Self.iso8601Formatter.date(from: queueSession.createdAt) ?? Date()
+                let createdAt: Date
+                if let parsedDate = Self.iso8601Formatter.date(from: queueSession.createdAt) {
+                    createdAt = parsedDate
+                } else {
+                    Self.logger.warning("Failed to parse queued session date: \(queueSession.createdAt)")
+                    createdAt = Date()
+                }
                 let thumbURL = assets.first(where: { $0.kind == .photo })?.localURL
 
                 results.append(GallerySession(
@@ -113,7 +121,13 @@ struct LocalGalleryService: Sendable {
                     let assets = buildAssetsFromManifest(manifest, sessionDir: itemURL)
                     guard !assets.isEmpty else { continue }
 
-                    let createdAt = Self.iso8601Formatter.date(from: manifest.createdAt) ?? Date()
+                    let createdAt: Date
+                    if let parsedDate = Self.iso8601Formatter.date(from: manifest.createdAt) {
+                        createdAt = parsedDate
+                    } else {
+                        Self.logger.warning("Failed to parse manifest session date: \(manifest.createdAt)")
+                        createdAt = Date()
+                    }
                     let thumbURL = assets.first(where: { $0.kind == .photo })?.localURL
 
                     sessions.append(GallerySession(
