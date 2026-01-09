@@ -12,13 +12,15 @@ import AVKit
 // TODO: Revisit whether this view is still needed with auto-advance capture. Might be needed if we want to allow retakes.
 struct StripReviewView: View {
     let stripIndex: Int
+    let stripCount: Int
     let videoURL: URL
     let photoData: Data
     let onRetake: () -> Void
     let onContinue: () -> Void
     let isLastStrip: Bool
+    let showsReviewControls: Bool
+    let autoAdvanceSeconds: Int
     
-    @State private var showingVideo = true
     @State private var playerManager = VideoPlayerManager()
     @State private var player: AVPlayer?
     
@@ -38,31 +40,23 @@ struct StripReviewView: View {
                     // Header
                     headerSection
                     
+                    autoAdvanceLabel
+
                     // Media preview
                     mediaPreview(geometry: geometry)
-                    
-                    // Toggle buttons
-                    mediaToggle
                     
                     Spacer()
                     
                     // Action buttons
-                    actionButtons
+                    if showsReviewControls {
+                        actionButtons
+                    }
                 }
                 .padding(32)
             }
         }
         .onAppear {
-            if showingVideo {
-                startPlayback(fromStart: false)
-            }
-        }
-        .onChange(of: showingVideo) { _, isShowing in
-            if isShowing {
-                startPlayback(fromStart: true)
-            } else {
-                playerManager.pause(id: playerID)
-            }
+            startPlayback(fromStart: true)
         }
         .onDisappear {
             playerManager.stop(id: playerID)
@@ -74,7 +68,7 @@ struct StripReviewView: View {
     
     private var headerSection: some View {
         VStack(spacing: 8) {
-            Text("Strip \(stripIndex + 1) of 3")
+            Text("Strip \(stripIndex + 1) of \(stripCount)")
                 .font(.headline)
                 .foregroundStyle(theme.accent.opacity(0.7))
             
@@ -84,48 +78,30 @@ struct StripReviewView: View {
         }
     }
     
+    private var autoAdvanceLabel: some View {
+        Text("Auto-advancing in \(autoAdvanceSeconds)s")
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(theme.accent.opacity(0.7))
+    }
+
     // MARK: - Media Preview
     
     private func mediaPreview(geometry: GeometryProxy) -> some View {
         let previewHeight = geometry.size.height * 0.5
+        let previewWidth = geometry.size.width * 0.42
         
-        return ZStack {
-            if showingVideo, let player = player {
-                VideoPlayer(player: player)
-                    .aspectRatio(9/16, contentMode: .fit)
-                    .frame(maxHeight: previewHeight)
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
-            } else if let uiImage = UIImage(data: photoData) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxHeight: previewHeight)
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
+        return ViewThatFits {
+            HStack(spacing: 20) {
+                videoPreview(maxHeight: previewHeight)
+                    .frame(maxWidth: previewWidth)
+                photoPreview(maxHeight: previewHeight)
+                    .frame(maxWidth: previewWidth)
+            }
+            VStack(spacing: 20) {
+                videoPreview(maxHeight: previewHeight)
+                photoPreview(maxHeight: previewHeight * 0.7)
             }
         }
-        .shadow(color: .black.opacity(0.3), radius: 20)
-    }
-    
-    // MARK: - Media Toggle
-    
-    private var mediaToggle: some View {
-        HStack(spacing: 0) {
-            toggleButton(title: "Video", icon: "video.fill", isSelected: showingVideo) {
-                withAnimation {
-                    showingVideo = true
-                }
-            }
-            
-            toggleButton(title: "Photo", icon: "photo.fill", isSelected: !showingVideo) {
-                withAnimation {
-                    showingVideo = false
-                }
-            }
-        }
-        .background(
-            RoundedRectangle(cornerRadius: 12)
-                .fill(theme.secondary.opacity(0.5))
-        )
     }
     
     // MARK: - Video Playback
@@ -134,21 +110,34 @@ struct StripReviewView: View {
         player = playerManager.play(id: playerID, url: videoURL, fromStart: fromStart)
     }
     
-    private func toggleButton(title: String, icon: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: icon)
-                Text(title)
+    private func videoPreview(maxHeight: CGFloat) -> some View {
+        ZStack {
+            if let player = player {
+                VideoPlayer(player: player)
+                    .aspectRatio(9/16, contentMode: .fit)
+            } else {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: theme.accent))
             }
-            .font(.subheadline.bold())
-            .foregroundStyle(isSelected ? theme.secondary : theme.accent.opacity(0.7))
-            .padding(.horizontal, 24)
-            .padding(.vertical, 12)
-            .background(
-                RoundedRectangle(cornerRadius: 10)
-                    .fill(isSelected ? theme.primary : Color.clear)
-            )
         }
+        .frame(maxHeight: maxHeight)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: .black.opacity(0.3), radius: 20)
+    }
+
+    private func photoPreview(maxHeight: CGFloat) -> some View {
+        ZStack {
+            if let uiImage = UIImage(data: photoData) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            } else {
+                Color.black.opacity(0.2)
+            }
+        }
+        .frame(maxHeight: maxHeight)
+        .clipShape(RoundedRectangle(cornerRadius: 20))
+        .shadow(color: .black.opacity(0.3), radius: 20)
     }
     
     // MARK: - Action Buttons
