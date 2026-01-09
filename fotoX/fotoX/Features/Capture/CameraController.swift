@@ -297,11 +297,12 @@ final class CameraController: NSObject, CameraControlling, @unchecked Sendable {
         
         currentRecordingURL = videoURL
         isRecording = true
-        
+
         sessionQueue.async { [weak self] in
-            movieOutput.startRecording(to: videoURL, recordingDelegate: self!)
+            guard let self = self else { return }
+            movieOutput.startRecording(to: videoURL, recordingDelegate: self)
         }
-        
+
         delegate?.cameraController(self, didStartRecording: videoURL)
     }
     

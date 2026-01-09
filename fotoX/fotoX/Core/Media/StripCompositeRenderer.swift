@@ -85,6 +85,19 @@ enum StripCompositeRenderer {
             footerText: footerText
         )
 
+        // Skip video composite in simulator - AVVideoCompositionCoreAnimationTool
+        // causes IOSurface/XPC crashes in the simulator environment
+        // TODO: Consider implementing custom AVVideoCompositing protocol to enable
+        // composite video rendering in simulator without CALayers. This would require
+        // manual frame-by-frame compositing using Core Graphics/Core Image (~300-500 LOC).
+        // For now, simulator gets photo-only composite while real devices get full composite.
+        #if targetEnvironment(simulator)
+        // Return photo-only composite for simulator
+        // Create a placeholder video URL that won't be used
+        let placeholderURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("placeholder_\(UUID().uuidString).mp4")
+        return CompositeStripAssets(photoData: photoData, videoURL: placeholderURL)
+        #else
         let (backgroundData, overlayData) = try renderCompositeLayers(
             layout: layout,
             theme: theme,
@@ -104,6 +117,7 @@ enum StripCompositeRenderer {
         )
 
         return CompositeStripAssets(photoData: photoData, videoURL: videoURL)
+        #endif
     }
 
     private static func renderCompositePhoto(

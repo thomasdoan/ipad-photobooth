@@ -65,35 +65,39 @@ actor UploadQueueWorker {
                 state: .pending
             )
 
-            let videoPath = sessionDir.appendingPathComponent(CompositeStripAssets.videoFileName)
-            if fileManager.fileExists(atPath: videoPath.path) {
-                try fileManager.removeItem(at: videoPath)
-            }
-            try fileManager.moveItem(at: composite.videoURL, to: videoPath)
-            let videoRemotePath = remotePath(
-                eventId: eventId,
-                sessionId: session.sessionId,
-                fileName: CompositeStripAssets.videoFileName
-            )
-            let videoSize = try fileSize(at: videoPath)
-
-            let videoAsset = UploadQueueAsset(
-                id: UUID(),
-                kind: .stripVideo,
-                stripIndex: CompositeStripAssets.stripIndex,
-                sequenceIndex: AssetUploadMetadata.videoSequenceIndex,
-                fileName: CompositeStripAssets.videoFileName,
-                mimeType: "video/mp4",
-                localURL: videoPath,
-                remotePath: videoRemotePath,
-                sizeBytes: videoSize,
-                durationSeconds: nil,
-                posterPath: photoRemotePath,
-                state: .pending
-            )
-
             assets.append(photoAsset)
-            assets.append(videoAsset)
+
+            // Only process composite video if the file actually exists (won't exist in simulator)
+            if fileManager.fileExists(atPath: composite.videoURL.path) {
+                let videoPath = sessionDir.appendingPathComponent(CompositeStripAssets.videoFileName)
+                if fileManager.fileExists(atPath: videoPath.path) {
+                    try fileManager.removeItem(at: videoPath)
+                }
+                try fileManager.moveItem(at: composite.videoURL, to: videoPath)
+                let videoRemotePath = remotePath(
+                    eventId: eventId,
+                    sessionId: session.sessionId,
+                    fileName: CompositeStripAssets.videoFileName
+                )
+                let videoSize = try fileSize(at: videoPath)
+
+                let videoAsset = UploadQueueAsset(
+                    id: UUID(),
+                    kind: .stripVideo,
+                    stripIndex: CompositeStripAssets.stripIndex,
+                    sequenceIndex: AssetUploadMetadata.videoSequenceIndex,
+                    fileName: CompositeStripAssets.videoFileName,
+                    mimeType: "video/mp4",
+                    localURL: videoPath,
+                    remotePath: videoRemotePath,
+                    sizeBytes: videoSize,
+                    durationSeconds: nil,
+                    posterPath: photoRemotePath,
+                    state: .pending
+                )
+
+                assets.append(videoAsset)
+            }
         }
 
         for strip in strips {
