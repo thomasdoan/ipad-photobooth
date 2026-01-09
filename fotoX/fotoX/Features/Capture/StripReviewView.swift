@@ -19,9 +19,14 @@ struct StripReviewView: View {
     let isLastStrip: Bool
     
     @State private var showingVideo = true
+    @State private var playerManager = VideoPlayerManager()
     @State private var player: AVPlayer?
     
     @Environment(\.appTheme) private var theme
+    
+    private var playerID: String {
+        "strip-review-\(stripIndex)"
+    }
     
     var body: some View {
         GeometryReader { geometry in
@@ -48,10 +53,19 @@ struct StripReviewView: View {
             }
         }
         .onAppear {
-            player = AVPlayer(url: videoURL)
+            if showingVideo {
+                startPlayback(fromStart: false)
+            }
+        }
+        .onChange(of: showingVideo) { _, isShowing in
+            if isShowing {
+                startPlayback(fromStart: true)
+            } else {
+                playerManager.pause(id: playerID)
+            }
         }
         .onDisappear {
-            player?.pause()
+            playerManager.stop(id: playerID)
             player = nil
         }
     }
@@ -81,9 +95,6 @@ struct StripReviewView: View {
                     .aspectRatio(9/16, contentMode: .fit)
                     .frame(maxHeight: previewHeight)
                     .clipShape(RoundedRectangle(cornerRadius: 20))
-                    .onAppear {
-                        player.play()
-                    }
             } else if let uiImage = UIImage(data: photoData) {
                 Image(uiImage: uiImage)
                     .resizable()
@@ -102,15 +113,12 @@ struct StripReviewView: View {
             toggleButton(title: "Video", icon: "video.fill", isSelected: showingVideo) {
                 withAnimation {
                     showingVideo = true
-                    player?.seek(to: .zero)
-                    player?.play()
                 }
             }
             
             toggleButton(title: "Photo", icon: "photo.fill", isSelected: !showingVideo) {
                 withAnimation {
                     showingVideo = false
-                    player?.pause()
                 }
             }
         }
@@ -118,6 +126,12 @@ struct StripReviewView: View {
             RoundedRectangle(cornerRadius: 12)
                 .fill(theme.secondary.opacity(0.5))
         )
+    }
+    
+    // MARK: - Video Playback
+    
+    private func startPlayback(fromStart: Bool) {
+        player = playerManager.play(id: playerID, url: videoURL, fromStart: fromStart)
     }
     
     private func toggleButton(title: String, icon: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
