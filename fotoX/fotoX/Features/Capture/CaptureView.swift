@@ -16,6 +16,10 @@ struct CaptureView: View {
     
     @State private var viewModel = CaptureViewModel()
     @State private var showFlash = false
+
+    private var isReviewing: Bool {
+        viewModel.stripState == .complete && viewModel.pendingStrip != nil
+    }
     
     var body: some View {
         GeometryReader { geometry in
@@ -89,9 +93,11 @@ struct CaptureView: View {
     private func captureOverlay(geometry: GeometryProxy) -> some View {
         ZStack {
             // Top bar
-            VStack {
-                topBar
-                Spacer()
+            if !isReviewing {
+                VStack {
+                    topBar
+                    Spacer()
+                }
             }
             
             // State-specific overlays
@@ -115,16 +121,36 @@ struct CaptureView: View {
                 Color.clear // Flash will handle this
                 
             case .complete:
-                EmptyView()
+                if let pendingStrip = viewModel.pendingStrip {
+                    StripReviewView(
+                        stripIndex: pendingStrip.stripIndex,
+                        stripCount: viewModel.config.stripCount,
+                        videoURL: pendingStrip.videoURL,
+                        photoData: pendingStrip.photoData,
+                        onRetake: {
+                            viewModel.retakePendingStrip()
+                        },
+                        onContinue: {
+                            viewModel.acceptPendingStripAndAdvance()
+                        },
+                        isLastStrip: pendingStrip.stripIndex == viewModel.config.stripCount - 1,
+                        showsReviewControls: viewModel.showsReviewControls,
+                        autoAdvanceSeconds: Int(round(viewModel.reviewDuration))
+                    )
+                } else {
+                    EmptyView()
+                }
                 
             case .error(let message):
                 errorOverlay(message: message)
             }
             
             // Bottom bar (cancel button)
-            VStack {
-                Spacer()
-                bottomBar
+            if !isReviewing {
+                VStack {
+                    Spacer()
+                    bottomBar
+                }
             }
         }
     }

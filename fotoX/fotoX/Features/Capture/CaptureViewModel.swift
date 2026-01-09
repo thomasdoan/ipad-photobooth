@@ -22,6 +22,9 @@ final class CaptureViewModel: @unchecked Sendable {
     /// Captured strips
     var capturedStrips: [CapturedStripMedia] = []
 
+    /// Strip captured and pending review
+    var pendingStrip: CapturedStripMedia?
+
     /// Whether the session is complete
     var isSessionComplete: Bool = false
     
@@ -50,6 +53,7 @@ final class CaptureViewModel: @unchecked Sendable {
     private var countdownTimer: Timer?
     private var recordingTimer: Timer?
     private var recordingStartTime: Date?
+    private var reviewTask: Task<Void, Never>?
 
     // MARK: - Initialization
 
@@ -88,7 +92,9 @@ final class CaptureViewModel: @unchecked Sendable {
         cameraController.stopSession()
         if deleteTemporaryFiles {
             cameraController.cleanupTempFiles()
+            discardPendingStrip(deleteFile: true)
         }
+        cancelReviewTask()
         invalidateTimers()
     }
     
@@ -97,7 +103,7 @@ final class CaptureViewModel: @unchecked Sendable {
     /// Starts capturing the current strip
     @MainActor
     func startCapture() {
-        guard stripState == .ready || stripState == .complete else { return }
+        guard stripState == .ready else { return }
         guard currentStripIndex < config.stripCount else { return }
 
         isSessionComplete = false
@@ -112,6 +118,7 @@ final class CaptureViewModel: @unchecked Sendable {
     /// Resets state to retry the current strip
     @MainActor
     func retryCurrentStrip() {
+        cancelReviewTask()
         currentVideoURL = nil
         currentPhotoData = nil
         stripState = .ready
@@ -179,19 +186,51 @@ final class CaptureViewModel: @unchecked Sendable {
             thumbnailData: thumbnailData
         )
         
-        capturedStrips.append(strip)
-        
-        // Reset for next or show review
+        pendingStrip = strip
+
+        // Reset for review
         currentVideoURL = nil
         currentPhotoData = nil
         stripState = .complete
+        startReviewTimer()
+    }
+
+    /// Accepts the pending strip and moves to the next one (or completes the session)
+    @MainActor
+    func acceptPendingStripAndAdvance() {
+        guard let pendingStrip = pendingStrip else { return }
+        cancelReviewTask()
+
+        capturedStrips.append(pendingStrip)
+        self.pendingStrip = nil
 
         if currentStripIndex < config.stripCount - 1 {
             currentStripIndex += 1
+            stripState = .ready
             startCapture()
         } else {
             isSessionComplete = true
         }
+    }
+
+    /// Discards the pending strip and restarts capture
+    @MainActor
+    func retakePendingStrip() {
+        guard pendingStrip != nil else { return }
+        cancelReviewTask()
+        discardPendingStrip(deleteFile: true)
+        stripState = .ready
+        startCapture()
+    }
+
+    /// Effective review duration based on settings
+    var reviewDuration: TimeInterval {
+        config.autoAdvanceWithoutReview ? config.autoAdvancePreviewDuration : config.stripReviewDuration
+    }
+
+    /// Whether review controls should be visible
+    var showsReviewControls: Bool {
+        !config.autoAdvanceWithoutReview
     }
     
     /// Converts captured strips to the model format
@@ -268,6 +307,29 @@ final class CaptureViewModel: @unchecked Sendable {
         countdownTimer = nil
         recordingTimer?.invalidate()
         recordingTimer = nil
+    }
+
+    @MainActor
+    private func startReviewTimer() {
+        cancelReviewTask()
+        let duration = reviewDuration
+        reviewTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            acceptPendingStripAndAdvance()
+        }
+    }
+
+    private func cancelReviewTask() {
+        reviewTask?.cancel()
+        reviewTask = nil
+    }
+
+    private func discardPendingStrip(deleteFile: Bool) {
+        if deleteFile, let url = pendingStrip?.videoURL {
+            try? FileManager.default.removeItem(at: url)
+        }
+        pendingStrip = nil
     }
 }
 

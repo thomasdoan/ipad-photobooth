@@ -22,6 +22,12 @@ final class SettingsViewModel {
     /// Video duration in seconds for capture
     var videoDuration: Double = 10
 
+    /// Review duration in seconds after each strip
+    var stripReviewDuration: Double = 3
+
+    /// Whether to auto-advance without review controls
+    var autoAdvanceWithoutReview: Bool = false
+
     /// Whether to keep files on device after upload
     var keepFilesAfterUpload: Bool = false
 
@@ -57,6 +63,8 @@ final class SettingsViewModel {
         baseURLString = WorkerConfiguration.currentBaseURL().absoluteString
         presignToken = WorkerConfiguration.currentPresignToken() ?? ""
         videoDuration = WorkerConfiguration.currentVideoDuration()
+        stripReviewDuration = WorkerConfiguration.currentStripReviewDuration()
+        autoAdvanceWithoutReview = WorkerConfiguration.autoAdvanceWithoutReview()
         keepFilesAfterUpload = WorkerConfiguration.keepFilesAfterUpload()
     }
     
@@ -83,6 +91,8 @@ final class SettingsViewModel {
         }
         WorkerConfiguration.savePresignToken(presignToken)
         WorkerConfiguration.saveVideoDuration(videoDuration)
+        WorkerConfiguration.saveStripReviewDuration(stripReviewDuration)
+        WorkerConfiguration.saveAutoAdvanceWithoutReview(autoAdvanceWithoutReview)
         WorkerConfiguration.saveKeepFilesAfterUpload(keepFilesAfterUpload)
         return true
     }
@@ -96,6 +106,8 @@ final class SettingsViewModel {
     func resetToDefault() {
         baseURLString = WorkerConfiguration.defaultBaseURL.absoluteString
         videoDuration = WorkerConfiguration.defaultVideoDuration
+        stripReviewDuration = WorkerConfiguration.defaultStripReviewDuration
+        autoAdvanceWithoutReview = WorkerConfiguration.defaultAutoAdvanceWithoutReview
         keepFilesAfterUpload = false
         _ = saveSettings()
         connectionTestResult = nil
