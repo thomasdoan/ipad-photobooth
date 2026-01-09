@@ -36,6 +36,20 @@ class FotoXUITestCase: XCTestCase {
         XCTAssertTrue(waitForElement(element, timeout: timeout), "Element not found: \(element)")
         element.tap()
     }
+
+    @discardableResult
+    func tapIfExists(_ element: XCUIElement, timeout: TimeInterval = 3) -> Bool {
+        guard waitForElement(element, timeout: timeout) else { return false }
+        element.tap()
+        return true
+    }
+
+    @discardableResult
+    func waitForElementToDisappear(_ element: XCUIElement, timeout: TimeInterval = 10) -> Bool {
+        let predicate = NSPredicate(format: "exists == false")
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: element)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
 }
 
 // MARK: - Event Selection Tests
@@ -362,6 +376,41 @@ final class UIStateTests: FotoXUITestCase {
         // THEN: Idle screen should render (visual verification would need snapshot tests)
         let startButton = app.buttons.matching(identifier: "startButton").firstMatch
         XCTAssertTrue(waitForElement(startButton), "Idle screen should render with themed button")
+    }
+}
+
+// MARK: - Capture Flow Tests
+
+final class CaptureFlowTests: FotoXUITestCase {
+
+    func testCaptureFlowCompletesToQRScreen() throws {
+        let eventCard = app.buttons.matching(identifier: "eventCard").firstMatch
+        tapWhenReady(eventCard, timeout: 10)
+
+        let startButton = app.buttons.matching(identifier: "startButton").firstMatch
+        tapWhenReady(startButton, timeout: 10)
+
+        _ = tapIfExists(app.buttons["Tap to Start"], timeout: 5)
+
+        let reviewTitle = app.staticTexts["Review Your Capture"]
+
+        XCTAssertTrue(waitForElement(reviewTitle, timeout: 25), "Strip 1 should reach review screen")
+        tapWhenReady(app.buttons["Continue"], timeout: 10)
+        _ = waitForElementToDisappear(reviewTitle, timeout: 5)
+        _ = tapIfExists(app.buttons["Tap to Start"], timeout: 5)
+
+        XCTAssertTrue(waitForElement(reviewTitle, timeout: 25), "Strip 2 should reach review screen")
+        tapWhenReady(app.buttons["Continue"], timeout: 10)
+        _ = waitForElementToDisappear(reviewTitle, timeout: 5)
+        _ = tapIfExists(app.buttons["Tap to Start"], timeout: 5)
+
+        XCTAssertTrue(waitForElement(reviewTitle, timeout: 25), "Strip 3 should reach review screen")
+        tapWhenReady(app.buttons["Finish"], timeout: 10)
+
+        let qrTitle = app.staticTexts["Your Photos"]
+        let qrPrompt = app.staticTexts["Scan to view your photos"]
+        let reachedQR = waitForElement(qrTitle, timeout: 45) || qrPrompt.exists
+        XCTAssertTrue(reachedQR, "Should reach QR screen after finishing capture flow")
     }
 }
 

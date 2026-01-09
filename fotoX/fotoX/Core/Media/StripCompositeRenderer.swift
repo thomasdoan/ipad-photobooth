@@ -7,6 +7,7 @@
 
 import SwiftUI
 import AVFoundation
+import CoreImage
 
 enum StripCompositeRenderError: Error {
     case missingVideoTrack
@@ -177,6 +178,17 @@ enum StripCompositeRenderer {
         let videoComposition = AVMutableVideoComposition()
         videoComposition.renderSize = layout.totalSize
         videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
+        #if targetEnvironment(simulator)
+        let instruction = try makeCustomVideoInstruction(
+            composition: composition,
+            layout: layout,
+            duration: targetDuration,
+            backgroundData: backgroundData,
+            overlayData: overlayData
+        )
+        videoComposition.instructions = [instruction]
+        videoComposition.customVideoCompositorClass = StripVideoCompositor.self
+        #else
         videoComposition.instructions = [
             makeVideoInstruction(
                 composition: composition,
@@ -189,6 +201,7 @@ enum StripCompositeRenderer {
             backgroundData: backgroundData,
             overlayData: overlayData
         )
+        #endif
 
         guard let exportSession = AVAssetExportSession(
             asset: composition,
@@ -287,6 +300,57 @@ enum StripCompositeRenderer {
 
         instruction.layerInstructions = layerInstructions
         return instruction
+    }
+
+    private static func makeCustomVideoInstruction(
+        composition: AVMutableComposition,
+        layout: StripCompositeRenderLayout,
+        duration: CMTime,
+        backgroundData: Data,
+        overlayData: Data
+    ) throws -> StripVideoCompositionInstruction {
+        guard let backgroundImage = CIImage(data: backgroundData),
+              let overlayImage = CIImage(data: overlayData) else {
+            throw StripCompositeRenderError.imageRenderFailed
+        }
+
+        let renderSize = layout.totalSize
+        let instructionTimeRange = CMTimeRange(start: .zero, duration: duration)
+        let tracks = composition.tracks(withMediaType: .video)
+
+        var trackIDs: [CMPersistentTrackID] = []
+        var trackTransforms: [CMPersistentTrackID: CGAffineTransform] = [:]
+        var slotFrames: [CMPersistentTrackID: CGRect] = [:]
+
+        for (index, track) in tracks.enumerated() {
+            guard index < layout.slotCount else { continue }
+            let slotFrame = layout.slotFrame(at: index)
+            let ciSlotFrame = slotFrameForCI(slotFrame, renderSize: renderSize)
+            trackIDs.append(track.trackID)
+            trackTransforms[track.trackID] = videoTransform(for: track, in: ciSlotFrame)
+            slotFrames[track.trackID] = ciSlotFrame
+        }
+
+        return StripVideoCompositionInstruction(
+            timeRange: instructionTimeRange,
+            renderSize: renderSize,
+            trackIDs: trackIDs,
+            trackTransforms: trackTransforms,
+            slotFrames: slotFrames,
+            slotCornerRadius: layout.slotCornerRadius,
+            backgroundImage: backgroundImage,
+            overlayImage: overlayImage,
+            requiredSourceTrackIDs: trackIDs.map { NSNumber(value: $0) }
+        )
+    }
+
+    private static func slotFrameForCI(_ frame: CGRect, renderSize: CGSize) -> CGRect {
+        CGRect(
+            x: frame.origin.x,
+            y: renderSize.height - frame.maxY,
+            width: frame.width,
+            height: frame.height
+        )
     }
 
     private static func videoTransform(for track: AVAssetTrack, in frame: CGRect) -> CGAffineTransform {
