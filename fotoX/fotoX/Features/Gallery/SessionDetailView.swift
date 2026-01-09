@@ -9,6 +9,7 @@ import SwiftUI
 import AVKit
 
 /// Full-screen view for viewing a session's photos and videos
+@MainActor
 struct SessionDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.appTheme) private var theme
@@ -80,9 +81,9 @@ struct SessionDetailView: View {
             }
             .fullScreenCover(item: $focusedAsset) { asset in
                 AssetDetailView(asset: asset, playerManager: playerManager)
-                    .statusBarHidden(true)
             }
         }
+        .fotoXStatusBarHidden()
         .task {
             await viewModel.loadAssetsIfNeeded()
         }
@@ -545,6 +546,7 @@ private struct CompositeStripAssetView: View {
 
 // MARK: - Asset View
 
+@MainActor
 struct AssetDetailView: View {
     let asset: GalleryAsset
     let playerManager: VideoPlayerManager
@@ -575,6 +577,7 @@ struct AssetDetailView: View {
         .onDisappear {
             playerManager.stop(id: asset.id)
         }
+        .fotoXStatusBarHidden()
     }
 }
 
