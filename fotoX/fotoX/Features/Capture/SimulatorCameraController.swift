@@ -36,7 +36,7 @@ final class SimulatorCameraController: CameraControlling {
     private let videoQueue = DispatchQueue(label: "com.fotox.simulator.video")
 
     /// Sample image colors for generating frames
-    private let sampleColors: [UIColor] = [
+    private nonisolated(unsafe) static let sampleColors: [UIColor] = [
         .systemBlue, .systemPurple, .systemPink,
         .systemOrange, .systemYellow, .systemGreen
     ]
@@ -111,7 +111,9 @@ final class SimulatorCameraController: CameraControlling {
 
         do {
             let files = try fileManager.contentsOfDirectory(at: documentsPath, includingPropertiesForKeys: nil)
-            for file in files where file.pathExtension == "mov" {
+            for file in files
+            where file.pathExtension == "mov"
+            && file.lastPathComponent.hasPrefix("strip_") {
                 try? fileManager.removeItem(at: file)
             }
         } catch {
@@ -219,11 +221,11 @@ final class SimulatorCameraController: CameraControlling {
         ) else { return nil }
 
         // Create animated gradient background
-        let colorIndex1 = Int(progress * 3) % sampleColors.count
-        let colorIndex2 = (colorIndex1 + 1) % sampleColors.count
+        let colorIndex1 = Int(progress * 3) % Self.sampleColors.count
+        let colorIndex2 = (colorIndex1 + 1) % Self.sampleColors.count
 
-        let color1 = sampleColors[colorIndex1]
-        let color2 = sampleColors[colorIndex2]
+        let color1 = Self.sampleColors[colorIndex1]
+        let color2 = Self.sampleColors[colorIndex2]
 
         let gradient = CGGradient(
             colorsSpace: CGColorSpaceCreateDeviceRGB(),
@@ -286,8 +288,8 @@ final class SimulatorCameraController: CameraControlling {
         let renderer = UIGraphicsImageRenderer(size: size)
         let image = renderer.image { context in
             // Gradient background
-            let color1 = sampleColors[colorIndex % sampleColors.count]
-            let color2 = sampleColors[(colorIndex + 1) % sampleColors.count]
+            let color1 = Self.sampleColors[colorIndex % Self.sampleColors.count]
+            let color2 = Self.sampleColors[(colorIndex + 1) % Self.sampleColors.count]
             colorIndex += 1
 
             let gradient = CGGradient(
