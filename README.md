@@ -123,7 +123,7 @@ Limit parallel testing workers if needed
 cd fotoX
 xcodebuild test \
   -scheme fotoX \
-  -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)'
+  -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)'
 ```
 
 ### Run Unit Tests Only (Fast)
@@ -132,7 +132,7 @@ xcodebuild test \
 cd fotoX
 xcodebuild test \
   -scheme fotoX \
-  -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)' \
+  -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' \
   -only-testing:fotoXTests
 ```
 
@@ -142,7 +142,7 @@ xcodebuild test \
 cd fotoX
 xcodebuild test \
   -scheme fotoX \
-  -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)' \
+  -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' \
   -only-testing:fotoXUITests
 ```
 

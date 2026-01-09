@@ -12,25 +12,25 @@ import Observation
 @Observable
 final class GalleryViewModel {
     // MARK: - State
-    
+
     /// All sessions for the event (merged local + remote)
     var sessions: [GallerySession] = []
-    
+
     /// Whether data is loading
     var isLoading: Bool = false
-    
+
     /// Error message if load failed
     var errorMessage: String?
-    
+
     /// Currently selected session for detail view
     var selectedSession: GallerySession?
-    
+
     // MARK: - Dependencies
-    
+
     private let eventId: Int
     private let localGalleryService: LocalGalleryService
     private let apiClient: WorkerAPIClient
-    
+
     // MARK: - Initialization
     
     init(eventId: Int, localGalleryService: LocalGalleryService = LocalGalleryService(), apiClient: WorkerAPIClient = .shared) {
@@ -70,26 +70,31 @@ final class GalleryViewModel {
     private func fetchRemoteSessions() async -> [GallerySession] {
         do {
             let eventIndex = try await apiClient.fetchEventSessions(eventId: eventId)
-            return eventIndex.sessions.map { indexSession in
-                let createdAt = ISO8601DateFormatter().date(from: indexSession.createdAt) ?? Date()
-                return GallerySession(
+            var sessions: [GallerySession] = []
+            sessions.reserveCapacity(eventIndex.sessions.count)
+            for indexSession in eventIndex.sessions {
+                let parsedDate = LocalGalleryService.parseDate(
+                    indexSession.createdAt,
+                    fallbackURL: nil,
+                    fileManager: FileManager.default
+                )
+                sessions.append(GallerySession(
                     id: indexSession.sessionId,
                     sessionId: indexSession.sessionId,
                     eventId: eventId,
-                    createdAt: createdAt,
+                    createdAt: parsedDate.date,
+                    timestampUncertain: parsedDate.timestampUncertain,
                     source: .remote,
                     thumbPath: indexSession.thumbPath,
                     localThumbURL: nil,
                     galleryPath: indexSession.galleryPath,
                     assets: [] // Assets loaded on demand in detail view
-                )
+                ))
             }
+            return sessions
         } catch {
-            // Don't fail entirely if remote is unavailable - show local only
             await MainActor.run {
-                if sessions.isEmpty {
-                    errorMessage = "Could not load remote sessions: \(error.localizedDescription)"
-                }
+                errorMessage = "Could not load remote sessions: \(error.localizedDescription)"
             }
             return []
         }
@@ -112,6 +117,7 @@ final class GalleryViewModel {
                     sessionId: existing.sessionId,
                     eventId: existing.eventId,
                     createdAt: existing.createdAt,
+                    timestampUncertain: existing.timestampUncertain,
                     source: .both,
                     thumbPath: existing.thumbPath,
                     localThumbURL: localSession.localThumbURL,
@@ -129,4 +135,3 @@ final class GalleryViewModel {
         return Array(sessionMap.values).sorted { $0.createdAt > $1.createdAt }
     }
 }
-

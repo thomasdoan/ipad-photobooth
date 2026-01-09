@@ -173,13 +173,13 @@ struct MyView: View {
 
 ```bash
 # Build
-xcodebuild build -scheme fotoX -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)'
+xcodebuild build -scheme fotoX -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)'
 
 # Test
-xcodebuild test -scheme fotoX -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)'
+xcodebuild test -scheme fotoX -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)'
 
 # Unit tests only
-xcodebuild test -scheme fotoX -destination 'platform=iOS Simulator,name=iPad Pro 13-inch (M5)' -only-testing:fotoXTests
+xcodebuild test -scheme fotoX -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' -only-testing:fotoXTests
 ```
 
 ## Questions to Ask User

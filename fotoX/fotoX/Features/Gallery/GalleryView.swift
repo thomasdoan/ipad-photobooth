@@ -196,12 +196,12 @@ struct SessionCard: View {
                     HStack {
                         SessionSourceIndicator(source: session.source, style: .labeled)
                         Spacer()
-                        Text(formattedDate)
+                        Text(session.formattedDate)
                             .font(.caption)
                             .foregroundStyle(.white.opacity(0.6))
                     }
                     
-                    Text(formattedTime)
+                    Text(session.formattedTime)
                         .font(.caption2)
                         .foregroundStyle(.white.opacity(0.4))
                 }
@@ -272,21 +272,9 @@ struct SessionCard: View {
         }
     }
     
-    private var formattedDate: String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .short
-        return formatter.string(from: session.createdAt)
-    }
-    
-    private var formattedTime: String {
-        let formatter = DateFormatter()
-        formatter.timeStyle = .short
-        return formatter.string(from: session.createdAt)
-    }
 }
 
 #Preview {
     GalleryView(eventId: 1)
         .environment(AppState())
 }
-

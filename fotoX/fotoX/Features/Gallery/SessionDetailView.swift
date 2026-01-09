@@ -14,6 +14,8 @@ struct SessionDetailView: View {
     
     @State private var viewModel: SessionDetailViewModel
     @State private var selectedAssetIndex: Int = 0
+    @State private var scrollPosition: Int?
+    @State private var playerManager = VideoPlayerManager()
     
     init(session: GallerySession) {
         _viewModel = State(initialValue: SessionDetailViewModel(session: session))
@@ -32,13 +34,7 @@ struct SessionDetailView: View {
                 } else {
                     VStack(spacing: 0) {
                         // Main content area
-                        TabView(selection: $selectedAssetIndex) {
-                            ForEach(Array(viewModel.sortedAssets.enumerated()), id: \.element.id) { index, asset in
-                                AssetView(asset: asset)
-                                    .tag(index)
-                            }
-                        }
-                        .tabViewStyle(.page(indexDisplayMode: .never))
+                        assetPager
                         
                         // Thumbnails strip
                         thumbnailStrip
@@ -63,7 +59,7 @@ struct SessionDetailView: View {
                 
                 ToolbarItem(placement: .principal) {
                     VStack(spacing: 2) {
-                        Text(formattedDate)
+                        Text(viewModel.session.formattedDateTime)
                             .font(.headline)
                             .foregroundStyle(.white)
                         if !viewModel.assets.isEmpty {
@@ -81,6 +77,9 @@ struct SessionDetailView: View {
         }
         .task {
             await viewModel.loadAssetsIfNeeded()
+        }
+        .onDisappear {
+            playerManager.stopAll()
         }
     }
     
@@ -135,6 +134,56 @@ struct SessionDetailView: View {
         }
     }
     
+    // MARK: - Asset Pager
+    
+    private var assetPager: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            LazyHStack(spacing: 0) {
+                ForEach(Array(viewModel.sortedAssets.enumerated()), id: \.element.id) { index, asset in
+                    AssetView(
+                        asset: asset,
+                        isActive: index == selectedAssetIndex,
+                        playerManager: playerManager
+                    )
+                    .containerRelativeFrame([.horizontal, .vertical])
+                    .id(index)
+                }
+            }
+            .scrollTargetLayout()
+        }
+        .scrollTargetBehavior(.paging)
+        .scrollPosition(id: $scrollPosition)
+        .onChange(of: scrollPosition) { _, newValue in
+            guard let newValue else { return }
+            if newValue != selectedAssetIndex {
+                selectedAssetIndex = newValue
+            }
+        }
+        .onChange(of: selectedAssetIndex) { _, newValue in
+            if scrollPosition != newValue {
+                scrollPosition = newValue
+            }
+        }
+        .onChange(of: viewModel.sortedAssets.count) { _, count in
+            guard count > 0 else {
+                scrollPosition = nil
+                return
+            }
+            if selectedAssetIndex >= count {
+                selectedAssetIndex = max(count - 1, 0)
+            }
+            if scrollPosition != selectedAssetIndex {
+                scrollPosition = selectedAssetIndex
+            }
+        }
+        .onAppear {
+            if !viewModel.sortedAssets.isEmpty {
+                scrollPosition = selectedAssetIndex
+            }
+        }
+        .frame(maxHeight: .infinity)
+    }
+    
     // MARK: - Thumbnail Strip
     
     private var thumbnailStrip: some View {
@@ -148,6 +197,7 @@ struct SessionDetailView: View {
                         ) {
                             withAnimation(.spring(response: 0.3)) {
                                 selectedAssetIndex = index
+                                scrollPosition = index
                             }
                         }
                         .id(index)
@@ -165,18 +215,14 @@ struct SessionDetailView: View {
     
     // MARK: - Helpers
 
-    private var formattedDate: String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: viewModel.session.createdAt)
-    }
 }
 
 // MARK: - Asset View
 
 struct AssetView: View {
     let asset: GalleryAsset
+    let isActive: Bool
+    let playerManager: VideoPlayerManager
     
     var body: some View {
         GeometryReader { geometry in
@@ -184,7 +230,12 @@ struct AssetView: View {
             case .photo:
                 PhotoAssetView(asset: asset, geometry: geometry)
             case .video:
-                VideoAssetView(asset: asset, geometry: geometry)
+                VideoAssetView(
+                    asset: asset,
+                    geometry: geometry,
+                    isActive: isActive,
+                    playerManager: playerManager
+                )
             }
         }
     }
@@ -260,6 +311,8 @@ struct PhotoAssetView: View {
 struct VideoAssetView: View {
     let asset: GalleryAsset
     let geometry: GeometryProxy
+    let isActive: Bool
+    let playerManager: VideoPlayerManager
     
     @State private var player: AVPlayer?
     
@@ -272,20 +325,72 @@ struct VideoAssetView: View {
     }
     
     var body: some View {
-        VideoPlayer(player: player)
-            .frame(width: geometry.size.width, height: geometry.size.height)
-            .onAppear {
-                // Create player and autoplay
-                guard let url = videoURL else { return }
-                let newPlayer = AVPlayer(url: url)
-                player = newPlayer
-                newPlayer.play()
+        ZStack {
+            if isActive, let player = player {
+                VideoPlayer(player: player)
+            } else {
+                posterView
             }
-            .onDisappear {
-                // Stop and cleanup
-                player?.pause()
-                player = nil
+        }
+        .frame(width: geometry.size.width, height: geometry.size.height)
+        .onAppear {
+            updatePlayback()
+        }
+        .onChange(of: isActive) { _, _ in
+            updatePlayback()
+        }
+        .onDisappear {
+            playerManager.stop(id: asset.id)
+            player = nil
+        }
+    }
+    
+    private var posterURL: URL? {
+        if let localPosterURL = asset.localPosterURL, asset.isPosterLocallyAvailable {
+            return localPosterURL
+        }
+        if let posterPath = asset.posterPath {
+            return WorkerAPIClient.shared.assetURL(path: posterPath)
+        }
+        return nil
+    }
+    
+    @ViewBuilder
+    private var posterView: some View {
+        ZStack {
+            Color.black
+            if let posterURL = posterURL {
+                AsyncImage(url: posterURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                    case .failure:
+                        Color.black
+                    case .empty:
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                            .scaleEffect(1.5)
+                    @unknown default:
+                        Color.black
+                    }
+                }
             }
+            
+            Image(systemName: "play.circle.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(.white.opacity(0.8))
+        }
+    }
+    
+    private func updatePlayback() {
+        guard isActive, let url = videoURL else {
+            playerManager.stop(id: asset.id)
+            player = nil
+            return
+        }
+        player = playerManager.play(id: asset.id, url: url)
     }
 }
 

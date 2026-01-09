@@ -50,6 +50,8 @@ struct GallerySession: Identifiable, Equatable, Sendable {
     let sessionId: String
     let eventId: Int
     let createdAt: Date
+    /// Whether createdAt is a fallback value
+    let timestampUncertain: Bool
     let source: SessionSource
     /// Thumbnail path for remote loading
     let thumbPath: String?
@@ -59,13 +61,52 @@ struct GallerySession: Identifiable, Equatable, Sendable {
     let galleryPath: String
     /// All assets in this session
     var assets: [GalleryAsset]
-    
+
+    init(
+        id: String,
+        sessionId: String,
+        eventId: Int,
+        createdAt: Date,
+        timestampUncertain: Bool = false,
+        source: SessionSource,
+        thumbPath: String?,
+        localThumbURL: URL?,
+        galleryPath: String,
+        assets: [GalleryAsset]
+    ) {
+        self.id = id
+        self.sessionId = sessionId
+        self.eventId = eventId
+        self.createdAt = createdAt
+        self.timestampUncertain = timestampUncertain
+        self.source = source
+        self.thumbPath = thumbPath
+        self.localThumbURL = localThumbURL
+        self.galleryPath = galleryPath
+        self.assets = assets
+    }
+
     /// Best URL to use for thumbnail (local-first)
     var thumbnailURL: URL? {
         if let local = localThumbURL, FileManager.default.fileExists(atPath: local.path) {
             return local
         }
         return nil
+    }
+
+    /// Formatted date for UI display (e.g., "1/8/26")
+    var formattedDate: String {
+        createdAt.formatted(date: .numeric, time: .omitted)
+    }
+
+    /// Formatted time for UI display (e.g., "3:45 PM")
+    var formattedTime: String {
+        createdAt.formatted(date: .omitted, time: .shortened)
+    }
+
+    /// Formatted date and time for UI display (e.g., "Jan 8, 2026 at 3:45 PM")
+    var formattedDateTime: String {
+        createdAt.formatted(date: .abbreviated, time: .shortened)
     }
 }
 
@@ -100,4 +141,3 @@ struct EventIndexSession: Codable, Sendable {
         case galleryPath = "gallery_path"
     }
 }
-
