@@ -73,7 +73,8 @@ struct LocalGalleryService: Sendable {
                     fileManager: fileManager
                 )
                 let createdAt = parsedDate.date
-                let thumbURL = assets.first(where: { $0.kind == .photo })?.localURL
+                let thumbURL = assets.first(where: { $0.kind == .stripPhoto })?.localURL
+                    ?? assets.first(where: { $0.kind == .photo })?.localURL
 
                 results.append(GallerySession(
                     id: queueSession.sessionId,
@@ -125,7 +126,8 @@ struct LocalGalleryService: Sendable {
                         fileManager: fileManager
                     )
                     let createdAt = parsedDate.date
-                    let thumbURL = assets.first(where: { $0.kind == .photo })?.localURL
+                    let thumbURL = assets.first(where: { $0.kind == .stripPhoto })?.localURL
+                        ?? assets.first(where: { $0.kind == .photo })?.localURL
 
                     sessions.append(GallerySession(
                         id: sessionId,
@@ -147,7 +149,8 @@ struct LocalGalleryService: Sendable {
 
                     let createdAt = resourceValues.creationDate ?? Date()
                     let timestampUncertain = resourceValues.creationDate == nil
-                    let thumbURL = assets.first(where: { $0.kind == .photo })?.localURL
+                    let thumbURL = assets.first(where: { $0.kind == .stripPhoto })?.localURL
+                        ?? assets.first(where: { $0.kind == .photo })?.localURL
 
                     // We don't know the eventId without manifest, skip unless we can match
                     // For now, include it if there are assets (caller filters by eventId from remote)
@@ -206,7 +209,7 @@ struct LocalGalleryService: Sendable {
     ) -> [GalleryAsset] {
         // First pass: build a map of strip index to photo URLs for poster lookup
         var photoURLsByStrip: [Int: URL] = [:]
-        for asset in queueAssets where asset.kind == .photo {
+        for asset in queueAssets where asset.kind.isPhoto {
             let localURL = sessionDir.appendingPathComponent(asset.fileName)
             if fileManager.fileExists(atPath: localURL.path) {
                 photoURLsByStrip[asset.stripIndex] = localURL
@@ -219,7 +222,7 @@ struct LocalGalleryService: Sendable {
             guard fileManager.fileExists(atPath: localURL.path) else { return nil }
 
             // For videos, find the local poster URL from the same strip
-            let localPosterURL: URL? = if asset.kind == .video {
+            let localPosterURL: URL? = if asset.kind.isVideo {
                 photoURLsByStrip[asset.stripIndex]
             } else {
                 nil
@@ -241,7 +244,7 @@ struct LocalGalleryService: Sendable {
     private func buildAssetsFromManifest(_ manifest: SessionManifest, sessionDir: URL) -> [GalleryAsset] {
         // First pass: build a map of strip index to photo URLs for poster lookup
         var photoURLsByStrip: [Int: URL] = [:]
-        for asset in manifest.assets where asset.kind == .photo {
+        for asset in manifest.assets where asset.kind.isPhoto {
             let fileName = URL(string: asset.path)?.lastPathComponent ?? asset.path
             let localURL = sessionDir.appendingPathComponent(fileName)
             if fileManager.fileExists(atPath: localURL.path) {
@@ -256,7 +259,7 @@ struct LocalGalleryService: Sendable {
             guard fileManager.fileExists(atPath: localURL.path) else { return nil }
 
             // For videos, find the local poster URL from the same strip
-            let localPosterURL: URL? = if asset.kind == .video {
+            let localPosterURL: URL? = if asset.kind.isVideo {
                 photoURLsByStrip[asset.stripIndex]
             } else {
                 nil
@@ -277,6 +280,36 @@ struct LocalGalleryService: Sendable {
     
     private func reconstructAssets(sessionId: String, eventId: Int, sessionDir: URL) -> [GalleryAsset] {
         var assets: [GalleryAsset] = []
+
+        let stripPhotoURL = sessionDir.appendingPathComponent(CompositeStripAssets.photoFileName)
+        let stripPhotoRemotePath = "events/\(eventId)/sessions/\(sessionId)/\(CompositeStripAssets.photoFileName)"
+        if fileManager.fileExists(atPath: stripPhotoURL.path) {
+            assets.append(GalleryAsset(
+                id: "\(sessionId)_strip_photo",
+                kind: .stripPhoto,
+                stripIndex: CompositeStripAssets.stripIndex,
+                remotePath: stripPhotoRemotePath,
+                localURL: stripPhotoURL,
+                mimeType: "image/jpeg",
+                posterPath: nil,
+                localPosterURL: nil
+            ))
+        }
+
+        let stripVideoURL = sessionDir.appendingPathComponent(CompositeStripAssets.videoFileName)
+        if fileManager.fileExists(atPath: stripVideoURL.path) {
+            let localPosterURL = fileManager.fileExists(atPath: stripPhotoURL.path) ? stripPhotoURL : nil
+            assets.append(GalleryAsset(
+                id: "\(sessionId)_strip_video",
+                kind: .stripVideo,
+                stripIndex: CompositeStripAssets.stripIndex,
+                remotePath: "events/\(eventId)/sessions/\(sessionId)/\(CompositeStripAssets.videoFileName)",
+                localURL: stripVideoURL,
+                mimeType: "video/mp4",
+                posterPath: stripPhotoRemotePath,
+                localPosterURL: localPosterURL
+            ))
+        }
 
         // Look for standard file patterns: photo_0.jpg, video_0.mov, etc.
         for stripIndex in 0..<3 {

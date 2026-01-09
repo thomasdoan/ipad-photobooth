@@ -26,7 +26,12 @@ actor UploadQueueWorker {
         self.uploadsDirectory = documents.appendingPathComponent("Uploads", isDirectory: true)
     }
 
-    func enqueueSession(eventId: Int, session: Session, strips: [CapturedStrip]) async throws {
+    func enqueueSession(
+        eventId: Int,
+        session: Session,
+        strips: [CapturedStrip],
+        composite: CompositeStripAssets? = nil
+    ) async throws {
         try ensureUploadsDirectory()
 
         let createdAt = ISO8601DateFormatter().string(from: Date())
@@ -34,6 +39,62 @@ actor UploadQueueWorker {
         try fileManager.createDirectory(at: sessionDir, withIntermediateDirectories: true)
 
         var assets: [UploadQueueAsset] = []
+
+        if let composite {
+            let photoPath = sessionDir.appendingPathComponent(CompositeStripAssets.photoFileName)
+            try composite.photoData.write(to: photoPath, options: .atomic)
+
+            let photoRemotePath = remotePath(
+                eventId: eventId,
+                sessionId: session.sessionId,
+                fileName: CompositeStripAssets.photoFileName
+            )
+
+            let photoAsset = UploadQueueAsset(
+                id: UUID(),
+                kind: .stripPhoto,
+                stripIndex: CompositeStripAssets.stripIndex,
+                sequenceIndex: AssetUploadMetadata.photoSequenceIndex,
+                fileName: CompositeStripAssets.photoFileName,
+                mimeType: "image/jpeg",
+                localURL: photoPath,
+                remotePath: photoRemotePath,
+                sizeBytes: composite.photoData.count,
+                durationSeconds: nil,
+                posterPath: nil,
+                state: .pending
+            )
+
+            let videoPath = sessionDir.appendingPathComponent(CompositeStripAssets.videoFileName)
+            if fileManager.fileExists(atPath: videoPath.path) {
+                try fileManager.removeItem(at: videoPath)
+            }
+            try fileManager.moveItem(at: composite.videoURL, to: videoPath)
+            let videoRemotePath = remotePath(
+                eventId: eventId,
+                sessionId: session.sessionId,
+                fileName: CompositeStripAssets.videoFileName
+            )
+            let videoSize = try fileSize(at: videoPath)
+
+            let videoAsset = UploadQueueAsset(
+                id: UUID(),
+                kind: .stripVideo,
+                stripIndex: CompositeStripAssets.stripIndex,
+                sequenceIndex: AssetUploadMetadata.videoSequenceIndex,
+                fileName: CompositeStripAssets.videoFileName,
+                mimeType: "video/mp4",
+                localURL: videoPath,
+                remotePath: videoRemotePath,
+                sizeBytes: videoSize,
+                durationSeconds: nil,
+                posterPath: photoRemotePath,
+                state: .pending
+            )
+
+            assets.append(photoAsset)
+            assets.append(videoAsset)
+        }
 
         for strip in strips {
             let photoFileName = "photo_\(strip.stripIndex).jpg"
@@ -135,10 +196,11 @@ actor UploadQueueWorker {
         eventId: Int,
         session: Session,
         strips: [CapturedStrip],
+        composite: CompositeStripAssets? = nil,
         onProgress: (@MainActor @Sendable (String) -> Void)? = nil,
         onError: (@MainActor @Sendable (String, APIError) -> Void)? = nil
     ) async throws {
-        try await enqueueSession(eventId: eventId, session: session, strips: strips)
+        try await enqueueSession(eventId: eventId, session: session, strips: strips, composite: composite)
         await startProcessing(onProgress: onProgress, onError: onError)
     }
 
@@ -322,8 +384,18 @@ actor UploadQueueWorker {
 
     private func buildManifestData(from session: UploadQueueSession) throws -> Data {
         let assets = session.assets.map { asset in
-            SessionManifestAsset(
-                id: "strip\(asset.stripIndex)_\(asset.kind.rawValue)",
+            let assetId: String
+            switch asset.kind {
+            case .stripPhoto:
+                assetId = "strip_photo"
+            case .stripVideo:
+                assetId = "strip_video"
+            default:
+                assetId = "strip\(asset.stripIndex)_\(asset.kind.rawValue)"
+            }
+
+            return SessionManifestAsset(
+                id: assetId,
                 kind: asset.kind,
                 stripIndex: asset.stripIndex,
                 sequenceIndex: asset.sequenceIndex,

@@ -82,8 +82,7 @@ final class SessionDetailViewModel {
                 return a.stripIndex < b.stripIndex
             }
             // Videos before photos within a strip
-            return a.kind == .video && b.kind == .photo
+            return a.kind.isVideo && b.kind.isPhoto
         }
     }
 }
-
