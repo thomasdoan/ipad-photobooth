@@ -7,7 +7,6 @@
 
 import Foundation
 import Observation
-import os
 
 /// ViewModel for displaying event gallery with local and remote sessions
 @Observable
@@ -32,10 +31,6 @@ final class GalleryViewModel {
     private let localGalleryService: LocalGalleryService
     private let apiClient: WorkerAPIClient
 
-    /// Shared ISO8601 date formatter for parsing timestamps
-    private static let iso8601Formatter = ISO8601DateFormatter()
-    private static let logger = Logger(subsystem: "fotoX", category: "DateParsing")
-    
     // MARK: - Initialization
     
     init(eventId: Int, localGalleryService: LocalGalleryService = LocalGalleryService(), apiClient: WorkerAPIClient = .shared) {
@@ -78,18 +73,17 @@ final class GalleryViewModel {
             var sessions: [GallerySession] = []
             sessions.reserveCapacity(eventIndex.sessions.count)
             for indexSession in eventIndex.sessions {
-                let createdAt: Date
-                if let parsedDate = Self.iso8601Formatter.date(from: indexSession.createdAt) {
-                    createdAt = parsedDate
-                } else {
-                    Self.logger.warning("Failed to parse remote session date: \(indexSession.createdAt)")
-                    createdAt = Date()
-                }
+                let parsedDate = LocalGalleryService.parseDate(
+                    indexSession.createdAt,
+                    fallbackURL: nil,
+                    fileManager: FileManager.default
+                )
                 sessions.append(GallerySession(
                     id: indexSession.sessionId,
                     sessionId: indexSession.sessionId,
                     eventId: eventId,
-                    createdAt: createdAt,
+                    createdAt: parsedDate.date,
+                    timestampUncertain: parsedDate.timestampUncertain,
                     source: .remote,
                     thumbPath: indexSession.thumbPath,
                     localThumbURL: nil,
@@ -123,6 +117,7 @@ final class GalleryViewModel {
                     sessionId: existing.sessionId,
                     eventId: existing.eventId,
                     createdAt: existing.createdAt,
+                    timestampUncertain: existing.timestampUncertain,
                     source: .both,
                     thumbPath: existing.thumbPath,
                     localThumbURL: localSession.localThumbURL,

@@ -14,8 +14,6 @@ struct LocalGalleryService: Sendable {
     private let uploadsDirectory: URL
     private let queueStore: UploadQueueStore
 
-    /// Shared ISO8601 date formatter for parsing timestamps
-    private static let iso8601Formatter = ISO8601DateFormatter()
     private static let logger = Logger(subsystem: "fotoX", category: "DateParsing")
 
     init(fileManager: FileManager = .default, uploadsDirectory: URL? = nil) {
@@ -69,13 +67,12 @@ struct LocalGalleryService: Sendable {
                 
                 guard !assets.isEmpty else { continue }
 
-                let createdAt: Date
-                if let parsedDate = Self.iso8601Formatter.date(from: queueSession.createdAt) {
-                    createdAt = parsedDate
-                } else {
-                    Self.logger.warning("Failed to parse queued session date: \(queueSession.createdAt)")
-                    createdAt = Date()
-                }
+                let parsedDate = Self.parseDate(
+                    queueSession.createdAt,
+                    fallbackURL: sessionDir,
+                    fileManager: fileManager
+                )
+                let createdAt = parsedDate.date
                 let thumbURL = assets.first(where: { $0.kind == .photo })?.localURL
 
                 results.append(GallerySession(
@@ -83,6 +80,7 @@ struct LocalGalleryService: Sendable {
                     sessionId: queueSession.sessionId,
                     eventId: eventId,
                     createdAt: createdAt,
+                    timestampUncertain: parsedDate.timestampUncertain,
                     source: .local,
                     thumbPath: nil,
                     localThumbURL: thumbURL,
@@ -121,13 +119,12 @@ struct LocalGalleryService: Sendable {
                     let assets = buildAssetsFromManifest(manifest, sessionDir: itemURL)
                     guard !assets.isEmpty else { continue }
 
-                    let createdAt: Date
-                    if let parsedDate = Self.iso8601Formatter.date(from: manifest.createdAt) {
-                        createdAt = parsedDate
-                    } else {
-                        Self.logger.warning("Failed to parse manifest session date: \(manifest.createdAt)")
-                        createdAt = Date()
-                    }
+                    let parsedDate = Self.parseDate(
+                        manifest.createdAt,
+                        fallbackURL: itemURL,
+                        fileManager: fileManager
+                    )
+                    let createdAt = parsedDate.date
                     let thumbURL = assets.first(where: { $0.kind == .photo })?.localURL
 
                     sessions.append(GallerySession(
@@ -135,6 +132,7 @@ struct LocalGalleryService: Sendable {
                         sessionId: sessionId,
                         eventId: eventId,
                         createdAt: createdAt,
+                        timestampUncertain: parsedDate.timestampUncertain,
                         source: .local,
                         thumbPath: nil,
                         localThumbURL: thumbURL,
@@ -148,6 +146,7 @@ struct LocalGalleryService: Sendable {
                     guard !assets.isEmpty else { continue }
 
                     let createdAt = resourceValues.creationDate ?? Date()
+                    let timestampUncertain = resourceValues.creationDate == nil
                     let thumbURL = assets.first(where: { $0.kind == .photo })?.localURL
 
                     // We don't know the eventId without manifest, skip unless we can match
@@ -158,6 +157,7 @@ struct LocalGalleryService: Sendable {
                         sessionId: sessionId,
                         eventId: eventId, // Will be filtered/merged later
                         createdAt: createdAt,
+                        timestampUncertain: timestampUncertain,
                         source: .local,
                         thumbPath: nil,
                         localThumbURL: thumbURL,
@@ -176,6 +176,26 @@ struct LocalGalleryService: Sendable {
     private func readManifest(at url: URL) -> SessionManifest? {
         guard let data = try? Data(contentsOf: url) else { return nil }
         return try? JSONDecoder().decode(SessionManifest.self, from: data)
+    }
+
+    static func parseDate(
+        _ value: String,
+        fallbackURL: URL?,
+        fileManager: FileManager
+    ) -> (date: Date, timestampUncertain: Bool) {
+        if let parsedDate = try? Date(value, strategy: .iso8601) {
+            return (parsedDate, false)
+        }
+
+        if let fallbackURL,
+           let attributes = try? fileManager.attributesOfItem(atPath: fallbackURL.path),
+           let creationDate = attributes[.creationDate] as? Date {
+            Self.logger.warning("Failed to parse session date: \(value). Using file creation date.")
+            return (creationDate, false)
+        }
+
+        Self.logger.warning("Failed to parse session date: \(value). File creation date unavailable; timestamp marked uncertain.")
+        return (Date(), true)
     }
     
     private func buildAssets(
