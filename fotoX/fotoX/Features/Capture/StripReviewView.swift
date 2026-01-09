@@ -19,6 +19,7 @@ struct StripReviewView: View {
     let onContinue: () -> Void
     let isLastStrip: Bool
     let showsReviewControls: Bool
+    let showsAutoAdvanceLabel: Bool
     let autoAdvanceSeconds: Int
     
     @State private var playerManager = VideoPlayerManager()
@@ -41,7 +42,9 @@ struct StripReviewView: View {
                     // Header
                     headerSection
                     
-                    autoAdvanceLabel
+                    if showsAutoAdvanceLabel {
+                        autoAdvanceLabel
+                    }
 
                     // Media preview
                     mediaPreview(geometry: geometry)

@@ -135,6 +135,7 @@ struct CaptureView: View {
                         },
                         isLastStrip: pendingStrip.stripIndex == viewModel.config.stripCount - 1,
                         showsReviewControls: viewModel.showsReviewControls,
+                        showsAutoAdvanceLabel: !viewModel.config.manualAdvanceAfterReview,
                         autoAdvanceSeconds: Int(round(viewModel.reviewDuration))
                     )
                 } else {

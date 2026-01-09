@@ -268,8 +268,26 @@ struct SettingsView: View {
                             .foregroundStyle(.primary)
                             .frame(minWidth: 40, alignment: .trailing)
 
-                        Stepper("", value: $viewModel.stripReviewDuration, in: 2...5, step: 1)
+                        Stepper("", value: $viewModel.stripReviewDuration, in: 5...30, step: 1)
                             .labelsHidden()
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+
+                Divider()
+                    .padding(.leading, 16)
+
+                // Manual advance toggle
+                Toggle(isOn: $viewModel.manualAdvanceAfterReview) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Manual Advance")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+
+                        Text("Require operator to tap Continue (disables auto-advance)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .padding(.horizontal, 16)
