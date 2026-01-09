@@ -12,6 +12,7 @@ import AVKit
 struct SessionDetailView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.appTheme) private var theme
+    @Environment(AppState.self) private var appState
     
     @State private var viewModel: SessionDetailViewModel
     @State private var selectedPageIndex: Int = 0
@@ -143,11 +144,13 @@ struct SessionDetailView: View {
     // MARK: - Asset Pager
     
     private var assetPager: some View {
+        let footerText = stripFooterText()
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: 0) {
                 ForEach(Array(stripPages.enumerated()), id: \.element.id) { index, page in
                     StripPageView(
                         page: page,
+                        footerText: footerText,
                         assetsByIndex: assetsByIndex(for: page.kind),
                         onSelectAsset: { asset in
                             focusedAsset = asset
@@ -259,7 +262,7 @@ private extension SessionDetailView {
     }
 
     func stripFooterText() -> String {
-        theme.stripFooterText ?? "FotoX"
+        theme.stripFooterText ?? appState.selectedEvent?.name ?? "FotoX"
     }
 }
 
@@ -278,9 +281,8 @@ private struct StripPage: Identifiable {
 }
 
 private struct StripPageView: View {
-    @Environment(\.appTheme) private var theme
-
     let page: StripPage
+    let footerText: String
     let assetsByIndex: [Int: GalleryAsset]
     let onSelectAsset: (GalleryAsset) -> Void
 
@@ -288,17 +290,13 @@ private struct StripPageView: View {
         GeometryReader { geometry in
             StripCompositeView(
                 slots: page.slots,
-                footerText: stripFooterText()
+                footerText: footerText
             ) { slot in
                 stripSlotContent(slot: slot)
             }
             .frame(width: stripSize(for: geometry).width, height: stripSize(for: geometry).height)
             .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
         }
-    }
-
-    private func stripFooterText() -> String {
-        theme.stripFooterText ?? "FotoX"
     }
 
     private func stripSize(for geometry: GeometryProxy) -> CGSize {
