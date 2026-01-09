@@ -26,7 +26,16 @@ struct UploadItem: Identifiable, Sendable {
     var state: UploadItemState
     
     var displayName: String {
-        "\(kind == .video ? "Video" : "Photo") \(stripIndex + 1)"
+        switch kind {
+        case .photo:
+            "Photo \(stripIndex + 1)"
+        case .video:
+            "Video \(stripIndex + 1)"
+        case .stripPhoto:
+            "Strip Photo"
+        case .stripVideo:
+            "Strip Video"
+        }
     }
 }
 
@@ -125,17 +134,17 @@ final class UploadViewModel<SessionService: SessionServicing> {
                 let data: Data
                 let metadata: AssetUploadMetadata
                 
-                if item.kind == .video {
+                if item.kind.isVideo {
                     data = try Data(contentsOf: strip.videoURL)
                     metadata = AssetUploadMetadata(
-                        kind: .video,
+                        kind: item.kind,
                         stripIndex: item.stripIndex,
                         sequenceIndex: AssetUploadMetadata.videoSequenceIndex
                     )
                 } else {
                     data = strip.photoData
                     metadata = AssetUploadMetadata(
-                        kind: .photo,
+                        kind: item.kind,
                         stripIndex: item.stripIndex,
                         sequenceIndex: AssetUploadMetadata.photoSequenceIndex
                     )

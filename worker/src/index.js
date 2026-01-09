@@ -194,7 +194,10 @@ async function handleComplete(request, env) {
     index = await existing.json()
   }
 
-  const thumb = manifest.assets.find((asset) => asset.kind === "strip")?.path || manifest.assets.find((asset) => asset.kind === "photo")?.path || manifest.assets[0]?.path
+  const thumb = manifest.assets.find((asset) => asset.kind === "strip_photo")?.path
+    || manifest.assets.find((asset) => asset.kind === "strip")?.path
+    || manifest.assets.find((asset) => asset.kind === "photo")?.path
+    || manifest.assets[0]?.path
   const newEntry = {
     session_id: sessionId,
     created_at: manifest.created_at || new Date().toISOString(),
@@ -240,7 +243,7 @@ async function handleSessionGallery(env, baseURL, sessionId) {
       let type = 'image'
 
       let typeBadge = ''
-      if (asset.kind === "video") {
+      if (asset.kind === "video" || asset.kind === "strip_video") {
         type = 'video'
         const poster = asset.poster_path ? assetURL(env, baseURL, asset.poster_path) : ""
         const escapedPoster = escapeHtml(poster)
@@ -273,11 +276,14 @@ async function handleSessionGallery(env, baseURL, sessionId) {
     .join("")
 
   // Inject the assets array for the lightbox script to use (with proper escaping)
-  const galleryAssets = assets.map(a => ({
-    type: a.kind || 'image',
-    src: assetURL(env, baseURL, a.path),
-    poster: a.poster_path ? assetURL(env, baseURL, a.poster_path) : null
-  }))
+  const galleryAssets = assets.map(a => {
+    const type = (a.kind === 'video' || a.kind === 'strip_video') ? 'video' : 'image'
+    return {
+      type,
+      src: assetURL(env, baseURL, a.path),
+      poster: a.poster_path ? assetURL(env, baseURL, a.poster_path) : null
+    }
+  })
   const scriptData = `<script>window.GALLERY_ASSETS = ${escapeJsonForScript(galleryAssets)};</script>`
 
   // Escape header content

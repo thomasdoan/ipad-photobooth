@@ -14,6 +14,8 @@ It is intentionally version-light and easy to extend.
 ```
 events/{event_id}/sessions/{session_id}/photo_0.jpg
 events/{event_id}/sessions/{session_id}/video_0.mp4
+events/{event_id}/sessions/{session_id}/strip_photo.jpg
+events/{event_id}/sessions/{session_id}/strip_video.mp4
 events/{event_id}/sessions/{session_id}/manifest.json
 events/{event_id}/index.json
 ```
@@ -30,6 +32,26 @@ events/{event_id}/index.json
   "created_at": "2025-02-01T18:20:15Z",
   "public_gallery_url": "https://<worker>.workers.dev/s/8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B",
   "assets": [
+    {
+      "id": "strip_photo",
+      "kind": "strip_photo",
+      "strip_index": -1,
+      "sequence_index": 1,
+      "content_type": "image/jpeg",
+      "path": "events/42/sessions/8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B/strip_photo.jpg",
+      "size_bytes": 483221
+    },
+    {
+      "id": "strip_video",
+      "kind": "strip_video",
+      "strip_index": -1,
+      "sequence_index": 0,
+      "content_type": "video/mp4",
+      "path": "events/42/sessions/8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B/strip_video.mp4",
+      "size_bytes": 18234903,
+      "duration_seconds": 10.0,
+      "poster_path": "events/42/sessions/8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B/strip_photo.jpg"
+    },
     {
       "id": "strip0_video",
       "kind": "video",
@@ -57,6 +79,7 @@ events/{event_id}/index.json
 Notes:
 - `path` is the R2 object key (not a URL) to keep the manifest domain-agnostic.
 - `public_gallery_url` can be derived on-device but is stored for convenience.
+- Composite strip assets use `kind: "strip_photo"` / `kind: "strip_video"` with `strip_index: -1`.
 
 ## index.json (per event)
 

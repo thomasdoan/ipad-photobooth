@@ -357,12 +357,33 @@ struct CaptureView: View {
 
         appState.beginUpload()
 
-        Task {
+        Task { @MainActor in
             do {
+                var compositeAssets: CompositeStripAssets? = nil
+
+                let footerText = theme.stripFooterText ?? appState.selectedEvent?.name ?? "FotoX"
+                do {
+                    compositeAssets = try await StripCompositeRenderer.renderCompositeAssets(
+                        strips: strips,
+                        theme: theme,
+                        assets: themeAssets,
+                        footerText: footerText
+                    )
+                } catch {
+                    // Log but continue - composite is optional.
+                    print("Composite rendering failed: \(error)")
+                    compositeAssets = nil
+                }
+
+                if compositeAssets != nil {
+                    appState.totalAssetsToUpload += 2
+                }
+
                 try await services.uploadQueueWorker.enqueueAndStart(
                     eventId: eventId,
                     session: session,
                     strips: strips,
+                    composite: compositeAssets,
                     onProgress: { sessionId in
                         if appState.currentSession?.sessionId == sessionId {
                             appState.assetUploaded()
@@ -375,13 +396,9 @@ struct CaptureView: View {
                     }
                 )
             } catch let error as APIError {
-                await MainActor.run {
-                    appState.uploadFailed(error: error)
-                }
+                appState.uploadFailed(error: error)
             } catch {
-                await MainActor.run {
-                    appState.uploadFailed(error: .unknown(error))
-                }
+                appState.uploadFailed(error: .unknown(error))
             }
         }
     }

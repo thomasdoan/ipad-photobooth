@@ -204,7 +204,7 @@ struct SessionDetailView: View {
                     ForEach(Array(stripPages.enumerated()), id: \.element.id) { index, page in
                         StripPageButton(
                             title: page.title,
-                            systemImage: page.kind == .photo ? "photo.stack.fill" : "video.fill",
+                            systemImage: page.kind.isVideo ? "video.fill" : "photo.stack.fill",
                             isSelected: index == selectedPageIndex
                         ) {
                             withAnimation(.spring(response: 0.3)) {
@@ -234,18 +234,43 @@ private extension SessionDetailView {
 
         let photoSlots = stripSlots(for: .photo)
         if !photoSlots.isEmpty {
-            pages.append(StripPage(kind: .photo, title: "Photo Strip", slots: photoSlots))
+            pages.append(StripPage(kind: .photo, title: "Photo Strip", slots: photoSlots, slotCount: 3))
         }
 
         let videoSlots = stripSlots(for: .video)
         if !videoSlots.isEmpty {
-            pages.append(StripPage(kind: .video, title: "Video Strip", slots: videoSlots))
+            pages.append(StripPage(kind: .video, title: "Video Strip", slots: videoSlots, slotCount: 3))
+        }
+
+        if let compositePhoto = compositeAsset(for: .stripPhoto) {
+            pages.append(
+                StripPage(
+                    kind: .stripPhoto,
+                    title: "Strip Photo",
+                    slots: [],
+                    slotCount: 3,
+                    compositeAsset: compositePhoto
+                )
+            )
+        }
+
+        if let compositeVideo = compositeAsset(for: .stripVideo) {
+            pages.append(
+                StripPage(
+                    kind: .stripVideo,
+                    title: "Strip Video",
+                    slots: [],
+                    slotCount: 3,
+                    compositeAsset: compositeVideo
+                )
+            )
         }
 
         return pages
     }
 
     func stripSlots(for kind: AssetKind) -> [StripSlot] {
+        guard !kind.isComposite else { return [] }
         let assets = assetsByIndex(for: kind)
         guard !assets.isEmpty else { return [] }
         return (0..<3).map { StripSlot(id: $0, isVideo: kind == .video) }
@@ -261,6 +286,10 @@ private extension SessionDetailView {
             }
     }
 
+    func compositeAsset(for kind: AssetKind) -> GalleryAsset? {
+        viewModel.assets.first { $0.kind == kind }
+    }
+
     func stripFooterText() -> String {
         theme.stripFooterText ?? appState.selectedEvent?.name ?? "FotoX"
     }
@@ -271,12 +300,22 @@ private struct StripPage: Identifiable {
     let kind: AssetKind
     let title: String
     let slots: [StripSlot]
+    let slotCount: Int
+    let compositeAsset: GalleryAsset?
 
-    init(kind: AssetKind, title: String, slots: [StripSlot]) {
+    init(
+        kind: AssetKind,
+        title: String,
+        slots: [StripSlot],
+        slotCount: Int,
+        compositeAsset: GalleryAsset? = nil
+    ) {
         self.id = kind.rawValue
         self.kind = kind
         self.title = title
         self.slots = slots
+        self.slotCount = slotCount
+        self.compositeAsset = compositeAsset
     }
 }
 
@@ -288,14 +327,22 @@ private struct StripPageView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            StripCompositeView(
-                slots: page.slots,
-                footerText: footerText
-            ) { slot in
-                stripSlotContent(slot: slot)
+            if let compositeAsset = page.compositeAsset {
+                CompositeStripAssetView(
+                    asset: compositeAsset,
+                    geometry: geometry,
+                    onSelectAsset: onSelectAsset
+                )
+            } else {
+                StripCompositeView(
+                    slots: page.slots,
+                    footerText: footerText
+                ) { slot in
+                    stripSlotContent(slot: slot)
+                }
+                .frame(width: stripSize(for: geometry).width, height: stripSize(for: geometry).height)
+                .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
             }
-            .frame(width: stripSize(for: geometry).width, height: stripSize(for: geometry).height)
-            .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
         }
     }
 
@@ -305,7 +352,7 @@ private struct StripPageView: View {
         return StripCompositeMetrics.sizeThatFits(
             maxWidth: maxWidth,
             maxHeight: maxHeight,
-            slotCount: page.slots.count
+            slotCount: page.slotCount
         )
     }
 
@@ -315,11 +362,10 @@ private struct StripPageView: View {
             Button {
                 onSelectAsset(asset)
             } label: {
-                switch asset.kind {
-                case .photo:
-                    stripPhotoContent(asset: asset)
-                case .video:
+                if asset.kind.isVideo {
                     stripVideoContent(asset: asset)
+                } else {
+                    stripPhotoContent(asset: asset)
                 }
             }
             .buttonStyle(.plain)
@@ -398,6 +444,104 @@ private struct StripPageView: View {
     }
 }
 
+private struct CompositeStripAssetView: View {
+    let asset: GalleryAsset
+    let geometry: GeometryProxy
+    let onSelectAsset: (GalleryAsset) -> Void
+
+    var body: some View {
+        let size = stripSize(for: geometry)
+        Button {
+            onSelectAsset(asset)
+        } label: {
+            ZStack {
+                Color.black.opacity(0.2)
+
+                if asset.kind.isVideo {
+                    compositeVideoPreview
+                } else {
+                    compositePhotoPreview
+                }
+            }
+            .frame(width: size.width, height: size.height)
+        }
+        .buttonStyle(.plain)
+        .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+    }
+
+    private func stripSize(for geometry: GeometryProxy) -> CGSize {
+        let maxWidth = geometry.size.width * 0.8
+        let maxHeight = geometry.size.height * 0.85
+        return StripCompositeMetrics.sizeThatFits(
+            maxWidth: maxWidth,
+            maxHeight: maxHeight,
+            slotCount: 3
+        )
+    }
+
+    @ViewBuilder
+    private var compositePhotoPreview: some View {
+        let url = asset.isLocallyAvailable ? asset.localURL : WorkerAPIClient.shared.assetURL(path: asset.remotePath)
+        AsyncImage(url: url) { phase in
+            switch phase {
+            case .success(let image):
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+            case .failure:
+                Image(systemName: "photo")
+                    .foregroundStyle(.white.opacity(0.4))
+            case .empty:
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+            @unknown default:
+                Color.black.opacity(0.2)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var compositeVideoPreview: some View {
+        let posterURL: URL? = {
+            if asset.isPosterLocallyAvailable {
+                return asset.localPosterURL
+            }
+            if let posterPath = asset.posterPath {
+                return WorkerAPIClient.shared.assetURL(path: posterPath)
+            }
+            return nil
+        }()
+
+        ZStack {
+            if let posterURL {
+                AsyncImage(url: posterURL) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fit)
+                    case .failure:
+                        Image(systemName: "video.fill")
+                            .foregroundStyle(.white.opacity(0.4))
+                    case .empty:
+                        ProgressView()
+                            .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                    @unknown default:
+                        Color.black.opacity(0.2)
+                    }
+                }
+            } else {
+                Image(systemName: "video.fill")
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+
+            Image(systemName: "play.circle.fill")
+                .font(.system(size: 64))
+                .foregroundStyle(.white.opacity(0.8))
+        }
+    }
+}
+
 // MARK: - Asset View
 
 struct AssetDetailView: View {
@@ -440,16 +584,15 @@ struct AssetView: View {
     
     var body: some View {
         GeometryReader { geometry in
-            switch asset.kind {
-            case .photo:
-                PhotoAssetView(asset: asset, geometry: geometry)
-            case .video:
+            if asset.kind.isVideo {
                 VideoAssetView(
                     asset: asset,
                     geometry: geometry,
                     isActive: isActive,
                     playerManager: playerManager
                 )
+            } else {
+                PhotoAssetView(asset: asset, geometry: geometry)
             }
         }
     }

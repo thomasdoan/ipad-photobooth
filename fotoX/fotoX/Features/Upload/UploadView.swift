@@ -179,7 +179,7 @@ struct UploadView: View {
     private func uploadItemRow(item: UploadItem) -> some View {
         HStack {
             // Icon
-            Image(systemName: item.kind == .video ? "video.fill" : "photo.fill")
+            Image(systemName: item.kind.isVideo ? "video.fill" : "photo.fill")
                 .font(.body)
                 .foregroundStyle(theme.accent.opacity(0.7))
                 .frame(width: 24)

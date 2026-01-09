@@ -11,6 +11,22 @@ import Foundation
 enum AssetKind: String, Codable, Sendable {
     case photo
     case video
+    case stripPhoto = "strip_photo"
+    case stripVideo = "strip_video"
+}
+
+extension AssetKind {
+    var isVideo: Bool {
+        self == .video || self == .stripVideo
+    }
+
+    var isPhoto: Bool {
+        self == .photo || self == .stripPhoto
+    }
+
+    var isComposite: Bool {
+        self == .stripPhoto || self == .stripVideo
+    }
 }
 
 /// Metadata attached to asset uploads
