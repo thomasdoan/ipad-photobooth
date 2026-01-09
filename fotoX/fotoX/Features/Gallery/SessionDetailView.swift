@@ -11,11 +11,13 @@ import AVKit
 /// Full-screen view for viewing a session's photos and videos
 struct SessionDetailView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
     
     @State private var viewModel: SessionDetailViewModel
-    @State private var selectedAssetIndex: Int = 0
+    @State private var selectedPageIndex: Int = 0
     @State private var scrollPosition: Int?
     @State private var playerManager = VideoPlayerManager()
+    @State private var focusedAsset: GalleryAsset?
     
     init(session: GallerySession) {
         _viewModel = State(initialValue: SessionDetailViewModel(session: session))
@@ -62,8 +64,9 @@ struct SessionDetailView: View {
                         Text(viewModel.session.formattedDateTime)
                             .font(.headline)
                             .foregroundStyle(.white)
-                        if !viewModel.assets.isEmpty {
-                            Text("\(selectedAssetIndex + 1) of \(viewModel.assets.count)")
+                        let pageCount = stripPages.count
+                        if pageCount > 0 {
+                            Text("\(selectedPageIndex + 1) of \(pageCount)")
                                 .font(.caption)
                                 .foregroundStyle(.white.opacity(0.6))
                         }
@@ -73,6 +76,9 @@ struct SessionDetailView: View {
                 ToolbarItem(placement: .navigationBarTrailing) {
                     SessionSourceIndicator(source: viewModel.session.source, style: .compact)
                 }
+            }
+            .sheet(item: $focusedAsset) { asset in
+                AssetDetailView(asset: asset, playerManager: playerManager)
             }
         }
         .task {
@@ -139,11 +145,13 @@ struct SessionDetailView: View {
     private var assetPager: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: 0) {
-                ForEach(Array(viewModel.sortedAssets.enumerated()), id: \.element.id) { index, asset in
-                    AssetView(
-                        asset: asset,
-                        isActive: index == selectedAssetIndex,
-                        playerManager: playerManager
+                ForEach(Array(stripPages.enumerated()), id: \.element.id) { index, page in
+                    StripPageView(
+                        page: page,
+                        assetsByIndex: assetsByIndex(for: page.kind),
+                        onSelectAsset: { asset in
+                            focusedAsset = asset
+                        }
                     )
                     .containerRelativeFrame([.horizontal, .vertical])
                     .id(index)
@@ -155,30 +163,30 @@ struct SessionDetailView: View {
         .scrollPosition(id: $scrollPosition)
         .onChange(of: scrollPosition) { _, newValue in
             guard let newValue else { return }
-            if newValue != selectedAssetIndex {
-                selectedAssetIndex = newValue
+            if newValue != selectedPageIndex {
+                selectedPageIndex = newValue
             }
         }
-        .onChange(of: selectedAssetIndex) { _, newValue in
+        .onChange(of: selectedPageIndex) { _, newValue in
             if scrollPosition != newValue {
                 scrollPosition = newValue
             }
         }
-        .onChange(of: viewModel.sortedAssets.count) { _, count in
+        .onChange(of: stripPages.count) { _, count in
             guard count > 0 else {
                 scrollPosition = nil
                 return
             }
-            if selectedAssetIndex >= count {
-                selectedAssetIndex = max(count - 1, 0)
+            if selectedPageIndex >= count {
+                selectedPageIndex = max(count - 1, 0)
             }
-            if scrollPosition != selectedAssetIndex {
-                scrollPosition = selectedAssetIndex
+            if scrollPosition != selectedPageIndex {
+                scrollPosition = selectedPageIndex
             }
         }
         .onAppear {
-            if !viewModel.sortedAssets.isEmpty {
-                scrollPosition = selectedAssetIndex
+            if !stripPages.isEmpty {
+                scrollPosition = selectedPageIndex
             }
         }
         .frame(maxHeight: .infinity)
@@ -190,13 +198,14 @@ struct SessionDetailView: View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    ForEach(Array(viewModel.sortedAssets.enumerated()), id: \.element.id) { index, asset in
-                        ThumbnailButton(
-                            asset: asset,
-                            isSelected: index == selectedAssetIndex
+                    ForEach(Array(stripPages.enumerated()), id: \.element.id) { index, page in
+                        StripPageButton(
+                            title: page.title,
+                            systemImage: page.kind == .photo ? "photo.stack.fill" : "video.fill",
+                            isSelected: index == selectedPageIndex
                         ) {
                             withAnimation(.spring(response: 0.3)) {
-                                selectedAssetIndex = index
+                                selectedPageIndex = index
                                 scrollPosition = index
                             }
                         }
@@ -205,7 +214,7 @@ struct SessionDetailView: View {
                 }
                 .padding(.horizontal, 16)
             }
-            .onChange(of: selectedAssetIndex) { _, newIndex in
+            .onChange(of: selectedPageIndex) { _, newIndex in
                 withAnimation {
                     proxy.scrollTo(newIndex, anchor: .center)
                 }
@@ -214,10 +223,216 @@ struct SessionDetailView: View {
     }
     
     // MARK: - Helpers
+}
 
+private extension SessionDetailView {
+    var stripPages: [StripPage] {
+        var pages: [StripPage] = []
+
+        let photoSlots = stripSlots(for: .photo)
+        if !photoSlots.isEmpty {
+            pages.append(StripPage(kind: .photo, title: "Photo Strip", slots: photoSlots))
+        }
+
+        let videoSlots = stripSlots(for: .video)
+        if !videoSlots.isEmpty {
+            pages.append(StripPage(kind: .video, title: "Video Strip", slots: videoSlots))
+        }
+
+        return pages
+    }
+
+    func stripSlots(for kind: AssetKind) -> [StripSlot] {
+        let assets = assetsByIndex(for: kind)
+        guard !assets.isEmpty else { return [] }
+        return (0..<3).map { StripSlot(id: $0, isVideo: kind == .video) }
+    }
+
+    func assetsByIndex(for kind: AssetKind) -> [Int: GalleryAsset] {
+        viewModel.assets
+            .filter { $0.kind == kind }
+            .reduce(into: [:]) { result, asset in
+                if result[asset.stripIndex] == nil {
+                    result[asset.stripIndex] = asset
+                }
+            }
+    }
+
+    func stripFooterText() -> String {
+        theme.stripFooterText ?? "FotoX"
+    }
+}
+
+private struct StripPage: Identifiable {
+    let id: String
+    let kind: AssetKind
+    let title: String
+    let slots: [StripSlot]
+
+    init(kind: AssetKind, title: String, slots: [StripSlot]) {
+        self.id = kind.rawValue
+        self.kind = kind
+        self.title = title
+        self.slots = slots
+    }
+}
+
+private struct StripPageView: View {
+    @Environment(\.appTheme) private var theme
+
+    let page: StripPage
+    let assetsByIndex: [Int: GalleryAsset]
+    let onSelectAsset: (GalleryAsset) -> Void
+
+    var body: some View {
+        GeometryReader { geometry in
+            StripCompositeView(
+                slots: page.slots,
+                footerText: stripFooterText()
+            ) { slot in
+                stripSlotContent(slot: slot)
+            }
+            .frame(width: stripSize(for: geometry).width, height: stripSize(for: geometry).height)
+            .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
+        }
+    }
+
+    private func stripFooterText() -> String {
+        theme.stripFooterText ?? "FotoX"
+    }
+
+    private func stripSize(for geometry: GeometryProxy) -> CGSize {
+        let maxWidth = geometry.size.width * 0.8
+        let maxHeight = geometry.size.height * 0.85
+        return StripCompositeMetrics.sizeThatFits(
+            maxWidth: maxWidth,
+            maxHeight: maxHeight,
+            slotCount: page.slots.count
+        )
+    }
+
+    @ViewBuilder
+    private func stripSlotContent(slot: StripSlot) -> some View {
+        if let asset = assetsByIndex[slot.id] {
+            Button {
+                onSelectAsset(asset)
+            } label: {
+                switch asset.kind {
+                case .photo:
+                    stripPhotoContent(asset: asset)
+                case .video:
+                    stripVideoContent(asset: asset)
+                }
+            }
+            .buttonStyle(.plain)
+        } else {
+            ZStack {
+                Color.black.opacity(0.2)
+                Image(systemName: slot.isVideo ? "video.fill" : "photo")
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func stripPhotoContent(asset: GalleryAsset) -> some View {
+        let url = asset.isLocallyAvailable ? asset.localURL : WorkerAPIClient.shared.assetURL(path: asset.remotePath)
+        AsyncImage(url: url) { phase in
+            switch phase {
+            case .success(let image):
+                image
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+            case .failure:
+                ZStack {
+                    Color.black.opacity(0.2)
+                    Image(systemName: "photo")
+                        .foregroundStyle(.white.opacity(0.4))
+                }
+            case .empty:
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
+            @unknown default:
+                Color.black.opacity(0.2)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func stripVideoContent(asset: GalleryAsset) -> some View {
+        let posterURL: URL? = {
+            if asset.isPosterLocallyAvailable {
+                return asset.localPosterURL
+            }
+            if let posterPath = asset.posterPath {
+                return WorkerAPIClient.shared.assetURL(path: posterPath)
+            }
+            return nil
+        }()
+
+        if let posterURL {
+            AsyncImage(url: posterURL) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                case .failure:
+                    ZStack {
+                        Color.black.opacity(0.2)
+                        Image(systemName: "video.fill")
+                            .foregroundStyle(.white.opacity(0.4))
+                    }
+                case .empty:
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
+                @unknown default:
+                    Color.black.opacity(0.2)
+                }
+            }
+        } else {
+            ZStack {
+                Color.black.opacity(0.2)
+                Image(systemName: "video.fill")
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+        }
+    }
 }
 
 // MARK: - Asset View
+
+struct AssetDetailView: View {
+    let asset: GalleryAsset
+    let playerManager: VideoPlayerManager
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            AssetView(
+                asset: asset,
+                isActive: true,
+                playerManager: playerManager
+            )
+        }
+        .overlay(alignment: .topTrailing) {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.title)
+                    .foregroundStyle(.white.opacity(0.8))
+                    .padding(20)
+            }
+        }
+        .onDisappear {
+            playerManager.stop(id: asset.id)
+        }
+    }
+}
 
 struct AssetView: View {
     let asset: GalleryAsset
@@ -247,6 +462,14 @@ struct PhotoAssetView: View {
     let geometry: GeometryProxy
     
     var body: some View {
+        ThemedStripFrame {
+            photoContent
+        }
+        .frame(width: geometry.size.width, height: geometry.size.height)
+    }
+    
+    @ViewBuilder
+    private var photoContent: some View {
         // Local-first loading: check local URL first
         if let localURL = asset.localURL, asset.isLocallyAvailable {
             AsyncImage(url: localURL) { phase in
@@ -325,14 +548,16 @@ struct VideoAssetView: View {
     }
     
     var body: some View {
-        ZStack {
-            if isActive, let player = player {
-                VideoPlayer(player: player)
-            } else {
-                posterView
+        ThemedStripFrame {
+            ZStack {
+                if isActive, let player = player {
+                    VideoPlayer(player: player)
+                } else {
+                    posterView
+                }
             }
+            .frame(width: geometry.size.width, height: geometry.size.height)
         }
-        .frame(width: geometry.size.width, height: geometry.size.height)
         .onAppear {
             updatePlayback()
         }
@@ -421,6 +646,32 @@ extension AssetView {
 }
 
 // MARK: - Thumbnail Button
+
+struct StripPageButton: View {
+    let title: String
+    let systemImage: String
+    let isSelected: Bool
+    let onTap: () -> Void
+
+    var body: some View {
+        Button(action: onTap) {
+            HStack(spacing: 6) {
+                Image(systemName: systemImage)
+                    .font(.caption)
+                Text(title)
+                    .font(.caption.bold())
+            }
+            .foregroundStyle(isSelected ? .white : .white.opacity(0.6))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(
+                Capsule()
+                    .fill(isSelected ? .white.opacity(0.2) : .white.opacity(0.08))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
 
 struct ThumbnailButton: View {
     let asset: GalleryAsset

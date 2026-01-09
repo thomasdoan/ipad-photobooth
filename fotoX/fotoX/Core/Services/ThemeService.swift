@@ -33,7 +33,7 @@ actor ThemeService {
         async let logo = loadImage(from: theme.logoURL)
         async let background = loadImage(from: theme.backgroundURL)
         async let photoFrame = loadImage(from: theme.photoFrameURL)
-        async let stripFrame = loadImage(from: theme.stripFrameURL)
+        async let stripFrame = loadImage(from: theme.stripFrameURL, assetName: theme.stripFrameAssetName)
         
         return try await ThemeAssets(
             logo: logo,
@@ -49,7 +49,12 @@ actor ThemeService {
     }
     
     /// Loads an image from a URL, using cache if available
-    private func loadImage(from url: URL?) async throws -> Image? {
+    private func loadImage(from url: URL?, assetName: String? = nil) async throws -> Image? {
+        if let assetName,
+           let uiImage = UIImage(named: assetName) {
+            return Image(uiImage: uiImage)
+        }
+
         guard let url = url else { return nil }
         
         // Check cache first
@@ -76,4 +81,3 @@ actor ThemeService {
         return Image(uiImage: uiImage)
     }
 }
-

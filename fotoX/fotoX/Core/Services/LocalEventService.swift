@@ -36,7 +36,8 @@ private enum BundledEventStore {
                 logoURL: nil,
                 backgroundURL: nil,
                 photoFrameURL: nil,
-                stripFrameURL: nil
+                stripFrameURL: nil,
+                stripFooterText: nil
             )
         ),
         // Event(
@@ -52,7 +53,8 @@ private enum BundledEventStore {
         //         logoURL: nil,
         //         backgroundURL: nil,
         //         photoFrameURL: nil,
-        //         stripFrameURL: nil
+        //         stripFrameURL: nil,
+        //         stripFooterText: nil
         //     )
         // ),
     ]

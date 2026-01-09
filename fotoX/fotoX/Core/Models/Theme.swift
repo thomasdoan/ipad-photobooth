@@ -19,6 +19,7 @@ struct Theme: Equatable, Sendable {
     let backgroundURL: String?
     let photoFrameURL: String?
     let stripFrameURL: String?
+    let stripFooterText: String?
 }
 
 extension Theme: Codable {
@@ -32,6 +33,7 @@ extension Theme: Codable {
         case backgroundURL = "background_url"
         case photoFrameURL = "photo_frame_url"
         case stripFrameURL = "strip_frame_url"
+        case stripFooterText = "strip_footer_text"
     }
 }
 
@@ -46,6 +48,8 @@ struct AppTheme: Equatable, Sendable {
     let backgroundURL: URL?
     let photoFrameURL: URL?
     let stripFrameURL: URL?
+    let stripFrameAssetName: String?
+    let stripFooterText: String?
     
     /// Creates an AppTheme from a raw Theme model
     init(from theme: Theme) {
@@ -57,7 +61,17 @@ struct AppTheme: Equatable, Sendable {
         self.logoURL = theme.logoURL.flatMap { URL(string: $0) }
         self.backgroundURL = theme.backgroundURL.flatMap { URL(string: $0) }
         self.photoFrameURL = theme.photoFrameURL.flatMap { URL(string: $0) }
-        self.stripFrameURL = theme.stripFrameURL.flatMap { URL(string: $0) }
+        let stripFrameValue = theme.stripFrameURL?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if stripFrameValue.lowercased().hasPrefix("asset:") {
+            let assetName = stripFrameValue.dropFirst("asset:".count)
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            self.stripFrameAssetName = assetName.isEmpty ? nil : String(assetName)
+            self.stripFrameURL = nil
+        } else {
+            self.stripFrameAssetName = nil
+            self.stripFrameURL = theme.stripFrameURL.flatMap { URL(string: $0) }
+        }
+        self.stripFooterText = theme.stripFooterText
     }
     
     /// Default theme for when no event is selected
@@ -70,7 +84,9 @@ struct AppTheme: Equatable, Sendable {
         logoURL: nil,
         backgroundURL: nil,
         photoFrameURL: nil,
-        stripFrameURL: nil
+        stripFrameURL: nil,
+        stripFrameAssetName: nil,
+        stripFooterText: nil
     )
     
     private init(
@@ -82,7 +98,9 @@ struct AppTheme: Equatable, Sendable {
         logoURL: URL?,
         backgroundURL: URL?,
         photoFrameURL: URL?,
-        stripFrameURL: URL?
+        stripFrameURL: URL?,
+        stripFrameAssetName: String?,
+        stripFooterText: String?
     ) {
         self.id = id
         self.primary = primary
@@ -93,6 +111,7 @@ struct AppTheme: Equatable, Sendable {
         self.backgroundURL = backgroundURL
         self.photoFrameURL = photoFrameURL
         self.stripFrameURL = stripFrameURL
+        self.stripFrameAssetName = stripFrameAssetName
+        self.stripFooterText = stripFooterText
     }
 }
-

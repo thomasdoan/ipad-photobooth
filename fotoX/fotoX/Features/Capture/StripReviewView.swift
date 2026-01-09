@@ -89,21 +89,21 @@ struct StripReviewView: View {
     private func mediaPreview(geometry: GeometryProxy) -> some View {
         let previewHeight = geometry.size.height * 0.5
         
-        return ZStack {
-            if showingVideo, let player = player {
-                VideoPlayer(player: player)
-                    .aspectRatio(9/16, contentMode: .fit)
-                    .frame(maxHeight: previewHeight)
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
-            } else if let uiImage = UIImage(data: photoData) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .aspectRatio(contentMode: .fit)
-                    .frame(maxHeight: previewHeight)
-                    .clipShape(RoundedRectangle(cornerRadius: 20))
+        return ThemedStripFrame {
+            ZStack {
+                theme.secondary.opacity(0.4)
+
+                if showingVideo, let player = player {
+                    VideoPlayer(player: player)
+                        .aspectRatio(9.0 / 16.0, contentMode: .fit)
+                } else if let uiImage = UIImage(data: photoData) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                }
             }
+            .frame(maxHeight: previewHeight)
         }
-        .shadow(color: .black.opacity(0.3), radius: 20)
     }
     
     // MARK: - Media Toggle
@@ -198,6 +198,7 @@ struct CaptureSummaryView: View {
     let onRetake: (Int) -> Void
     let onFinish: () -> Void
     
+    @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
     
     var body: some View {
@@ -216,21 +217,40 @@ struct CaptureSummaryView: View {
                             .font(.system(size: 36, weight: .bold, design: .rounded))
                             .foregroundStyle(theme.accent)
                         
-                        Text("Review your captures before we process them")
-                            .font(.body)
-                            .foregroundStyle(theme.accent.opacity(0.7))
-                    }
-                    .padding(.top, 40)
-                    
-                    // Strip thumbnails
-                    HStack(spacing: 16) {
-                        ForEach(strips, id: \.stripIndex) { strip in
-                            stripThumbnail(strip: strip, geometry: geometry)
+                    Text("Review your captures before we process them")
+                        .font(.body)
+                        .foregroundStyle(theme.accent.opacity(0.7))
+                }
+                .padding(.top, 40)
+                
+                // Strip composite
+                StripCompositeView(
+                    slots: stripSlots(),
+                    footerText: stripFooterText()
+                ) { slot in
+                    stripSlotContent(slot: slot, strips: strips)
+                }
+                .frame(width: stripSize(for: geometry).width, height: stripSize(for: geometry).height)
+
+                HStack(spacing: 12) {
+                    ForEach(stripSlots()) { slot in
+                        Button {
+                            onRetake(slot.id)
+                        } label: {
+                            Text("Retake \(slot.id + 1)")
+                                .font(.caption2.bold())
+                                .foregroundStyle(theme.accent.opacity(0.7))
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(
+                                    Capsule()
+                                        .stroke(theme.accent.opacity(0.3), lineWidth: 1)
+                                )
                         }
                     }
-                    .padding(.horizontal, 32)
-                    
-                    Spacer()
+                }
+                
+                Spacer()
                     
                     // Finish button
                     Button(action: onFinish) {
@@ -254,35 +274,36 @@ struct CaptureSummaryView: View {
         }
     }
     
-    private func stripThumbnail(strip: CapturedStrip, geometry: GeometryProxy) -> some View {
-        let width = (geometry.size.width - 96) / 3
-        
-        return VStack(spacing: 12) {
-            // Thumbnail
-            if let uiImage = UIImage(data: strip.photoData) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .aspectRatio(9/16, contentMode: .fill)
-                    .frame(width: width, height: width * 16/9 * 0.6)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 12)
-                            .stroke(theme.primary.opacity(0.5), lineWidth: 2)
-                    )
-            }
-            
-            // Label
-            Text("Strip \(strip.stripIndex + 1)")
-                .font(.caption.bold())
-                .foregroundStyle(theme.accent.opacity(0.7))
-            
-            // Retake button
-            Button {
-                onRetake(strip.stripIndex)
-            } label: {
-                Text("Retake")
-                    .font(.caption2)
-                    .foregroundStyle(theme.accent.opacity(0.6))
+    private func stripSlots() -> [StripSlot] {
+        (0..<3).map { StripSlot(id: $0, isVideo: false) }
+    }
+
+    private func stripFooterText() -> String {
+        theme.stripFooterText ?? appState.selectedEvent?.name ?? "FotoX"
+    }
+
+    private func stripSize(for geometry: GeometryProxy) -> CGSize {
+        let maxWidth = min(geometry.size.width * 0.6, 320)
+        let maxHeight = geometry.size.height * 0.55
+        return StripCompositeMetrics.sizeThatFits(
+            maxWidth: maxWidth,
+            maxHeight: maxHeight,
+            slotCount: 3
+        )
+    }
+
+    @ViewBuilder
+    private func stripSlotContent(slot: StripSlot, strips: [CapturedStrip]) -> some View {
+        if let strip = strips.first(where: { $0.stripIndex == slot.id }),
+           let uiImage = UIImage(data: strip.photoData) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .aspectRatio(9.0 / 16.0, contentMode: .fill)
+        } else {
+            ZStack {
+                theme.secondary.opacity(0.4)
+                Image(systemName: "photo")
+                    .foregroundStyle(theme.accent.opacity(0.5))
             }
         }
     }

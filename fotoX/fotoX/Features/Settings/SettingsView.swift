@@ -282,10 +282,26 @@ struct SettingsView: View {
                 infoRow(label: "Build", value: appBuild)
                 Divider().padding(.leading, 16)
                 infoRow(label: "Current Event", value: appState.selectedEvent?.name ?? "None")
-                
+
                 if appState.currentSession != nil {
                     Divider().padding(.leading, 16)
                     infoRow(label: "Active Session", value: "Yes")
+                }
+
+                Divider().padding(.leading, 16)
+                NavigationLink {
+                    StripPreviewView()
+                        .environment(appState)
+                } label: {
+                    HStack {
+                        Text("Preview Strip")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
                 }
             }
             .background(
