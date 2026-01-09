@@ -13,6 +13,9 @@ struct LocalGalleryService: Sendable {
     private let uploadsDirectory: URL
     private let queueStore: UploadQueueStore
 
+    /// Shared ISO8601 date formatter for parsing timestamps
+    private static let iso8601Formatter = ISO8601DateFormatter()
+
     init(fileManager: FileManager = .default, uploadsDirectory: URL? = nil) {
         self.fileManager = fileManager
         if let uploadsDirectory = uploadsDirectory {
@@ -50,36 +53,36 @@ struct LocalGalleryService: Sendable {
     private func getQueueSessions(eventId: Int) async -> [GallerySession] {
         do {
             let sessions = try await queueStore.sessions()
-            return sessions
-                .filter { $0.eventId == eventId }
-                .compactMap { queueSession -> GallerySession? in
-                    let sessionDir = uploadsDirectory.appendingPathComponent(queueSession.sessionId)
-                    guard fileManager.fileExists(atPath: sessionDir.path) else { return nil }
-                    
-                    let assets = buildAssets(
-                        sessionId: queueSession.sessionId,
-                        eventId: eventId,
-                        sessionDir: sessionDir,
-                        queueAssets: queueSession.assets
-                    )
-                    
-                    guard !assets.isEmpty else { return nil }
-                    
-                    let createdAt = ISO8601DateFormatter().date(from: queueSession.createdAt) ?? Date()
-                    let thumbURL = assets.first(where: { $0.kind == .photo })?.localURL
-                    
-                    return GallerySession(
-                        id: queueSession.sessionId,
-                        sessionId: queueSession.sessionId,
-                        eventId: eventId,
-                        createdAt: createdAt,
-                        source: .local,
-                        thumbPath: nil,
-                        localThumbURL: thumbURL,
-                        galleryPath: "s/\(queueSession.sessionId)",
-                        assets: assets
-                    )
-                }
+            var results: [GallerySession] = []
+            for queueSession in sessions where queueSession.eventId == eventId {
+                let sessionDir = uploadsDirectory.appendingPathComponent(queueSession.sessionId)
+                guard fileManager.fileExists(atPath: sessionDir.path) else { continue }
+                
+                let assets = buildAssets(
+                    sessionId: queueSession.sessionId,
+                    eventId: eventId,
+                    sessionDir: sessionDir,
+                    queueAssets: queueSession.assets
+                )
+                
+                guard !assets.isEmpty else { continue }
+
+                let createdAt = Self.iso8601Formatter.date(from: queueSession.createdAt) ?? Date()
+                let thumbURL = assets.first(where: { $0.kind == .photo })?.localURL
+
+                results.append(GallerySession(
+                    id: queueSession.sessionId,
+                    sessionId: queueSession.sessionId,
+                    eventId: eventId,
+                    createdAt: createdAt,
+                    source: .local,
+                    thumbPath: nil,
+                    localThumbURL: thumbURL,
+                    galleryPath: "s/\(queueSession.sessionId)",
+                    assets: assets
+                ))
+            }
+            return results
         } catch {
             return []
         }
@@ -109,10 +112,10 @@ struct LocalGalleryService: Sendable {
                 if let manifest = readManifest(at: manifestURL), manifest.eventId == eventId {
                     let assets = buildAssetsFromManifest(manifest, sessionDir: itemURL)
                     guard !assets.isEmpty else { continue }
-                    
-                    let createdAt = ISO8601DateFormatter().date(from: manifest.createdAt) ?? Date()
+
+                    let createdAt = Self.iso8601Formatter.date(from: manifest.createdAt) ?? Date()
                     let thumbURL = assets.first(where: { $0.kind == .photo })?.localURL
-                    
+
                     sessions.append(GallerySession(
                         id: sessionId,
                         sessionId: sessionId,
@@ -129,10 +132,10 @@ struct LocalGalleryService: Sendable {
                     // We need to match by scanning existing files
                     let assets = reconstructAssets(sessionId: sessionId, eventId: eventId, sessionDir: itemURL)
                     guard !assets.isEmpty else { continue }
-                    
+
                     let createdAt = resourceValues.creationDate ?? Date()
                     let thumbURL = assets.first(where: { $0.kind == .photo })?.localURL
-                    
+
                     // We don't know the eventId without manifest, skip unless we can match
                     // For now, include it if there are assets (caller filters by eventId from remote)
                     // we have 1 event so will leave as is lmao
@@ -282,4 +285,3 @@ struct LocalGalleryService: Sendable {
         return assets
     }
 }
-

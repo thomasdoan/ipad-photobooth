@@ -12,24 +12,27 @@ import Observation
 @Observable
 final class GalleryViewModel {
     // MARK: - State
-    
+
     /// All sessions for the event (merged local + remote)
     var sessions: [GallerySession] = []
-    
+
     /// Whether data is loading
     var isLoading: Bool = false
-    
+
     /// Error message if load failed
     var errorMessage: String?
-    
+
     /// Currently selected session for detail view
     var selectedSession: GallerySession?
-    
+
     // MARK: - Dependencies
-    
+
     private let eventId: Int
     private let localGalleryService: LocalGalleryService
     private let apiClient: WorkerAPIClient
+
+    /// Shared ISO8601 date formatter for parsing timestamps
+    private static let iso8601Formatter = ISO8601DateFormatter()
     
     // MARK: - Initialization
     
@@ -70,9 +73,11 @@ final class GalleryViewModel {
     private func fetchRemoteSessions() async -> [GallerySession] {
         do {
             let eventIndex = try await apiClient.fetchEventSessions(eventId: eventId)
-            return eventIndex.sessions.map { indexSession in
-                let createdAt = ISO8601DateFormatter().date(from: indexSession.createdAt) ?? Date()
-                return GallerySession(
+            var sessions: [GallerySession] = []
+            sessions.reserveCapacity(eventIndex.sessions.count)
+            for indexSession in eventIndex.sessions {
+                let createdAt = Self.iso8601Formatter.date(from: indexSession.createdAt) ?? Date()
+                sessions.append(GallerySession(
                     id: indexSession.sessionId,
                     sessionId: indexSession.sessionId,
                     eventId: eventId,
@@ -82,8 +87,9 @@ final class GalleryViewModel {
                     localThumbURL: nil,
                     galleryPath: indexSession.galleryPath,
                     assets: [] // Assets loaded on demand in detail view
-                )
+                ))
             }
+            return sessions
         } catch {
             // Don't fail entirely if remote is unavailable - show local only
             await MainActor.run {
@@ -129,4 +135,3 @@ final class GalleryViewModel {
         return Array(sessionMap.values).sorted { $0.createdAt > $1.createdAt }
     }
 }
-

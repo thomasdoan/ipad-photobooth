@@ -59,13 +59,28 @@ struct GallerySession: Identifiable, Equatable, Sendable {
     let galleryPath: String
     /// All assets in this session
     var assets: [GalleryAsset]
-    
+
     /// Best URL to use for thumbnail (local-first)
     var thumbnailURL: URL? {
         if let local = localThumbURL, FileManager.default.fileExists(atPath: local.path) {
             return local
         }
         return nil
+    }
+
+    /// Formatted date for UI display (e.g., "1/8/26")
+    var formattedDate: String {
+        createdAt.formatted(date: .numeric, time: .omitted)
+    }
+
+    /// Formatted time for UI display (e.g., "3:45 PM")
+    var formattedTime: String {
+        createdAt.formatted(date: .omitted, time: .shortened)
+    }
+
+    /// Formatted date and time for UI display (e.g., "Jan 8, 2026 at 3:45 PM")
+    var formattedDateTime: String {
+        createdAt.formatted(date: .abbreviated, time: .shortened)
     }
 }
 
@@ -100,4 +115,3 @@ struct EventIndexSession: Codable, Sendable {
         case galleryPath = "gallery_path"
     }
 }
-
