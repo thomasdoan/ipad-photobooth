@@ -80,6 +80,7 @@ struct SessionDetailView: View {
             }
             .fullScreenCover(item: $focusedAsset) { asset in
                 AssetDetailView(asset: asset, playerManager: playerManager)
+                    .statusBarHidden(true)
             }
         }
         .task {

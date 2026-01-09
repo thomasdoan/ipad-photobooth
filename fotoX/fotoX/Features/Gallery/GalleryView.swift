@@ -63,6 +63,7 @@ struct GalleryView: View {
         }
         .sheet(item: $viewModel.selectedSession) { session in
             SessionDetailView(session: session)
+                .statusBarHidden(true)
         }
     }
     

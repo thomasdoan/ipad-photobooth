@@ -73,6 +73,7 @@ struct RootView: View {
             }
         }
         .animation(.easeInOut(duration: 0.3), value: appState.currentRoute)
+        .statusBarHidden(true)
         .task {
             await services.uploadQueueWorker.startProcessing(
                 onProgress: { sessionId in
@@ -92,6 +93,7 @@ struct RootView: View {
             set: { appState.showSettings = $0 }
         )) {
             SettingsView()
+                .statusBarHidden(true)
         }
         .sheet(isPresented: Binding(
             get: { appState.showGallery },
@@ -100,6 +102,7 @@ struct RootView: View {
             if let eventId = appState.selectedEvent?.id {
                 GalleryView(eventId: eventId)
                     .environment(appState)
+                    .statusBarHidden(true)
             }
         }
         .alert(
