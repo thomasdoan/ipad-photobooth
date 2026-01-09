@@ -1867,6 +1867,33 @@ struct CaptureViewModelTests {
         #expect(viewModel.isSessionComplete)
     }
 
+    @Test("Manual advance disables auto-accept and keeps controls visible")
+    func manualAdvanceDisablesAutoAccept() async throws {
+        let mockCamera = MockCameraController()
+        let config = CaptureConfiguration(
+            videoDuration: 0.05,
+            countdownSeconds: 0,
+            photoCountdownSeconds: 0,
+            stripCount: 1,
+            stripReviewDuration: 0.05,
+            autoAdvanceWithoutReview: true,
+            autoAdvancePreviewDuration: 0.05,
+            manualAdvanceAfterReview: true
+        )
+        let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
+        await viewModel.setupCamera()
+
+        #expect(viewModel.showsReviewControls)
+
+        viewModel.startCapture()
+
+        try await Task.sleep(nanoseconds: 500_000_000)
+
+        #expect(viewModel.pendingStrip != nil)
+        #expect(viewModel.capturedStrips.isEmpty)
+        #expect(viewModel.isSessionComplete == false)
+    }
+
     @Test("Retake discards pending strip and restarts capture")
     func retakeDiscardsPendingStrip() async throws {
         let mockCamera = MockCameraController()
