@@ -48,50 +48,6 @@ class CameraPreviewUIView: UIView {
     }
 }
 
-/// Preview container with aspect ratio handling for 9:16 vertical video
-struct CameraPreviewContainer: View {
-    let cameraController: any CameraControlling
-    let aspectRatio: CGFloat
-
-    init(cameraController: any CameraControlling, aspectRatio: CGFloat = 9.0 / 16.0) {
-        self.cameraController = cameraController
-        self.aspectRatio = aspectRatio
-    }
-
-    var body: some View {
-        GeometryReader { geometry in
-            let size = calculateSize(in: geometry.size)
-
-            Group {
-                if cameraController.isSimulator {
-                    SimulatorPreviewView()
-                } else {
-                    CameraPreview(cameraController: cameraController, isReady: cameraController.previewLayer != nil)
-                }
-            }
-            .frame(width: size.width, height: size.height)
-            .clipShape(RoundedRectangle(cornerRadius: 24))
-            .position(x: geometry.size.width / 2, y: geometry.size.height / 2)
-        }
-    }
-
-    private func calculateSize(in containerSize: CGSize) -> CGSize {
-        let containerAspect = containerSize.width / containerSize.height
-
-        if aspectRatio > containerAspect {
-            // Fit to width
-            let width = containerSize.width
-            let height = width / aspectRatio
-            return CGSize(width: width, height: height)
-        } else {
-            // Fit to height
-            let height = containerSize.height
-            let width = height * aspectRatio
-            return CGSize(width: width, height: height)
-        }
-    }
-}
-
 /// Animated preview view for simulator mode
 struct SimulatorPreviewView: View {
     @State private var gradientStart = UnitPoint.topLeading

@@ -11,7 +11,8 @@ import CoreImage
 
 /// Simulated camera controller for testing in iOS Simulator
 /// Generates sample video and photo content without requiring real camera hardware
-final class SimulatorCameraController: CameraControlling, @unchecked Sendable {
+@MainActor
+final class SimulatorCameraController: CameraControlling {
     // MARK: - Properties
 
     weak var delegate: CameraControllerDelegate?
@@ -28,14 +29,8 @@ final class SimulatorCameraController: CameraControlling, @unchecked Sendable {
     /// Current recording URL
     private var currentRecordingURL: URL?
 
-    /// Recording timer
-    private var recordingTimer: Timer?
-
     /// Recording start time
     private var recordingStartTime: Date?
-
-    /// Target video duration
-    private var targetDuration: TimeInterval = 5.0
 
     /// Background queue for video generation
     private let videoQueue = DispatchQueue(label: "com.fotox.simulator.video")
@@ -60,8 +55,7 @@ final class SimulatorCameraController: CameraControlling, @unchecked Sendable {
     }
 
     func stopSession() {
-        recordingTimer?.invalidate()
-        recordingTimer = nil
+        // No session to stop for simulator
     }
 
     func startRecording() throws {
@@ -77,38 +71,27 @@ final class SimulatorCameraController: CameraControlling, @unchecked Sendable {
         recordingStartTime = Date()
 
         delegate?.cameraController(self, didStartRecording: videoURL)
-
-        // Start a timer to simulate recording duration
-        // The actual video generation happens when stopRecording is called
-        DispatchQueue.main.async { [weak self] in
-            self?.recordingTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
-                // Just keep the timer running - recording duration is managed by CaptureViewModel
-            }
-        }
+        // Recording duration is managed by CaptureViewModel
     }
 
     func stopRecording() {
         guard isRecording, let videoURL = currentRecordingURL else { return }
 
         isRecording = false
-        recordingTimer?.invalidate()
-        recordingTimer = nil
 
         let actualDuration = recordingStartTime.map { Date().timeIntervalSince($0) } ?? 3.0
 
         // Generate the video file asynchronously
-        videoQueue.async { [weak self] in
-            guard let self = self else { return }
-
+        Task.detached { [weak self] in
             do {
-                try self.generateSampleVideo(at: videoURL, duration: actualDuration)
+                try self?.generateSampleVideo(at: videoURL, duration: actualDuration)
 
-                DispatchQueue.main.async {
-                    self.delegate?.cameraController(self, didFinishRecording: videoURL)
+                await MainActor.run {
+                    self?.delegate?.cameraController(self!, didFinishRecording: videoURL)
                 }
             } catch {
-                DispatchQueue.main.async {
-                    self.delegate?.cameraController(self, didFailWithError: .recordingFailed(error.localizedDescription))
+                await MainActor.run {
+                    self?.delegate?.cameraController(self!, didFailWithError: .recordingFailed(error.localizedDescription))
                 }
             }
         }
@@ -137,7 +120,7 @@ final class SimulatorCameraController: CameraControlling, @unchecked Sendable {
     // MARK: - Sample Content Generation
 
     /// Generates a sample video file at the specified URL
-    private func generateSampleVideo(at url: URL, duration: TimeInterval) throws {
+    private nonisolated func generateSampleVideo(at url: URL, duration: TimeInterval) throws {
         let width = 1080
         let height = 1920 // 9:16 portrait
         let frameRate: Int32 = 30
@@ -201,7 +184,7 @@ final class SimulatorCameraController: CameraControlling, @unchecked Sendable {
     }
 
     /// Creates a pixel buffer with gradient colors and animation
-    private func createSamplePixelBuffer(width: Int, height: Int, progress: Double) -> CVPixelBuffer? {
+    private nonisolated func createSamplePixelBuffer(width: Int, height: Int, progress: Double) -> CVPixelBuffer? {
         var pixelBuffer: CVPixelBuffer?
 
         let attrs: [String: Any] = [
@@ -353,7 +336,11 @@ final class SimulatorCameraController: CameraControlling, @unchecked Sendable {
             timestamp.draw(in: timestampRect, withAttributes: timestampAttributes)
         }
 
-        return image.jpegData(compressionQuality: 0.8) ?? Data()
+        guard let jpegData = image.jpegData(compressionQuality: 0.8) else {
+            print("Warning: Failed to generate JPEG data for sample photo")
+            return Data()
+        }
+        return jpegData
     }
 }
 

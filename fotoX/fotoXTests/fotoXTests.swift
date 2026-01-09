@@ -1381,7 +1381,7 @@ final class MockCameraController: CameraControlling, @unchecked Sendable {
     var cleanupTempFilesCalled = false
 
     // Test data
-    var mockPhotoData = "mock photo data".data(using: .utf8)!
+    var mockPhotoData = Data("mock photo data".utf8)
     var mockVideoURL: URL?
 
     func setup() async throws {
@@ -1630,7 +1630,7 @@ struct CaptureViewModelTests {
 
         // Manually add captured strips to test conversion
         let testURL = URL(fileURLWithPath: "/tmp/test.mov")
-        let testPhotoData = "test".data(using: .utf8)!
+        let testPhotoData = Data("test".utf8)
 
         // Access internal capturedStrips array
         viewModel.capturedStrips.append(CapturedStripMedia(
