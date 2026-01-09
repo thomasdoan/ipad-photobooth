@@ -76,44 +76,52 @@ struct QRView: View {
     private func capturedStripsSection(geometry: GeometryProxy) -> some View {
         let strips = appState.capturedStrips
         if !strips.isEmpty {
-            let availableWidth = geometry.size.width - 80
-            let itemWidth = max(90, (availableWidth - 32) / 3)
-            let itemHeight = itemWidth * 1.3
-            
             VStack(spacing: 12) {
                 Text("Your Photos")
                     .font(.headline)
                     .foregroundStyle(theme.accent.opacity(0.8))
-                
-                HStack(spacing: 16) {
-                    ForEach(strips, id: \.stripIndex) { strip in
-                        VStack(spacing: 8) {
-                            if let image = UIImage(data: strip.photoData) {
-                                Image(uiImage: image)
-                                    .resizable()
-                                    .aspectRatio(contentMode: .fill)
-                                    .frame(width: itemWidth, height: itemHeight)
-                                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                                    .overlay(
-                                        RoundedRectangle(cornerRadius: 12)
-                                            .stroke(theme.primary.opacity(0.4), lineWidth: 1)
-                                    )
-                            } else {
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(theme.secondary.opacity(0.4))
-                                    .frame(width: itemWidth, height: itemHeight)
-                                    .overlay(
-                                        Image(systemName: "photo")
-                                            .foregroundStyle(theme.accent.opacity(0.5))
-                                    )
-                            }
-                            
-                            Text("Strip \(strip.stripIndex + 1)")
-                                .font(.caption.bold())
-                                .foregroundStyle(theme.accent.opacity(0.7))
-                        }
-                    }
+
+                StripCompositeView(
+                    slots: stripSlots(),
+                    footerText: stripFooterText()
+                ) { slot in
+                    stripSlotContent(slot: slot, strips: strips)
                 }
+                .frame(width: stripSize(for: geometry).width, height: stripSize(for: geometry).height)
+            }
+        }
+    }
+
+    private func stripSlots() -> [StripSlot] {
+        (0..<3).map { StripSlot(id: $0, isVideo: false) }
+    }
+
+    private func stripFooterText() -> String {
+        theme.stripFooterText ?? appState.selectedEvent?.name ?? "FotoX"
+    }
+
+    private func stripSize(for geometry: GeometryProxy) -> CGSize {
+        let maxWidth = min(geometry.size.width * 0.6, 320)
+        let maxHeight = geometry.size.height * 0.5
+        return StripCompositeMetrics.sizeThatFits(
+            maxWidth: maxWidth,
+            maxHeight: maxHeight,
+            slotCount: 3
+        )
+    }
+
+    @ViewBuilder
+    private func stripSlotContent(slot: StripSlot, strips: [CapturedStrip]) -> some View {
+        if let strip = strips.first(where: { $0.stripIndex == slot.id }),
+           let image = UIImage(data: strip.photoData) {
+            Image(uiImage: image)
+                .resizable()
+                .aspectRatio(contentMode: .fill)
+        } else {
+            ZStack {
+                theme.secondary.opacity(0.4)
+                Image(systemName: "photo")
+                    .foregroundStyle(theme.accent.opacity(0.5))
             }
         }
     }

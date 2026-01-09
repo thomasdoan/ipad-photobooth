@@ -39,7 +39,8 @@ enum MockDataProvider {
                 logoURL: nil,
                 backgroundURL: nil,
                 photoFrameURL: nil,
-                stripFrameURL: nil
+                stripFrameURL: nil,
+                stripFooterText: nil
             )
         ),
         Event(
@@ -55,7 +56,8 @@ enum MockDataProvider {
                 logoURL: nil,
                 backgroundURL: nil,
                 photoFrameURL: nil,
-                stripFrameURL: nil
+                stripFrameURL: nil,
+                stripFooterText: nil
             )
         ),
         Event(
@@ -71,7 +73,8 @@ enum MockDataProvider {
                 logoURL: nil,
                 backgroundURL: nil,
                 photoFrameURL: nil,
-                stripFrameURL: nil
+                stripFrameURL: nil,
+                stripFooterText: nil
             )
         )
     ]

@@ -153,3 +153,65 @@ struct ThemedPhotoFrame: View {
     }
 }
 
+/// Frame treatment for photo/video strips with theme-based styling.
+@MainActor
+struct ThemedStripFrame<Content: View>: View {
+    @Environment(\.appTheme) private var theme
+    @Environment(\.themeAssets) private var assets
+
+    private let cornerRadius: CGFloat
+    private let content: Content
+
+    init(cornerRadius: CGFloat = 16, @ViewBuilder content: () -> Content) {
+        self.cornerRadius = cornerRadius
+        self.content = content()
+    }
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+
+        ZStack {
+            content
+                .clipShape(shape)
+        }
+        .overlay {
+            if let frame = assets?.stripFrame {
+                frame
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .clipShape(shape)
+                    .allowsHitTesting(false)
+            } else {
+                defaultFrame(shape: shape)
+            }
+        }
+        .shadow(color: theme.secondary.opacity(0.35), radius: 12, y: 6)
+    }
+
+    @ViewBuilder
+    private func defaultFrame(shape: RoundedRectangle) -> some View {
+        ZStack {
+            shape.strokeBorder(
+                LinearGradient(
+                    colors: [
+                        theme.primary.opacity(0.9),
+                        theme.accent.opacity(0.8),
+                        theme.primary.opacity(0.7)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                lineWidth: 3
+            )
+
+            shape
+                .inset(by: 2)
+                .strokeBorder(theme.accent.opacity(0.35), lineWidth: 1)
+
+            shape
+                .inset(by: 4)
+                .strokeBorder(theme.secondary.opacity(0.6), lineWidth: 1)
+        }
+        .allowsHitTesting(false)
+    }
+}
