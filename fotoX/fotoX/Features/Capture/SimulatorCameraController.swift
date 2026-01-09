@@ -8,6 +8,7 @@
 import AVFoundation
 import UIKit
 import CoreImage
+import os
 
 /// Simulated camera controller for testing in iOS Simulator
 /// Generates sample video and photo content without requiring real camera hardware
@@ -34,6 +35,8 @@ final class SimulatorCameraController: CameraControlling {
 
     /// Background queue for video generation
     private let videoQueue = DispatchQueue(label: "com.fotox.simulator.video")
+
+    private nonisolated static let logger = Logger(subsystem: "fotoX", category: "SimulatorCamera")
 
     /// Sample image colors for generating frames
     private nonisolated(unsafe) static let sampleColors: [UIColor] = [
@@ -100,8 +103,16 @@ final class SimulatorCameraController: CameraControlling {
     }
 
     func capturePhoto() async throws -> Data {
-        let photoData = try generateSamplePhoto()
-        delegate?.cameraController(self, didCapturePhoto: photoData)
+        let sampleIndex = colorIndex % Self.sampleColors.count
+        colorIndex = (colorIndex + 1) % Self.sampleColors.count
+
+        let photoData = try await Task.detached { [sampleIndex] in
+            try Self.generateSamplePhoto(colorIndex: sampleIndex)
+        }.value
+
+        await MainActor.run {
+            self.delegate?.cameraController(self, didCapturePhoto: photoData)
+        }
         return photoData
     }
 
@@ -231,14 +242,20 @@ final class SimulatorCameraController: CameraControlling {
             colorsSpace: CGColorSpaceCreateDeviceRGB(),
             colors: [color1.cgColor, color2.cgColor] as CFArray,
             locations: [0, 1]
-        )!
-
-        context.drawLinearGradient(
-            gradient,
-            start: CGPoint(x: 0, y: 0),
-            end: CGPoint(x: CGFloat(width), y: CGFloat(height)),
-            options: []
         )
+
+        if let gradient {
+            context.drawLinearGradient(
+                gradient,
+                start: CGPoint(x: 0, y: 0),
+                end: CGPoint(x: CGFloat(width), y: CGFloat(height)),
+                options: []
+            )
+        } else {
+            // CGGradient(colorsSpace:colors:locations:) can return nil; if `gradient` is missing, fill a solid background so the frame renders.
+            context.setFillColor(color1.cgColor)
+            context.fill(CGRect(x: 0, y: 0, width: CGFloat(width), height: CGFloat(height)))
+        }
 
         // Add "SIMULATOR" text
         context.setFillColor(UIColor.white.withAlphaComponent(0.8).cgColor)
@@ -282,7 +299,7 @@ final class SimulatorCameraController: CameraControlling {
     }
 
     /// Generates a sample photo as JPEG data
-    private func generateSamplePhoto() throws -> Data {
+    private nonisolated static func generateSamplePhoto(colorIndex: Int) throws -> Data {
         let size = CGSize(width: 1080, height: 1920)
 
         let renderer = UIGraphicsImageRenderer(size: size)
@@ -290,20 +307,25 @@ final class SimulatorCameraController: CameraControlling {
             // Gradient background
             let color1 = Self.sampleColors[colorIndex % Self.sampleColors.count]
             let color2 = Self.sampleColors[(colorIndex + 1) % Self.sampleColors.count]
-            colorIndex += 1
 
             let gradient = CGGradient(
                 colorsSpace: CGColorSpaceCreateDeviceRGB(),
                 colors: [color1.cgColor, color2.cgColor] as CFArray,
                 locations: [0, 1]
-            )!
-
-            context.cgContext.drawLinearGradient(
-                gradient,
-                start: .zero,
-                end: CGPoint(x: size.width, y: size.height),
-                options: []
             )
+
+            if let gradient {
+                context.cgContext.drawLinearGradient(
+                    gradient,
+                    start: .zero,
+                    end: CGPoint(x: size.width, y: size.height),
+                    options: []
+                )
+            } else {
+                Self.logger.error("Failed to create gradient for simulator sample photo.")
+                context.cgContext.setFillColor(color1.cgColor)
+                context.cgContext.fill(CGRect(origin: .zero, size: size))
+            }
 
             // Add "PHOTO" text
             let text = "PHOTO"
@@ -347,8 +369,15 @@ final class SimulatorCameraController: CameraControlling {
     }
 }
 
-private enum JPEGEncodingError: Error {
+private enum JPEGEncodingError: LocalizedError {
     case failedToEncode
+
+    var errorDescription: String? {
+        switch self {
+        case .failedToEncode:
+            return "Failed to encode image to JPEG"
+        }
+    }
 }
 
 // MARK: - Camera Controller Factory
