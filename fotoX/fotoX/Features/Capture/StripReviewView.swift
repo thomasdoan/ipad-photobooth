@@ -46,6 +46,10 @@ struct StripReviewView: View {
                     // Media preview
                     mediaPreview(geometry: geometry)
                     
+                    // Toggle between video and photo
+                    mediaToggle
+                        .padding(.top, 16)
+                    
                     Spacer()
                     
                     // Action buttons
