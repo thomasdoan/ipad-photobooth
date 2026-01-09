@@ -145,7 +145,7 @@ struct SessionDetailView: View {
     
     private var assetPager: some View {
         let footerText = stripFooterText()
-        ScrollView(.horizontal, showsIndicators: false) {
+        return ScrollView(.horizontal, showsIndicators: false) {
             LazyHStack(spacing: 0) {
                 ForEach(Array(stripPages.enumerated()), id: \.element.id) { index, page in
                     StripPageView(
