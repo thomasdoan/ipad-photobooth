@@ -59,7 +59,7 @@ struct SessionDetailView: View {
                 
                 ToolbarItem(placement: .principal) {
                     VStack(spacing: 2) {
-                        Text(formattedDate)
+                        Text(viewModel.session.formattedDateTime)
                             .font(.headline)
                             .foregroundStyle(.white)
                         if !viewModel.assets.isEmpty {
@@ -215,12 +215,6 @@ struct SessionDetailView: View {
     
     // MARK: - Helpers
 
-    private var formattedDate: String {
-        let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .short
-        return formatter.string(from: viewModel.session.createdAt)
-    }
 }
 
 // MARK: - Asset View

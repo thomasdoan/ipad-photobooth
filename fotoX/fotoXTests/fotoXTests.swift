@@ -1352,3 +1352,175 @@ struct LocalGalleryServiceTests {
         try? fileManager.removeItem(at: testUploadsDir)
     }
 }
+
+// MARK: - GallerySession Date Formatting Tests
+
+struct GallerySessionDateFormattingTests {
+
+    @Test("GallerySession formattedDate returns numeric date without time")
+    func formattedDateReturnsNumericDate() {
+        let date = Date(timeIntervalSince1970: 1704067200) // 2024-01-01 00:00:00 UTC
+        let session = GallerySession(
+            id: "test-1",
+            sessionId: "test-1",
+            eventId: 1,
+            createdAt: date,
+            source: .local,
+            thumbPath: nil,
+            localThumbURL: nil,
+            galleryPath: "s/test-1",
+            assets: []
+        )
+
+        let formatted = session.formattedDate
+        #expect(!formatted.isEmpty, "Formatted date should not be empty")
+    }
+
+    @Test("GallerySession formattedTime returns time without date")
+    func formattedTimeReturnsTimeOnly() {
+        let date = Date(timeIntervalSince1970: 1704067200) // 2024-01-01 00:00:00 UTC
+        let session = GallerySession(
+            id: "test-2",
+            sessionId: "test-2",
+            eventId: 1,
+            createdAt: date,
+            source: .remote,
+            thumbPath: nil,
+            localThumbURL: nil,
+            galleryPath: "s/test-2",
+            assets: []
+        )
+
+        let formatted = session.formattedTime
+        #expect(!formatted.isEmpty, "Formatted time should not be empty")
+    }
+
+    @Test("GallerySession formattedDateTime returns both date and time")
+    func formattedDateTimeReturnsBoth() {
+        let date = Date(timeIntervalSince1970: 1704067200) // 2024-01-01 00:00:00 UTC
+        let session = GallerySession(
+            id: "test-3",
+            sessionId: "test-3",
+            eventId: 1,
+            createdAt: date,
+            source: .both,
+            thumbPath: nil,
+            localThumbURL: nil,
+            galleryPath: "s/test-3",
+            assets: []
+        )
+
+        let formatted = session.formattedDateTime
+        #expect(!formatted.isEmpty, "Formatted date-time should not be empty")
+    }
+
+    @Test("GallerySession formatting is consistent across multiple calls")
+    func formattingIsConsistent() {
+        let date = Date(timeIntervalSince1970: 1704067200) // 2024-01-01 00:00:00 UTC
+        let session = GallerySession(
+            id: "test-4",
+            sessionId: "test-4",
+            eventId: 1,
+            createdAt: date,
+            source: .local,
+            thumbPath: nil,
+            localThumbURL: nil,
+            galleryPath: "s/test-4",
+            assets: []
+        )
+
+        let date1 = session.formattedDate
+        let date2 = session.formattedDate
+        let time1 = session.formattedTime
+        let time2 = session.formattedTime
+        let dateTime1 = session.formattedDateTime
+        let dateTime2 = session.formattedDateTime
+
+        #expect(date1 == date2, "Date formatting should be consistent")
+        #expect(time1 == time2, "Time formatting should be consistent")
+        #expect(dateTime1 == dateTime2, "DateTime formatting should be consistent")
+    }
+
+    @Test("GallerySession handles different dates correctly")
+    func handlesDifferentDates() {
+        let date1 = Date(timeIntervalSince1970: 1704067200) // 2024-01-01 00:00:00 UTC
+        let date2 = Date(timeIntervalSince1970: 1735689600) // 2025-01-01 00:00:00 UTC
+
+        let session1 = GallerySession(
+            id: "test-5",
+            sessionId: "test-5",
+            eventId: 1,
+            createdAt: date1,
+            source: .local,
+            thumbPath: nil,
+            localThumbURL: nil,
+            galleryPath: "s/test-5",
+            assets: []
+        )
+
+        let session2 = GallerySession(
+            id: "test-6",
+            sessionId: "test-6",
+            eventId: 1,
+            createdAt: date2,
+            source: .local,
+            thumbPath: nil,
+            localThumbURL: nil,
+            galleryPath: "s/test-6",
+            assets: []
+        )
+
+        #expect(session1.formattedDate != session2.formattedDate, "Different dates should format differently")
+        #expect(session1.formattedDateTime != session2.formattedDateTime, "Different dates should have different date-times")
+    }
+
+    @Test("GallerySession formatting handles current date")
+    func formattingHandlesCurrentDate() {
+        let now = Date()
+        let session = GallerySession(
+            id: "test-7",
+            sessionId: "test-7",
+            eventId: 1,
+            createdAt: now,
+            source: .local,
+            thumbPath: nil,
+            localThumbURL: nil,
+            galleryPath: "s/test-7",
+            assets: []
+        )
+
+        #expect(!session.formattedDate.isEmpty, "Should format current date")
+        #expect(!session.formattedTime.isEmpty, "Should format current time")
+        #expect(!session.formattedDateTime.isEmpty, "Should format current date-time")
+    }
+
+    @Test("GallerySession Equatable works with same Date values")
+    func equatableWorksWithDates() {
+        let date = Date(timeIntervalSince1970: 1704067200)
+        let session1 = GallerySession(
+            id: "test-8",
+            sessionId: "test-8",
+            eventId: 1,
+            createdAt: date,
+            source: .local,
+            thumbPath: nil,
+            localThumbURL: nil,
+            galleryPath: "s/test-8",
+            assets: []
+        )
+
+        let session2 = GallerySession(
+            id: "test-8",
+            sessionId: "test-8",
+            eventId: 1,
+            createdAt: date,
+            source: .local,
+            thumbPath: nil,
+            localThumbURL: nil,
+            galleryPath: "s/test-8",
+            assets: []
+        )
+
+        #expect(session1 == session2, "Sessions with same date should be equal")
+    }
+}
