@@ -82,6 +82,7 @@ final class CaptureViewModel: @unchecked Sendable {
         self.config = config
         self.cameraController = cameraController
         self.cameraController.delegate = self
+        self.currentAspectRatio = aspectRatioSetting.resolved(for: layoutOrientation)
     }
     
     // MARK: - Setup
@@ -275,9 +276,12 @@ final class CaptureViewModel: @unchecked Sendable {
 
     @MainActor
     func updateAspectRatioSetting(_ setting: CaptureAspectRatio, orientation: LayoutOrientation) {
+        let didChangeSetting = aspectRatioSetting != setting
         aspectRatioSetting = setting
         layoutOrientation = orientation
-        WorkerConfiguration.saveCaptureAspectRatio(setting)
+        if didChangeSetting {
+            WorkerConfiguration.saveCaptureAspectRatio(setting)
+        }
         if stripState == .ready {
             applyNextAspectRatioForNewStrip()
         }

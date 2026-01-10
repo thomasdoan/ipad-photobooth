@@ -133,9 +133,7 @@ final class SimulatorCameraController: CameraControlling {
 
         do {
             let files = try fileManager.contentsOfDirectory(at: tempDirectory, includingPropertiesForKeys: nil)
-            for file in files
-            where file.pathExtension == "mov"
-            && file.lastPathComponent.hasPrefix("strip_") {
+            for file in files where file.pathExtension == "mov" {
                 try? fileManager.removeItem(at: file)
             }
         } catch {
