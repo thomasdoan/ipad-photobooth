@@ -477,12 +477,14 @@ final class OrientationTests: FotoXUITestCase {
         XCTAssertTrue(hasReadyState, "Capture ready state should appear")
 
         rotateDevice(to: .landscapeLeft)
-        sleep(1)
-        XCTAssertTrue(tapToStartButton.exists || stripIndicator.exists, "Capture UI should remain visible in landscape")
+        let hasLandscapeState = waitForElement(tapToStartButton, timeout: 2)
+            || waitForElement(stripIndicator, timeout: 2)
+        XCTAssertTrue(hasLandscapeState, "Capture UI should remain visible in landscape")
 
         rotateDevice(to: .portrait)
-        sleep(1)
-        XCTAssertTrue(tapToStartButton.exists || stripIndicator.exists, "Capture UI should remain visible in portrait")
+        let hasPortraitState = waitForElement(tapToStartButton, timeout: 2)
+            || waitForElement(stripIndicator, timeout: 2)
+        XCTAssertTrue(hasPortraitState, "Capture UI should remain visible in portrait")
     }
 
     func testRotationKeepsSettingsPickerAccessible() throws {
@@ -508,12 +510,12 @@ final class OrientationTests: FotoXUITestCase {
         let qrPrompt = app.staticTexts["Scan to view your photos"]
 
         rotateDevice(to: .landscapeRight)
-        sleep(1)
-        XCTAssertTrue(qrTitle.exists || qrPrompt.exists, "QR screen should remain visible in landscape")
+        let hasLandscapeQR = waitForElement(qrTitle, timeout: 2) || waitForElement(qrPrompt, timeout: 2)
+        XCTAssertTrue(hasLandscapeQR, "QR screen should remain visible in landscape")
 
         rotateDevice(to: .portrait)
-        sleep(1)
-        XCTAssertTrue(qrTitle.exists || qrPrompt.exists, "QR screen should remain visible in portrait")
+        let hasPortraitQR = waitForElement(qrTitle, timeout: 2) || waitForElement(qrPrompt, timeout: 2)
+        XCTAssertTrue(hasPortraitQR, "QR screen should remain visible in portrait")
     }
 }
 

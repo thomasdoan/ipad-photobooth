@@ -58,6 +58,19 @@ struct CaptureView: View {
                 finishCapture()
             }
         }
+        .alert(
+            "Processing Error",
+            isPresented: Binding(
+                get: { viewModel.videoProcessingError != nil },
+                set: { if !$0 { viewModel.videoProcessingError = nil } }
+            )
+        ) {
+            Button("OK") {
+                viewModel.videoProcessingError = nil
+            }
+        } message: {
+            Text(viewModel.videoProcessingError ?? "")
+        }
     }
     
     // MARK: - Camera Layer

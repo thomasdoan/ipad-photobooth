@@ -7,10 +7,13 @@
 
 import Foundation
 import Observation
+import os
 
 /// ViewModel managing the capture flow state machine
 @Observable
 final class CaptureViewModel: @unchecked Sendable {
+    private static let logger = Logger(subsystem: "fotoX", category: "CaptureViewModel")
+
     // MARK: - State
     
     /// Current strip being captured (0, 1, 2)
@@ -33,6 +36,9 @@ final class CaptureViewModel: @unchecked Sendable {
     
     /// Error message
     var errorMessage: String?
+
+    /// Non-fatal processing error for alerts
+    var videoProcessingError: String?
     
     /// Configuration
     let config: CaptureConfiguration
@@ -197,7 +203,10 @@ final class CaptureViewModel: @unchecked Sendable {
                 try? FileManager.default.removeItem(at: videoURL)
             }
         } catch {
-            print("Video crop failed: \(error)")
+            Self.logger.error(
+                "Video crop failed for URL: \(videoURL.absoluteString, privacy: .public). Error: \(String(describing: error), privacy: .public)"
+            )
+            videoProcessingError = "Video processing failed. Please try again."
             processedVideoURL = videoURL
         }
 
@@ -262,6 +271,7 @@ final class CaptureViewModel: @unchecked Sendable {
     func updateAspectRatioSetting(_ setting: CaptureAspectRatio, orientation: LayoutOrientation) {
         aspectRatioSetting = setting
         layoutOrientation = orientation
+        WorkerConfiguration.saveCaptureAspectRatio(setting)
         if stripState == .ready {
             applyNextAspectRatioForNewStrip()
         }
