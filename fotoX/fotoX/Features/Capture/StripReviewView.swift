@@ -26,6 +26,8 @@ struct StripReviewView: View {
     @State private var playerManager = VideoPlayerManager()
     @State private var player: AVPlayer?
     @State private var showingVideo = true
+    @State private var remainingSeconds: Int = 0
+    @State private var countdownTimer: Timer?
     
     @Environment(\.appTheme) private var theme
     
@@ -66,10 +68,13 @@ struct StripReviewView: View {
         }
         .onAppear {
             startPlayback(fromStart: true)
+            startCountdown()
         }
         .onDisappear {
             playerManager.stop(id: playerID)
             player = nil
+            countdownTimer?.invalidate()
+            countdownTimer = nil
         }
     }
     
@@ -88,9 +93,22 @@ struct StripReviewView: View {
     }
     
     private var autoAdvanceLabel: some View {
-        Text("Auto-advancing in \(autoAdvanceSeconds)s")
+        Text("Auto-advancing in \(remainingSeconds)s")
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(theme.accent.opacity(0.7))
+    }
+    
+    private func startCountdown() {
+        remainingSeconds = autoAdvanceSeconds
+        countdownTimer?.invalidate()
+        countdownTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            if remainingSeconds > 0 {
+                remainingSeconds -= 1
+            } else {
+                countdownTimer?.invalidate()
+                countdownTimer = nil
+            }
+        }
     }
 
     // MARK: - Media Preview
