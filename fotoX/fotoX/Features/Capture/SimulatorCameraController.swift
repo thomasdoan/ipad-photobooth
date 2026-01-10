@@ -103,8 +103,7 @@ final class SimulatorCameraController: CameraControlling {
 
         Task {
             do {
-                let aspectRatio = currentAspectRatio == .auto ? .ratio9x16 : currentAspectRatio
-                try await Task.detached { [videoURL, actualDuration, aspectRatio] in
+                try await Task.detached { [videoURL, actualDuration, aspectRatio = currentAspectRatio] in
                     try Self.generateSampleVideo(at: videoURL, duration: actualDuration, aspectRatio: aspectRatio)
                 }.value
                 delegate?.cameraController(self, didFinishRecording: videoURL)
@@ -118,8 +117,7 @@ final class SimulatorCameraController: CameraControlling {
         let sampleIndex = colorIndex % Self.sampleColors.count
         colorIndex = (colorIndex + 1) % Self.sampleColors.count
 
-        let aspectRatio = currentAspectRatio == .auto ? .ratio9x16 : currentAspectRatio
-        let photoData = try await Task.detached { [sampleIndex, aspectRatio] in
+        let photoData = try await Task.detached { [sampleIndex, aspectRatio = currentAspectRatio] in
             try Self.generateSamplePhoto(colorIndex: sampleIndex, aspectRatio: aspectRatio)
         }.value
 

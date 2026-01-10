@@ -42,6 +42,33 @@ class FotoXUITestCase: XCTestCase {
         XCUIDevice.shared.orientation = orientation
     }
 
+    func navigateToQRScreen() {
+        let eventCard = app.buttons.matching(identifier: "eventCard").firstMatch
+        tapWhenReady(eventCard, timeout: 10)
+
+        let startButton = app.buttons.matching(identifier: "startButton").firstMatch
+        tapWhenReady(startButton, timeout: 10)
+
+        _ = tapIfExists(app.buttons["Tap to Start"], timeout: 5)
+
+        let reviewTitle = app.staticTexts["Review Your Capture"]
+        for index in 0..<3 {
+            XCTAssertTrue(waitForElement(reviewTitle, timeout: 25), "Strip \(index + 1) should reach review screen")
+            if index < 2 {
+                tapWhenReady(app.buttons["Continue"], timeout: 10)
+                _ = waitForElementToDisappear(reviewTitle, timeout: 5)
+                _ = tapIfExists(app.buttons["Tap to Start"], timeout: 5)
+            } else {
+                tapWhenReady(app.buttons["Finish"], timeout: 10)
+            }
+        }
+
+        let qrTitle = app.staticTexts["Your Photos"]
+        let qrPrompt = app.staticTexts["Scan to view your photos"]
+        let reachedQR = waitForElement(qrTitle, timeout: 45) || qrPrompt.exists
+        XCTAssertTrue(reachedQR, "Should reach QR screen after finishing capture flow")
+    }
+
     @discardableResult
     func tapIfExists(_ element: XCUIElement, timeout: TimeInterval = 3) -> Bool {
         guard waitForElement(element, timeout: timeout) else { return false }
@@ -284,6 +311,14 @@ final class SettingsTests: FotoXUITestCase {
 
         reopenedPicker.buttons["Auto"].tap()
         app.buttons["Save"].tap()
+
+        tapWhenReady(app.buttons["Settings"])
+        XCTAssertTrue(waitForElement(app.navigationBars["Settings"]))
+
+        let autoPicker = app.segmentedControls["captureAspectRatioPicker"]
+        XCTAssertTrue(waitForElement(autoPicker))
+        XCTAssertTrue(autoPicker.buttons["Auto"].isSelected, "Auto should remain selected")
+        app.buttons["Save"].tap()
     }
 }
 
@@ -467,30 +502,10 @@ final class OrientationTests: FotoXUITestCase {
     }
 
     func testRotationKeepsQRScreenUsable() throws {
-        let eventCard = app.buttons.matching(identifier: "eventCard").firstMatch
-        tapWhenReady(eventCard, timeout: 10)
-
-        let startButton = app.buttons.matching(identifier: "startButton").firstMatch
-        tapWhenReady(startButton, timeout: 10)
-
-        _ = tapIfExists(app.buttons["Tap to Start"], timeout: 5)
-
-        let reviewTitle = app.staticTexts["Review Your Capture"]
-        XCTAssertTrue(waitForElement(reviewTitle, timeout: 25), "Strip 1 should reach review screen")
-        tapWhenReady(app.buttons["Continue"], timeout: 10)
-        _ = waitForElementToDisappear(reviewTitle, timeout: 5)
-
-        XCTAssertTrue(waitForElement(reviewTitle, timeout: 25), "Strip 2 should reach review screen")
-        tapWhenReady(app.buttons["Continue"], timeout: 10)
-        _ = waitForElementToDisappear(reviewTitle, timeout: 5)
-
-        XCTAssertTrue(waitForElement(reviewTitle, timeout: 25), "Strip 3 should reach review screen")
-        tapWhenReady(app.buttons["Finish"], timeout: 10)
+        navigateToQRScreen()
 
         let qrTitle = app.staticTexts["Your Photos"]
         let qrPrompt = app.staticTexts["Scan to view your photos"]
-        let reachedQR = waitForElement(qrTitle, timeout: 45) || qrPrompt.exists
-        XCTAssertTrue(reachedQR, "Should reach QR screen after finishing capture flow")
 
         rotateDevice(to: .landscapeRight)
         sleep(1)
@@ -507,33 +522,7 @@ final class OrientationTests: FotoXUITestCase {
 final class CaptureFlowTests: FotoXUITestCase {
 
     func testCaptureFlowCompletesToQRScreen() throws {
-        let eventCard = app.buttons.matching(identifier: "eventCard").firstMatch
-        tapWhenReady(eventCard, timeout: 10)
-
-        let startButton = app.buttons.matching(identifier: "startButton").firstMatch
-        tapWhenReady(startButton, timeout: 10)
-
-        _ = tapIfExists(app.buttons["Tap to Start"], timeout: 5)
-
-        let reviewTitle = app.staticTexts["Review Your Capture"]
-
-        XCTAssertTrue(waitForElement(reviewTitle, timeout: 25), "Strip 1 should reach review screen")
-        tapWhenReady(app.buttons["Continue"], timeout: 10)
-        _ = waitForElementToDisappear(reviewTitle, timeout: 5)
-        _ = tapIfExists(app.buttons["Tap to Start"], timeout: 5)
-
-        XCTAssertTrue(waitForElement(reviewTitle, timeout: 25), "Strip 2 should reach review screen")
-        tapWhenReady(app.buttons["Continue"], timeout: 10)
-        _ = waitForElementToDisappear(reviewTitle, timeout: 5)
-        _ = tapIfExists(app.buttons["Tap to Start"], timeout: 5)
-
-        XCTAssertTrue(waitForElement(reviewTitle, timeout: 25), "Strip 3 should reach review screen")
-        tapWhenReady(app.buttons["Finish"], timeout: 10)
-
-        let qrTitle = app.staticTexts["Your Photos"]
-        let qrPrompt = app.staticTexts["Scan to view your photos"]
-        let reachedQR = waitForElement(qrTitle, timeout: 45) || qrPrompt.exists
-        XCTAssertTrue(reachedQR, "Should reach QR screen after finishing capture flow")
+        navigateToQRScreen()
     }
 }
 

@@ -197,6 +197,7 @@ final class CaptureViewModel: @unchecked Sendable {
                 try? FileManager.default.removeItem(at: videoURL)
             }
         } catch {
+            print("Video crop failed: \(error)")
             processedVideoURL = videoURL
         }
 
@@ -272,6 +273,7 @@ final class CaptureViewModel: @unchecked Sendable {
         applyCurrentAspectRatioIfNeeded()
     }
 
+    @MainActor
     private func applyCurrentAspectRatioIfNeeded() {
         guard isCameraReady else { return }
         cameraController.updateCaptureAspectRatio(aspectRatioSetting, orientation: layoutOrientation)

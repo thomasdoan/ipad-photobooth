@@ -63,6 +63,7 @@ enum CaptureAspectRatio: String, CaseIterable, Identifiable, Sendable {
     var widthToHeight: CGFloat {
         switch self {
         case .auto:
+            // Default for callers that didn't resolve orientation first.
             return 9.0 / 16.0
         case .ratio9x16:
             return 9.0 / 16.0
