@@ -274,7 +274,7 @@ final class CaptureViewModel: @unchecked Sendable {
 
     private func applyCurrentAspectRatioIfNeeded() {
         guard isCameraReady else { return }
-        cameraController.updateCaptureAspectRatio(currentAspectRatio)
+        cameraController.updateCaptureAspectRatio(aspectRatioSetting, orientation: layoutOrientation)
     }
     
     /// Converts captured strips to the model format

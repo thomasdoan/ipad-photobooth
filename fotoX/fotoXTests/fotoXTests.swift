@@ -226,6 +226,7 @@ struct ModelEncodingTests {
 
 // MARK: - Capture Aspect Ratio Tests
 
+@Suite(.serialized)
 struct CaptureAspectRatioTests {
     @Test("Auto aspect ratio resolves by orientation")
     func autoResolvesByOrientation() {
@@ -258,6 +259,7 @@ struct CaptureAspectRatioTests {
     }
 }
 
+@Suite(.serialized)
 struct AppStateAspectRatioTests {
     @Test("AppState resolves auto aspect ratio from layout orientation")
     func appStateAutoResolution() {
@@ -1666,7 +1668,7 @@ final class MockCameraController: CameraControlling, @unchecked Sendable {
         return mockPhotoData
     }
 
-    func updateCaptureAspectRatio(_ aspectRatio: CaptureAspectRatio) {
+    func updateCaptureAspectRatio(_ aspectRatio: CaptureAspectRatio, orientation: LayoutOrientation) {
         updateAspectRatioCalled = true
         lastAspectRatio = aspectRatio
     }

@@ -145,8 +145,8 @@ final class SimulatorCameraController: CameraControlling {
         }
     }
 
-    func updateCaptureAspectRatio(_ aspectRatio: CaptureAspectRatio) {
-        let resolved = aspectRatio == .auto ? .ratio9x16 : aspectRatio
+    func updateCaptureAspectRatio(_ aspectRatio: CaptureAspectRatio, orientation: LayoutOrientation) {
+        let resolved = aspectRatio.resolved(for: orientation)
         currentAspectRatio = resolved
     }
 

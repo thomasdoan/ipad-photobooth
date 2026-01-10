@@ -49,7 +49,7 @@ protocol CameraControlling: AnyObject, Sendable {
     func capturePhoto() async throws -> Data
 
     /// Updates capture aspect ratio and orientation
-    func updateCaptureAspectRatio(_ aspectRatio: CaptureAspectRatio)
+    func updateCaptureAspectRatio(_ aspectRatio: CaptureAspectRatio, orientation: LayoutOrientation)
 
     /// Cleans up temporary files
     func cleanupTempFiles()
@@ -342,8 +342,8 @@ final class CameraController: NSObject, CameraControlling, @unchecked Sendable {
         }
     }
 
-    func updateCaptureAspectRatio(_ aspectRatio: CaptureAspectRatio) {
-        let resolved = aspectRatio == .auto ? .ratio9x16 : aspectRatio
+    func updateCaptureAspectRatio(_ aspectRatio: CaptureAspectRatio, orientation: LayoutOrientation) {
+        let resolved = aspectRatio.resolved(for: orientation)
         currentAspectRatio = resolved
 
         sessionQueue.async { [weak self] in
