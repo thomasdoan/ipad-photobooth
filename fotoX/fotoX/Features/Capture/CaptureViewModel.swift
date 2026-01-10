@@ -88,7 +88,11 @@ final class CaptureViewModel: @unchecked Sendable {
     
     /// Sets up the camera
     @MainActor
-    func setupCamera() async {
+    func setupCamera(initialOrientation: LayoutOrientation? = nil) async {
+        if let initialOrientation {
+            layoutOrientation = initialOrientation
+            currentAspectRatio = aspectRatioSetting.resolved(for: initialOrientation)
+        }
         do {
             try await cameraController.setup()
             cameraController.startSession()
