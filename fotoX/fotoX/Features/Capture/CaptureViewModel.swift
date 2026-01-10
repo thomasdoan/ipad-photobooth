@@ -187,6 +187,7 @@ final class CaptureViewModel: @unchecked Sendable {
     /// Finalizes the current strip
     @MainActor
     private func finalizeStrip() async {
+        videoProcessingError = nil
         guard let videoURL = currentVideoURL,
               let photoData = currentPhotoData else {
             stripState = .error("Missing capture data")
@@ -194,7 +195,7 @@ final class CaptureViewModel: @unchecked Sendable {
         }
 
         let aspectRatio = currentAspectRatio.widthToHeight
-        let processedPhotoData = MediaCropper.cropPhotoData(photoData, to: aspectRatio) ?? photoData
+        var processedPhotoData = MediaCropper.cropPhotoData(photoData, to: aspectRatio) ?? photoData
 
         let processedVideoURL: URL
         do {
@@ -207,6 +208,7 @@ final class CaptureViewModel: @unchecked Sendable {
                 "Video crop failed for URL: \(videoURL.absoluteString, privacy: .public). Error: \(String(describing: error), privacy: .public)"
             )
             videoProcessingError = "Video processing failed. Please try again."
+            processedPhotoData = photoData
             processedVideoURL = videoURL
         }
 

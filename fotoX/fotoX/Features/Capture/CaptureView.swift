@@ -35,11 +35,11 @@ struct CaptureView: View {
             }
         }
         .task {
-            await viewModel.setupCamera()
             viewModel.updateAspectRatioSetting(
                 appState.captureAspectRatioSetting,
                 orientation: appState.layoutOrientation
             )
+            await viewModel.setupCamera()
         }
         .onDisappear {
             viewModel.cleanup(deleteTemporaryFiles: false)

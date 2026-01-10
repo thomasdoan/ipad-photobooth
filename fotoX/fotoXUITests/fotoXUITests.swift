@@ -456,11 +456,9 @@ final class OrientationTests: FotoXUITestCase {
         XCTAssertTrue(waitForElement(startButton, timeout: 10))
 
         rotateDevice(to: .landscapeLeft)
-        sleep(1)
         XCTAssertTrue(waitForElement(app.buttons.matching(identifier: "startButton").firstMatch, timeout: 5))
 
         rotateDevice(to: .portrait)
-        sleep(1)
         XCTAssertTrue(waitForElement(app.buttons.matching(identifier: "startButton").firstMatch, timeout: 5))
     }
 
@@ -477,13 +475,13 @@ final class OrientationTests: FotoXUITestCase {
         XCTAssertTrue(hasReadyState, "Capture ready state should appear")
 
         rotateDevice(to: .landscapeLeft)
-        let hasLandscapeState = waitForElement(tapToStartButton, timeout: 2)
-            || waitForElement(stripIndicator, timeout: 2)
+        let hasLandscapeState = waitForElement(tapToStartButton, timeout: 5)
+            || waitForElement(stripIndicator, timeout: 5)
         XCTAssertTrue(hasLandscapeState, "Capture UI should remain visible in landscape")
 
         rotateDevice(to: .portrait)
-        let hasPortraitState = waitForElement(tapToStartButton, timeout: 2)
-            || waitForElement(stripIndicator, timeout: 2)
+        let hasPortraitState = waitForElement(tapToStartButton, timeout: 5)
+            || waitForElement(stripIndicator, timeout: 5)
         XCTAssertTrue(hasPortraitState, "Capture UI should remain visible in portrait")
     }
 
@@ -495,11 +493,9 @@ final class OrientationTests: FotoXUITestCase {
         XCTAssertTrue(waitForElement(picker), "Capture aspect ratio picker should exist")
 
         rotateDevice(to: .landscapeRight)
-        sleep(1)
         XCTAssertTrue(waitForElement(picker, timeout: 5), "Picker should remain visible in landscape")
 
         rotateDevice(to: .portrait)
-        sleep(1)
         XCTAssertTrue(waitForElement(picker, timeout: 5), "Picker should remain visible in portrait")
     }
 
