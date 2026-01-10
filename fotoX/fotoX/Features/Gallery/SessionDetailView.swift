@@ -156,7 +156,8 @@ struct SessionDetailView: View {
                         assetsByIndex: assetsByIndex(for: page.kind),
                         onSelectAsset: { asset in
                             focusedAsset = asset
-                        }
+                        },
+                        slotAspectRatio: stripAspectRatio
                     )
                     .containerRelativeFrame([.horizontal, .vertical])
                     .id(index)
@@ -231,6 +232,10 @@ struct SessionDetailView: View {
 }
 
 private extension SessionDetailView {
+    var stripAspectRatio: CGFloat {
+        appState.resolvedCaptureAspectRatio.widthToHeight
+    }
+
     var stripPages: [StripPage] {
         var pages: [StripPage] = []
 
@@ -326,6 +331,7 @@ private struct StripPageView: View {
     let footerText: String
     let assetsByIndex: [Int: GalleryAsset]
     let onSelectAsset: (GalleryAsset) -> Void
+    let slotAspectRatio: CGFloat
 
     var body: some View {
         GeometryReader { geometry in
@@ -333,12 +339,14 @@ private struct StripPageView: View {
                 CompositeStripAssetView(
                     asset: compositeAsset,
                     geometry: geometry,
-                    onSelectAsset: onSelectAsset
+                    onSelectAsset: onSelectAsset,
+                    slotAspectRatio: slotAspectRatio
                 )
             } else {
                 StripCompositeView(
                     slots: page.slots,
-                    footerText: footerText
+                    footerText: footerText,
+                    slotAspectRatio: slotAspectRatio
                 ) { slot in
                     stripSlotContent(slot: slot)
                 }
@@ -354,7 +362,8 @@ private struct StripPageView: View {
         return StripCompositeMetrics.sizeThatFits(
             maxWidth: maxWidth,
             maxHeight: maxHeight,
-            slotCount: page.slotCount
+            slotCount: page.slotCount,
+            slotAspectRatio: slotAspectRatio
         )
     }
 
@@ -450,6 +459,7 @@ private struct CompositeStripAssetView: View {
     let asset: GalleryAsset
     let geometry: GeometryProxy
     let onSelectAsset: (GalleryAsset) -> Void
+    let slotAspectRatio: CGFloat
 
     var body: some View {
         let size = stripSize(for: geometry)
@@ -477,7 +487,8 @@ private struct CompositeStripAssetView: View {
         return StripCompositeMetrics.sizeThatFits(
             maxWidth: maxWidth,
             maxHeight: maxHeight,
-            slotCount: 3
+            slotCount: 3,
+            slotAspectRatio: slotAspectRatio
         )
     }
 

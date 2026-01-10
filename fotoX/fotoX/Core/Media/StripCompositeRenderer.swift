@@ -26,10 +26,10 @@ struct StripCompositeRenderLayout: Sendable {
     let slotCornerRadius: CGFloat
     let outerCornerRadius: CGFloat
 
-    init(outputWidth: CGFloat, slotCount: Int) {
+    init(outputWidth: CGFloat, slotCount: Int, slotAspectRatio: CGFloat) {
         let slots = max(slotCount, 1)
         let slotWidth = outputWidth / (1 + 2 * StripCompositeMetrics.horizontalPaddingRatio)
-        let slotHeight = slotWidth / StripCompositeMetrics.slotAspectRatio
+        let slotHeight = slotWidth / slotAspectRatio
         let spacing = slotWidth * StripCompositeMetrics.spacingRatio
         let footerHeight = slotWidth * StripCompositeMetrics.footerHeightRatio
         let horizontalPadding = slotWidth * StripCompositeMetrics.horizontalPaddingRatio
@@ -68,7 +68,8 @@ enum StripCompositeRenderer {
         theme: AppTheme,
         assets: ThemeAssets?,
         footerText: String,
-        outputWidth: CGFloat = defaultOutputWidth
+        outputWidth: CGFloat = defaultOutputWidth,
+        slotAspectRatio: CGFloat = StripCompositeMetrics.defaultSlotAspectRatio
     ) async throws -> CompositeStripAssets {
         let sortedStrips = strips.sorted { $0.stripIndex < $1.stripIndex }
         let activeStrips = Array(sortedStrips.prefix(3))
@@ -76,7 +77,11 @@ enum StripCompositeRenderer {
             throw StripCompositeRenderError.exportFailed
         }
 
-        let layout = StripCompositeRenderLayout(outputWidth: outputWidth, slotCount: activeStrips.count)
+        let layout = StripCompositeRenderLayout(
+            outputWidth: outputWidth,
+            slotCount: activeStrips.count,
+            slotAspectRatio: slotAspectRatio
+        )
 
         let photoData = try renderCompositePhoto(
             strips: activeStrips,

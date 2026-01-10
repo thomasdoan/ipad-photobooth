@@ -13,13 +13,17 @@ struct StripSlot: Identifiable, Hashable {
 }
 
 enum StripCompositeMetrics {
-    static let slotAspectRatio: CGFloat = 9.0 / 16.0
+    static let defaultSlotAspectRatio: CGFloat = 9.0 / 16.0
     static let spacingRatio: CGFloat = 0.08
     static let footerHeightRatio: CGFloat = 0.45
     static let horizontalPaddingRatio: CGFloat = 0.08
     static let verticalPaddingRatio: CGFloat = 0.08
 
-    static func height(forWidth width: CGFloat, slotCount: Int = 3) -> CGFloat {
+    static func height(
+        forWidth width: CGFloat,
+        slotCount: Int = 3,
+        slotAspectRatio: CGFloat = defaultSlotAspectRatio
+    ) -> CGFloat {
         let slots = max(slotCount, 1)
         let slotWidth = width / (1 + 2 * horizontalPaddingRatio)
         let slotHeight = slotWidth / slotAspectRatio
@@ -32,7 +36,11 @@ enum StripCompositeMetrics {
             + verticalPadding * 2
     }
 
-    static func width(forHeight height: CGFloat, slotCount: Int = 3) -> CGFloat {
+    static func width(
+        forHeight height: CGFloat,
+        slotCount: Int = 3,
+        slotAspectRatio: CGFloat = defaultSlotAspectRatio
+    ) -> CGFloat {
         let slots = max(slotCount, 1)
         let slotHeightRatio = 1 / slotAspectRatio
         let heightRatio = slotHeightRatio * CGFloat(slots)
@@ -43,10 +51,23 @@ enum StripCompositeMetrics {
         return slotWidth * (1 + 2 * horizontalPaddingRatio)
     }
 
-    static func sizeThatFits(maxWidth: CGFloat, maxHeight: CGFloat, slotCount: Int = 3) -> CGSize {
-        let widthByHeight = width(forHeight: maxHeight, slotCount: slotCount)
+    static func sizeThatFits(
+        maxWidth: CGFloat,
+        maxHeight: CGFloat,
+        slotCount: Int = 3,
+        slotAspectRatio: CGFloat = defaultSlotAspectRatio
+    ) -> CGSize {
+        let widthByHeight = width(
+            forHeight: maxHeight,
+            slotCount: slotCount,
+            slotAspectRatio: slotAspectRatio
+        )
         let width = min(maxWidth, widthByHeight)
-        let height = height(forWidth: width, slotCount: slotCount)
+        let height = height(
+            forWidth: width,
+            slotCount: slotCount,
+            slotAspectRatio: slotAspectRatio
+        )
         return CGSize(width: width, height: height)
     }
 }
@@ -55,15 +76,29 @@ enum StripCompositeMetrics {
 struct StripCompositeView<SlotContent: View>: View {
     let slots: [StripSlot]
     let footerText: String
+    let slotAspectRatio: CGFloat
     let slotContent: (StripSlot) -> SlotContent
 
     @Environment(\.appTheme) private var theme
+
+    init(
+        slots: [StripSlot],
+        footerText: String,
+        slotAspectRatio: CGFloat = StripCompositeMetrics.defaultSlotAspectRatio,
+        @ViewBuilder slotContent: @escaping (StripSlot) -> SlotContent
+    ) {
+        self.slots = slots
+        self.footerText = footerText
+        self.slotAspectRatio = slotAspectRatio
+        self.slotContent = slotContent
+    }
 
     var body: some View {
         GeometryReader { geometry in
             let layout = StripCompositeLayout(
                 availableSize: geometry.size,
-                slotCount: slots.count
+                slotCount: slots.count,
+                slotAspectRatio: slotAspectRatio
             )
 
             ThemedStripFrame(cornerRadius: layout.outerCornerRadius) {
@@ -141,16 +176,20 @@ private struct StripCompositeLayout {
     let slotCornerRadius: CGFloat
     let outerCornerRadius: CGFloat
 
-    init(availableSize: CGSize, slotCount: Int) {
+    init(availableSize: CGSize, slotCount: Int, slotAspectRatio: CGFloat) {
         let slots = max(slotCount, 1)
         let widthLimit = max(availableSize.width, 1)
         let heightLimit = max(availableSize.height, 1)
 
-        let widthByHeight = StripCompositeMetrics.width(forHeight: heightLimit, slotCount: slots)
+        let widthByHeight = StripCompositeMetrics.width(
+            forHeight: heightLimit,
+            slotCount: slots,
+            slotAspectRatio: slotAspectRatio
+        )
         let totalWidth = min(widthLimit, widthByHeight)
 
         let slotWidth = totalWidth / (1 + 2 * StripCompositeMetrics.horizontalPaddingRatio)
-        let slotHeight = slotWidth / StripCompositeMetrics.slotAspectRatio
+        let slotHeight = slotWidth / slotAspectRatio
         let slotSpacing = slotWidth * StripCompositeMetrics.spacingRatio
         let footerHeight = slotWidth * StripCompositeMetrics.footerHeightRatio
         let horizontalPadding = slotWidth * StripCompositeMetrics.horizontalPaddingRatio

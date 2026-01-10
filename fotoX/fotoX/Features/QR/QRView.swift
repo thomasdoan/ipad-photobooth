@@ -69,6 +69,10 @@ struct QRView: View {
             autoReturnTimer?.invalidate()
         }
     }
+
+    private var stripAspectRatio: CGFloat {
+        appState.resolvedCaptureAspectRatio.widthToHeight
+    }
     
     // MARK: - Captured Strips
     
@@ -83,7 +87,8 @@ struct QRView: View {
 
                 StripCompositeView(
                     slots: stripSlots(),
-                    footerText: stripFooterText()
+                    footerText: stripFooterText(),
+                    slotAspectRatio: stripAspectRatio
                 ) { slot in
                     stripSlotContent(slot: slot, strips: strips)
                 }
@@ -106,7 +111,8 @@ struct QRView: View {
         return StripCompositeMetrics.sizeThatFits(
             maxWidth: maxWidth,
             maxHeight: maxHeight,
-            slotCount: 3
+            slotCount: 3,
+            slotAspectRatio: stripAspectRatio
         )
     }
 

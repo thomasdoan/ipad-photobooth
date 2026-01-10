@@ -35,10 +35,20 @@ struct CaptureView: View {
             }
         }
         .task {
+            viewModel.updateAspectRatioSetting(
+                appState.captureAspectRatioSetting,
+                orientation: appState.layoutOrientation
+            )
             await viewModel.setupCamera()
         }
         .onDisappear {
             viewModel.cleanup(deleteTemporaryFiles: false)
+        }
+        .onChange(of: appState.captureAspectRatioSetting) { _, newValue in
+            viewModel.updateAspectRatioSetting(newValue, orientation: appState.layoutOrientation)
+        }
+        .onChange(of: appState.layoutOrientation) { _, newValue in
+            viewModel.updateAspectRatioSetting(appState.captureAspectRatioSetting, orientation: newValue)
         }
         .onChange(of: viewModel.stripState) { oldState, newState in
             handleStateChange(from: oldState, to: newState)
@@ -47,6 +57,19 @@ struct CaptureView: View {
             if isComplete {
                 finishCapture()
             }
+        }
+        .alert(
+            "Processing Error",
+            isPresented: Binding(
+                get: { viewModel.videoProcessingError != nil },
+                set: { if !$0 { viewModel.videoProcessingError = nil } }
+            )
+        ) {
+            Button("OK") {
+                viewModel.videoProcessingError = nil
+            }
+        } message: {
+            Text(viewModel.videoProcessingError ?? "")
         }
     }
     
@@ -127,6 +150,7 @@ struct CaptureView: View {
                         stripCount: viewModel.config.stripCount,
                         videoURL: pendingStrip.videoURL,
                         photoData: pendingStrip.photoData,
+                        aspectRatio: viewModel.currentAspectRatio.widthToHeight,
                         onRetake: {
                             viewModel.retakePendingStrip()
                         },
@@ -367,7 +391,8 @@ struct CaptureView: View {
                         strips: strips,
                         theme: theme,
                         assets: themeAssets,
-                        footerText: footerText
+                        footerText: footerText,
+                        slotAspectRatio: viewModel.currentAspectRatio.widthToHeight
                     )
                 } catch {
                     // Log but continue - composite is optional.

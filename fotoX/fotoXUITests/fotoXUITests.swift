@@ -23,6 +23,7 @@ class FotoXUITestCase: XCTestCase {
     }
     
     override func tearDownWithError() throws {
+        XCUIDevice.shared.orientation = .portrait
         app = nil
     }
     
@@ -35,6 +36,37 @@ class FotoXUITestCase: XCTestCase {
     func tapWhenReady(_ element: XCUIElement, timeout: TimeInterval = 10) {
         XCTAssertTrue(waitForElement(element, timeout: timeout), "Element not found: \(element)")
         element.tap()
+    }
+
+    func rotateDevice(to orientation: UIDeviceOrientation) {
+        XCUIDevice.shared.orientation = orientation
+    }
+
+    func navigateToQRScreen() {
+        let eventCard = app.buttons.matching(identifier: "eventCard").firstMatch
+        tapWhenReady(eventCard, timeout: 10)
+
+        let startButton = app.buttons.matching(identifier: "startButton").firstMatch
+        tapWhenReady(startButton, timeout: 10)
+
+        _ = tapIfExists(app.buttons["Tap to Start"], timeout: 5)
+
+        let reviewTitle = app.staticTexts["Review Your Capture"]
+        for index in 0..<3 {
+            XCTAssertTrue(waitForElement(reviewTitle, timeout: 25), "Strip \(index + 1) should reach review screen")
+            if index < 2 {
+                tapWhenReady(app.buttons["Continue"], timeout: 10)
+                _ = waitForElementToDisappear(reviewTitle, timeout: 5)
+                _ = tapIfExists(app.buttons["Tap to Start"], timeout: 5)
+            } else {
+                tapWhenReady(app.buttons["Finish"], timeout: 10)
+            }
+        }
+
+        let qrTitle = app.staticTexts["Your Photos"]
+        let qrPrompt = app.staticTexts["Scan to view your photos"]
+        let reachedQR = waitForElement(qrTitle, timeout: 45) || qrPrompt.exists
+        XCTAssertTrue(reachedQR, "Should reach QR screen after finishing capture flow")
     }
 
     @discardableResult
@@ -255,6 +287,39 @@ final class SettingsTests: FotoXUITestCase {
         // THEN: Should be at event selection
         XCTAssertTrue(waitForElement(app.staticTexts["FotoX"]), "Should return to event selection")
     }
+
+    func testCaptureAspectRatioPickerPersistsSelection() throws {
+        tapWhenReady(app.buttons["Settings"])
+        XCTAssertTrue(waitForElement(app.navigationBars["Settings"]))
+
+        let picker = app.segmentedControls["captureAspectRatioPicker"]
+        XCTAssertTrue(waitForElement(picker), "Capture aspect ratio picker should exist")
+        XCTAssertTrue(picker.buttons["Auto"].exists, "Auto option should exist")
+        XCTAssertTrue(picker.buttons["9:16"].exists, "9:16 option should exist")
+        XCTAssertTrue(picker.buttons["16:9"].exists, "16:9 option should exist")
+        XCTAssertTrue(picker.buttons["4:3"].exists, "4:3 option should exist")
+
+        picker.buttons["4:3"].tap()
+        app.buttons["Save"].tap()
+
+        tapWhenReady(app.buttons["Settings"])
+        XCTAssertTrue(waitForElement(app.navigationBars["Settings"]))
+
+        let reopenedPicker = app.segmentedControls["captureAspectRatioPicker"]
+        XCTAssertTrue(waitForElement(reopenedPicker))
+        XCTAssertTrue(reopenedPicker.buttons["4:3"].isSelected, "4:3 should remain selected")
+
+        reopenedPicker.buttons["Auto"].tap()
+        app.buttons["Save"].tap()
+
+        tapWhenReady(app.buttons["Settings"])
+        XCTAssertTrue(waitForElement(app.navigationBars["Settings"]))
+
+        let autoPicker = app.segmentedControls["captureAspectRatioPicker"]
+        XCTAssertTrue(waitForElement(autoPicker))
+        XCTAssertTrue(autoPicker.buttons["Auto"].isSelected, "Auto should remain selected")
+        app.buttons["Save"].tap()
+    }
 }
 
 // MARK: - Error Handling Tests
@@ -379,38 +444,83 @@ final class UIStateTests: FotoXUITestCase {
     }
 }
 
-// MARK: - Capture Flow Tests
+// MARK: - Orientation Tests
 
-final class CaptureFlowTests: FotoXUITestCase {
+final class OrientationTests: FotoXUITestCase {
 
-    func testCaptureFlowCompletesToQRScreen() throws {
+    func testRotationKeepsIdleScreenUsable() throws {
+        let eventCard = app.buttons.matching(identifier: "eventCard").firstMatch
+        tapWhenReady(eventCard, timeout: 10)
+
+        let startButton = app.buttons.matching(identifier: "startButton").firstMatch
+        XCTAssertTrue(waitForElement(startButton, timeout: 10))
+
+        rotateDevice(to: .landscapeLeft)
+        XCTAssertTrue(waitForElement(app.buttons.matching(identifier: "startButton").firstMatch, timeout: 5))
+
+        rotateDevice(to: .portrait)
+        XCTAssertTrue(waitForElement(app.buttons.matching(identifier: "startButton").firstMatch, timeout: 5))
+    }
+
+    func testRotationKeepsCaptureScreenUsable() throws {
         let eventCard = app.buttons.matching(identifier: "eventCard").firstMatch
         tapWhenReady(eventCard, timeout: 10)
 
         let startButton = app.buttons.matching(identifier: "startButton").firstMatch
         tapWhenReady(startButton, timeout: 10)
 
-        _ = tapIfExists(app.buttons["Tap to Start"], timeout: 5)
+        let tapToStartButton = app.buttons["Tap to Start"]
+        let stripIndicator = app.staticTexts.matching(identifier: "stripIndicator").firstMatch
+        let hasReadyState = waitForElement(tapToStartButton, timeout: 5) || waitForElement(stripIndicator, timeout: 5)
+        XCTAssertTrue(hasReadyState, "Capture ready state should appear")
 
-        let reviewTitle = app.staticTexts["Review Your Capture"]
+        rotateDevice(to: .landscapeLeft)
+        let hasLandscapeState = waitForElement(tapToStartButton, timeout: 5)
+            || waitForElement(stripIndicator, timeout: 5)
+        XCTAssertTrue(hasLandscapeState, "Capture UI should remain visible in landscape")
 
-        XCTAssertTrue(waitForElement(reviewTitle, timeout: 25), "Strip 1 should reach review screen")
-        tapWhenReady(app.buttons["Continue"], timeout: 10)
-        _ = waitForElementToDisappear(reviewTitle, timeout: 5)
-        _ = tapIfExists(app.buttons["Tap to Start"], timeout: 5)
+        rotateDevice(to: .portrait)
+        let hasPortraitState = waitForElement(tapToStartButton, timeout: 5)
+            || waitForElement(stripIndicator, timeout: 5)
+        XCTAssertTrue(hasPortraitState, "Capture UI should remain visible in portrait")
+    }
 
-        XCTAssertTrue(waitForElement(reviewTitle, timeout: 25), "Strip 2 should reach review screen")
-        tapWhenReady(app.buttons["Continue"], timeout: 10)
-        _ = waitForElementToDisappear(reviewTitle, timeout: 5)
-        _ = tapIfExists(app.buttons["Tap to Start"], timeout: 5)
+    func testRotationKeepsSettingsPickerAccessible() throws {
+        tapWhenReady(app.buttons["Settings"])
+        XCTAssertTrue(waitForElement(app.navigationBars["Settings"]))
 
-        XCTAssertTrue(waitForElement(reviewTitle, timeout: 25), "Strip 3 should reach review screen")
-        tapWhenReady(app.buttons["Finish"], timeout: 10)
+        let picker = app.segmentedControls["captureAspectRatioPicker"]
+        XCTAssertTrue(waitForElement(picker), "Capture aspect ratio picker should exist")
+
+        rotateDevice(to: .landscapeRight)
+        XCTAssertTrue(waitForElement(picker, timeout: 5), "Picker should remain visible in landscape")
+
+        rotateDevice(to: .portrait)
+        XCTAssertTrue(waitForElement(picker, timeout: 5), "Picker should remain visible in portrait")
+    }
+
+    func testRotationKeepsQRScreenUsable() throws {
+        navigateToQRScreen()
 
         let qrTitle = app.staticTexts["Your Photos"]
         let qrPrompt = app.staticTexts["Scan to view your photos"]
-        let reachedQR = waitForElement(qrTitle, timeout: 45) || qrPrompt.exists
-        XCTAssertTrue(reachedQR, "Should reach QR screen after finishing capture flow")
+
+        rotateDevice(to: .landscapeRight)
+        let hasLandscapeQR = waitForElement(qrTitle, timeout: 2) || waitForElement(qrPrompt, timeout: 2)
+        XCTAssertTrue(hasLandscapeQR, "QR screen should remain visible in landscape")
+
+        rotateDevice(to: .portrait)
+        let hasPortraitQR = waitForElement(qrTitle, timeout: 2) || waitForElement(qrPrompt, timeout: 2)
+        XCTAssertTrue(hasPortraitQR, "QR screen should remain visible in portrait")
+    }
+}
+
+// MARK: - Capture Flow Tests
+
+final class CaptureFlowTests: FotoXUITestCase {
+
+    func testCaptureFlowCompletesToQRScreen() throws {
+        navigateToQRScreen()
     }
 }
 

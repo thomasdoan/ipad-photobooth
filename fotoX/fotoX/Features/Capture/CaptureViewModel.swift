@@ -7,10 +7,13 @@
 
 import Foundation
 import Observation
+import os
 
 /// ViewModel managing the capture flow state machine
 @Observable
 final class CaptureViewModel: @unchecked Sendable {
+    private static let logger = Logger(subsystem: "fotoX", category: "CaptureViewModel")
+
     // MARK: - State
     
     /// Current strip being captured (0, 1, 2)
@@ -33,9 +36,21 @@ final class CaptureViewModel: @unchecked Sendable {
     
     /// Error message
     var errorMessage: String?
+
+    /// Non-fatal processing error for alerts
+    var videoProcessingError: String?
     
     /// Configuration
     let config: CaptureConfiguration
+
+    /// Current aspect ratio setting (auto or fixed)
+    private var aspectRatioSetting: CaptureAspectRatio = WorkerConfiguration.currentCaptureAspectRatio()
+
+    /// Current layout orientation
+    private var layoutOrientation: LayoutOrientation = .portrait
+
+    /// Resolved aspect ratio for the active strip
+    private(set) var currentAspectRatio: CaptureAspectRatio = .ratio9x16
     
     // MARK: - Camera
 
@@ -67,17 +82,23 @@ final class CaptureViewModel: @unchecked Sendable {
         self.config = config
         self.cameraController = cameraController
         self.cameraController.delegate = self
+        self.currentAspectRatio = aspectRatioSetting.resolved(for: layoutOrientation)
     }
     
     // MARK: - Setup
     
     /// Sets up the camera
     @MainActor
-    func setupCamera() async {
+    func setupCamera(initialOrientation: LayoutOrientation? = nil) async {
+        if let initialOrientation {
+            layoutOrientation = initialOrientation
+            currentAspectRatio = aspectRatioSetting.resolved(for: initialOrientation)
+        }
         do {
             try await cameraController.setup()
             cameraController.startSession()
             isCameraReady = true
+            applyCurrentAspectRatioIfNeeded()
         } catch let error as CameraError {
             errorMessage = error.localizedDescription
             stripState = .error(error.localizedDescription)
@@ -107,6 +128,7 @@ final class CaptureViewModel: @unchecked Sendable {
         guard currentStripIndex < config.stripCount else { return }
 
         isSessionComplete = false
+        applyNextAspectRatioForNewStrip()
         if config.countdownSeconds > 0 {
             stripState = .countdown(remaining: config.countdownSeconds)
             startCountdownTimer()
@@ -170,19 +192,37 @@ final class CaptureViewModel: @unchecked Sendable {
     /// Finalizes the current strip
     @MainActor
     private func finalizeStrip() async {
+        videoProcessingError = nil
         guard let videoURL = currentVideoURL,
               let photoData = currentPhotoData else {
             stripState = .error("Missing capture data")
             return
         }
-        
+
+        let aspectRatio = currentAspectRatio.widthToHeight
+        let processedPhotoData = MediaCropper.cropPhotoData(photoData, to: aspectRatio) ?? photoData
+
+        let processedVideoURL: URL
+        do {
+            processedVideoURL = try await MediaCropper.cropVideoIfNeeded(at: videoURL, to: aspectRatio)
+            if processedVideoURL != videoURL {
+                try? FileManager.default.removeItem(at: videoURL)
+            }
+        } catch {
+            Self.logger.error(
+                "Video crop failed for URL: \(videoURL.absoluteString, privacy: .public). Error: \(String(describing: error), privacy: .public)"
+            )
+            videoProcessingError = "Video processing failed. Please try again."
+            processedVideoURL = videoURL
+        }
+
         // Generate thumbnail
-        let thumbnailData = await CameraController.generateThumbnail(from: videoURL)
-        
+        let thumbnailData = await CameraController.generateThumbnail(from: processedVideoURL)
+
         let strip = CapturedStripMedia(
             stripIndex: currentStripIndex,
-            videoURL: videoURL,
-            photoData: photoData,
+            videoURL: processedVideoURL,
+            photoData: processedPhotoData,
             thumbnailData: thumbnailData
         )
         
@@ -231,6 +271,31 @@ final class CaptureViewModel: @unchecked Sendable {
     /// Whether review controls should be visible
     var showsReviewControls: Bool {
         config.manualAdvanceAfterReview || !config.autoAdvanceWithoutReview
+    }
+
+    @MainActor
+    func updateAspectRatioSetting(_ setting: CaptureAspectRatio, orientation: LayoutOrientation) {
+        let didChangeSetting = aspectRatioSetting != setting
+        aspectRatioSetting = setting
+        layoutOrientation = orientation
+        if didChangeSetting {
+            WorkerConfiguration.saveCaptureAspectRatio(setting)
+        }
+        if stripState == .ready {
+            applyNextAspectRatioForNewStrip()
+        }
+    }
+
+    @MainActor
+    private func applyNextAspectRatioForNewStrip() {
+        currentAspectRatio = aspectRatioSetting.resolved(for: layoutOrientation)
+        applyCurrentAspectRatioIfNeeded()
+    }
+
+    @MainActor
+    private func applyCurrentAspectRatioIfNeeded() {
+        guard isCameraReady else { return }
+        cameraController.updateCaptureAspectRatio(currentAspectRatio, orientation: layoutOrientation)
     }
     
     /// Converts captured strips to the model format

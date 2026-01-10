@@ -72,6 +72,17 @@ struct RootView: View {
                         .transition(.opacity)
                 }
             }
+
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear {
+                        appState.updateLayoutOrientation(for: geometry.size)
+                    }
+                    .onChange(of: geometry.size) { _, newSize in
+                        appState.updateLayoutOrientation(for: newSize)
+                    }
+                    .allowsHitTesting(false)
+            }
         }
         .animation(.easeInOut(duration: 0.3), value: appState.currentRoute)
         .fotoXStatusBarHidden()

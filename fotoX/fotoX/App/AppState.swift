@@ -65,6 +65,9 @@ final class AppState {
     
     /// Whether to show the gallery sheet
     var showGallery: Bool = false
+
+    /// Current layout orientation (updated from root view)
+    var layoutOrientation: LayoutOrientation = .portrait
     
     // MARK: - Configuration
     
@@ -72,6 +75,13 @@ final class AppState {
     var workerBaseURL: URL {
         get { WorkerConfiguration.currentBaseURL() }
         set { WorkerConfiguration.saveBaseURL(newValue) }
+    }
+
+    /// Capture aspect ratio setting (persisted)
+    var captureAspectRatioSetting: CaptureAspectRatio = WorkerConfiguration.currentCaptureAspectRatio() {
+        didSet {
+            WorkerConfiguration.saveCaptureAspectRatio(captureAspectRatioSetting)
+        }
     }
     
     // MARK: - Computed Properties
@@ -90,6 +100,11 @@ final class AppState {
     /// Whether all strips have been captured
     var allStripsCaptured: Bool {
         capturedStrips.count >= 3
+    }
+
+    /// Resolved aspect ratio for the current layout orientation
+    var resolvedCaptureAspectRatio: CaptureAspectRatio {
+        captureAspectRatioSetting.resolved(for: layoutOrientation)
     }
     
     // MARK: - Actions
@@ -156,5 +171,13 @@ final class AppState {
     /// Clears the current error
     func clearError() {
         currentError = nil
+    }
+
+    /// Updates layout orientation from the current view size.
+    func updateLayoutOrientation(for size: CGSize) {
+        let nextOrientation: LayoutOrientation = size.width > size.height ? .landscape : .portrait
+        if layoutOrientation != nextOrientation {
+            layoutOrientation = nextOrientation
+        }
     }
 }

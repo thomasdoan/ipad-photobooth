@@ -61,6 +61,9 @@ final class SimulatorCameraController: CameraControlling {
     /// Current color index for variety
     private var colorIndex = 0
 
+    /// Current capture aspect ratio (resolved)
+    private var currentAspectRatio: CaptureAspectRatio = .ratio9x16
+
     // MARK: - CameraControlling
 
     func setup() async throws {
@@ -100,8 +103,8 @@ final class SimulatorCameraController: CameraControlling {
 
         Task {
             do {
-                try await Task.detached { [videoURL, actualDuration] in
-                    try Self.generateSampleVideo(at: videoURL, duration: actualDuration)
+                try await Task.detached { [videoURL, actualDuration, aspectRatio = currentAspectRatio] in
+                    try Self.generateSampleVideo(at: videoURL, duration: actualDuration, aspectRatio: aspectRatio)
                 }.value
                 delegate?.cameraController(self, didFinishRecording: videoURL)
             } catch {
@@ -114,8 +117,8 @@ final class SimulatorCameraController: CameraControlling {
         let sampleIndex = colorIndex % Self.sampleColors.count
         colorIndex = (colorIndex + 1) % Self.sampleColors.count
 
-        let photoData = try await Task.detached { [sampleIndex] in
-            try Self.generateSamplePhoto(colorIndex: sampleIndex)
+        let photoData = try await Task.detached { [sampleIndex, aspectRatio = currentAspectRatio] in
+            try Self.generateSamplePhoto(colorIndex: sampleIndex, aspectRatio: aspectRatio)
         }.value
 
         await MainActor.run {
@@ -130,14 +133,17 @@ final class SimulatorCameraController: CameraControlling {
 
         do {
             let files = try fileManager.contentsOfDirectory(at: tempDirectory, includingPropertiesForKeys: nil)
-            for file in files
-            where file.pathExtension == "mov"
-            && file.lastPathComponent.hasPrefix("strip_") {
+            for file in files where file.pathExtension == "mov" {
                 try? fileManager.removeItem(at: file)
             }
         } catch {
             Self.logger.error("Failed to cleanup temp files: \(String(describing: error))")
         }
+    }
+
+    func updateCaptureAspectRatio(_ aspectRatio: CaptureAspectRatio, orientation: LayoutOrientation) {
+        let resolved = aspectRatio.resolved(for: orientation)
+        currentAspectRatio = resolved
     }
 
     // MARK: - Sample Content Generation
@@ -215,9 +221,14 @@ final class SimulatorCameraController: CameraControlling {
     }
 
     /// Generates a sample video file at the specified URL
-    private nonisolated static func generateSampleVideo(at url: URL, duration: TimeInterval) throws {
-        let width = 1080
-        let height = 1920 // 9:16 portrait
+    private nonisolated static func generateSampleVideo(
+        at url: URL,
+        duration: TimeInterval,
+        aspectRatio: CaptureAspectRatio
+    ) throws {
+        let size = sampleDimensions(for: aspectRatio)
+        let width = size.width
+        let height = size.height
         let frameRate: Int32 = 30
         let totalFrames = Int(duration * Double(frameRate))
 
@@ -279,7 +290,11 @@ final class SimulatorCameraController: CameraControlling {
     }
 
     /// Creates a pixel buffer with gradient colors and animation
-    private nonisolated static func createSamplePixelBuffer(width: Int, height: Int, progress: Double) -> CVPixelBuffer? {
+    private nonisolated static func createSamplePixelBuffer(
+        width: Int,
+        height: Int,
+        progress: Double
+    ) -> CVPixelBuffer? {
         var pixelBuffer: CVPixelBuffer?
 
         let attrs: [String: Any] = [
@@ -380,10 +395,14 @@ final class SimulatorCameraController: CameraControlling {
     }
 
     /// Generates a sample photo as JPEG data
-    private nonisolated static func generateSamplePhoto(colorIndex: Int) throws -> Data {
-        let width = 1080
-        let height = 1920
-        let size = CGSize(width: width, height: height)
+    private nonisolated static func generateSamplePhoto(
+        colorIndex: Int,
+        aspectRatio: CaptureAspectRatio
+    ) throws -> Data {
+        let size = sampleDimensions(for: aspectRatio)
+        let width = size.width
+        let height = size.height
+        let canvasSize = CGSize(width: width, height: height)
         let colorSpace = CGColorSpaceCreateDeviceRGB()
 
         guard let context = CGContext(
@@ -417,7 +436,7 @@ final class SimulatorCameraController: CameraControlling {
             context.drawLinearGradient(
                 gradient,
                 start: .zero,
-                end: CGPoint(x: size.width, y: size.height),
+                end: CGPoint(x: canvasSize.width, y: canvasSize.height),
                 options: []
             )
         } else {
@@ -425,7 +444,7 @@ final class SimulatorCameraController: CameraControlling {
             let fallbackColor = color1CG ?? Self.makeColor(red: 0.2, green: 0.2, blue: 0.2, alpha: 1.0, in: colorSpace)
             if let fallbackColor {
                 context.setFillColor(fallbackColor)
-                context.fill(CGRect(origin: .zero, size: size))
+                context.fill(CGRect(origin: .zero, size: canvasSize))
             }
         }
 
@@ -434,9 +453,9 @@ final class SimulatorCameraController: CameraControlling {
             Self.drawCenteredText(
                 "PHOTO",
                 in: context,
-                canvasSize: size,
+                canvasSize: canvasSize,
                 fontName: "Helvetica-Bold",
-                fontSize: size.width / 6,
+                fontSize: canvasSize.width / 6,
                 color: textColor
             )
         }
@@ -447,7 +466,7 @@ final class SimulatorCameraController: CameraControlling {
             Self.drawCenteredTextAtTop(
                 timestamp,
                 in: context,
-                canvasSize: size,
+                canvasSize: canvasSize,
                 top: 150,
                 fontName: "Helvetica",
                 fontSize: 36,
@@ -480,6 +499,19 @@ final class SimulatorCameraController: CameraControlling {
         }
 
         return data as Data
+    }
+
+    private nonisolated static func sampleDimensions(for aspectRatio: CaptureAspectRatio) -> (width: Int, height: Int) {
+        let ratio = aspectRatio.widthToHeight
+        let longSide = 1920.0
+        if ratio >= 1 {
+            let width = longSide
+            let height = longSide / ratio
+            return (Int(round(width)), Int(round(height)))
+        }
+        let height = longSide
+        let width = longSide * ratio
+        return (Int(round(width)), Int(round(height)))
     }
 }
 

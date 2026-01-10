@@ -48,6 +48,9 @@ protocol CameraControlling: AnyObject, Sendable {
     /// Captures a photo
     func capturePhoto() async throws -> Data
 
+    /// Updates capture aspect ratio and orientation
+    func updateCaptureAspectRatio(_ aspectRatio: CaptureAspectRatio, orientation: LayoutOrientation)
+
     /// Cleans up temporary files
     func cleanupTempFiles()
 }
@@ -84,7 +87,8 @@ final class CameraController: NSObject, CameraControlling, @unchecked Sendable {
     // MARK: - Constants
 
     /// Video rotation angle for portrait orientation (degrees clockwise)
-    private static let videoRotationAngle: CGFloat = 270
+    private static let portraitRotationAngle: CGFloat = 270
+    private static let landscapeRotationAngle: CGFloat = 0
 
     // MARK: - Properties
 
@@ -104,6 +108,9 @@ final class CameraController: NSObject, CameraControlling, @unchecked Sendable {
 
     /// Whether this is a simulator camera
     var isSimulator: Bool { false }
+
+    /// Current capture aspect ratio (resolved)
+    private var currentAspectRatio: CaptureAspectRatio = .ratio9x16
     
     /// Video output for recording
     private var movieOutput: AVCaptureMovieFileOutput?
@@ -211,9 +218,7 @@ final class CameraController: NSObject, CameraControlling, @unchecked Sendable {
             
             // Configure video orientation for portrait
             if let connection = movieOutput.connection(with: .video) {
-                if connection.isVideoRotationAngleSupported(Self.videoRotationAngle) {
-                    connection.videoRotationAngle = Self.videoRotationAngle
-                }
+                applyRotation(to: connection)
                 if connection.isVideoMirroringSupported {
                     connection.isVideoMirrored = true // Mirror front camera
                 }
@@ -234,9 +239,7 @@ final class CameraController: NSObject, CameraControlling, @unchecked Sendable {
             
             // Configure orientation
             if let connection = photoOutput.connection(with: .video) {
-                if connection.isVideoRotationAngleSupported(Self.videoRotationAngle) {
-                    connection.videoRotationAngle = Self.videoRotationAngle
-                }
+                applyRotation(to: connection)
                 if connection.isVideoMirroringSupported {
                     connection.isVideoMirrored = true
                 }
@@ -254,9 +257,7 @@ final class CameraController: NSObject, CameraControlling, @unchecked Sendable {
         
         // Configure preview orientation
         if let connection = previewLayer.connection {
-            if connection.isVideoRotationAngleSupported(Self.videoRotationAngle) {
-                connection.videoRotationAngle = Self.videoRotationAngle
-            }
+            applyRotation(to: connection)
         }
         
         self.previewLayer = previewLayer
@@ -340,6 +341,24 @@ final class CameraController: NSObject, CameraControlling, @unchecked Sendable {
             }
         }
     }
+
+    func updateCaptureAspectRatio(_ aspectRatio: CaptureAspectRatio, orientation: LayoutOrientation) {
+        let resolved = aspectRatio.resolved(for: orientation)
+        currentAspectRatio = resolved
+
+        sessionQueue.async { [weak self] in
+            guard let self = self else { return }
+            if let connection = self.movieOutput?.connection(with: .video) {
+                self.applyRotation(to: connection)
+            }
+            if let connection = self.photoOutput?.connection(with: .video) {
+                self.applyRotation(to: connection)
+            }
+            if let connection = self.previewLayer?.connection {
+                self.applyRotation(to: connection)
+            }
+        }
+    }
     
     // MARK: - Utilities
     
@@ -371,6 +390,22 @@ final class CameraController: NSObject, CameraControlling, @unchecked Sendable {
             }
         } catch {
             print("Failed to cleanup temp files: \(error)")
+        }
+    }
+
+    private func applyRotation(to connection: AVCaptureConnection) {
+        let angle = rotationAngle(for: currentAspectRatio.preferredOrientation)
+        if connection.isVideoRotationAngleSupported(angle) {
+            connection.videoRotationAngle = angle
+        }
+    }
+
+    private func rotationAngle(for orientation: LayoutOrientation) -> CGFloat {
+        switch orientation {
+        case .portrait:
+            return Self.portraitRotationAngle
+        case .landscape:
+            return Self.landscapeRotationAngle
         }
     }
 }
@@ -415,4 +450,3 @@ extension CameraController: AVCapturePhotoCaptureDelegate {
         delegate?.cameraController(self, didCapturePhoto: data)
     }
 }
-

@@ -27,7 +27,8 @@ struct StripPreviewView: View {
 
                     StripCompositeView(
                         slots: stripSlots(),
-                        footerText: stripFooterText()
+                        footerText: stripFooterText(),
+                        slotAspectRatio: stripAspectRatio
                     ) { slot in
                         previewSlot(slot: slot)
                     }
@@ -57,6 +58,10 @@ struct StripPreviewView: View {
         }
     }
 
+    private var stripAspectRatio: CGFloat {
+        appState.resolvedCaptureAspectRatio.widthToHeight
+    }
+
     private func stripSlots() -> [StripSlot] {
         (0..<3).map { StripSlot(id: $0, isVideo: selectedKind == .video) }
     }
@@ -69,7 +74,8 @@ struct StripPreviewView: View {
         StripCompositeMetrics.sizeThatFits(
             maxWidth: min(geometry.size.width * 0.7, 360),
             maxHeight: geometry.size.height * 0.7,
-            slotCount: 3
+            slotCount: 3,
+            slotAspectRatio: stripAspectRatio
         )
     }
 

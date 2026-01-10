@@ -15,6 +15,7 @@ enum WorkerConfiguration {
     static let stripReviewDurationKey = "stripReviewDuration"
     static let autoAdvanceWithoutReviewKey = "autoAdvanceWithoutReview"
     static let manualAdvanceAfterReviewKey = "manualAdvanceAfterReview"
+    static let captureAspectRatioKey = "captureAspectRatio"
     static let defaultBaseURL = URL(string: "https://your-worker.workers.dev")!
     static let defaultVideoDuration: TimeInterval = 10
     static let defaultStripReviewDuration: TimeInterval = 5
@@ -22,6 +23,7 @@ enum WorkerConfiguration {
     static let maxStripReviewDuration: TimeInterval = 30
     static let defaultAutoAdvanceWithoutReview = false
     static let defaultManualAdvanceAfterReview = false
+    static let defaultCaptureAspectRatio: CaptureAspectRatio = .auto
 
     static func currentBaseURL() -> URL {
         if let urlString = UserDefaults.standard.string(forKey: baseURLKey),
@@ -93,6 +95,18 @@ enum WorkerConfiguration {
 
     static func saveManualAdvanceAfterReview(_ enabled: Bool) {
         UserDefaults.standard.set(enabled, forKey: manualAdvanceAfterReviewKey)
+    }
+
+    static func currentCaptureAspectRatio() -> CaptureAspectRatio {
+        guard let rawValue = UserDefaults.standard.string(forKey: captureAspectRatioKey),
+              let ratio = CaptureAspectRatio(rawValue: rawValue) else {
+            return defaultCaptureAspectRatio
+        }
+        return ratio
+    }
+
+    static func saveCaptureAspectRatio(_ ratio: CaptureAspectRatio) {
+        UserDefaults.standard.set(ratio.rawValue, forKey: captureAspectRatioKey)
     }
 
     static func keepFilesAfterUpload() -> Bool {
