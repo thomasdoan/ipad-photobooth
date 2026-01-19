@@ -145,9 +145,7 @@ struct GalleryView: View {
         ScrollView {
             LazyVGrid(
                 columns: [
-                    GridItem(.flexible(), spacing: 16),
-                    GridItem(.flexible(), spacing: 16),
-                    GridItem(.flexible(), spacing: 16)
+                    GridItem(.adaptive(minimum: 120), spacing: 16)
                 ],
                 spacing: 16
             ) {
@@ -188,24 +186,10 @@ struct SessionCard: View {
             VStack(spacing: 12) {
                 // Thumbnail
                 thumbnailView
-                    .frame(height: 160)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 
                 // Info
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        SessionSourceIndicator(source: session.source, style: .labeled)
-                        Spacer()
-                        Text(session.formattedDate)
-                            .font(.caption)
-                            .foregroundStyle(.white.opacity(0.6))
-                    }
-                    
-                    Text(session.formattedTime)
-                        .font(.caption2)
-                        .foregroundStyle(.white.opacity(0.4))
-                }
-                .padding(.horizontal, 4)
+                footerView
             }
             .padding(12)
             .background(
@@ -216,12 +200,83 @@ struct SessionCard: View {
                             .stroke(.white.opacity(0.1), lineWidth: 1)
                     )
             )
+            .contentShape(Rectangle())
         }
         .buttonStyle(ScaleButtonStyle())
     }
     
     @ViewBuilder
     private var thumbnailView: some View {
+        if let stripAsset = session.assets.first(where: { $0.kind == .stripPhoto }) {
+            // Priority 1: Use the pre-composed strip asset
+            assetImageView(asset: stripAsset)
+        } else {
+            // Priority 2: Try to construct dynamic strip from photos
+            let photoAssets = session.assets
+                .filter { $0.kind == .photo }
+                .sorted { $0.stripIndex < $1.stripIndex }
+            
+            if !photoAssets.isEmpty {
+                // Determine if we need to show a strip (if we have multiple photos or if it's a strip session)
+                let slots = photoAssets.map { StripSlot(id: $0.stripIndex, isVideo: false) }
+                // Use a simplified composite view
+                ViewThatFits {
+                    // Try to fit the composite view
+                    dynamicStripView(slots: slots, assets: photoAssets)
+                }
+            } else {
+                // Priority 3: Fallback to existing logic
+                fallbackThumbnailView
+            }
+        }
+    }
+    
+    private func dynamicStripView(slots: [StripSlot], assets: [GalleryAsset]) -> some View {
+        let assetsByIndex = Dictionary(assets.map { ($0.stripIndex, $0) }, uniquingKeysWith: { first, _ in first })
+        
+        return StripCompositeView(
+            slots: slots,
+            footerText: "", // detailed footer not needed for thumb
+            slotAspectRatio: 9.0/16.0
+        ) { slot in
+            if let asset = assetsByIndex[slot.id] {
+                // Recursively use the asset image view logic but forced to fill
+                assetImageView(asset: asset, contentMode: .fill)
+            } else {
+                Color.black.opacity(0.2)
+            }
+        }
+    }
+
+    private func assetImageView(asset: GalleryAsset, contentMode: ContentMode = .fit) -> some View {
+        let url = asset.isLocallyAvailable ? asset.localURL : WorkerAPIClient.shared.assetURL(path: asset.remotePath)
+        
+        return AsyncImage(url: url) { phase in
+            switch phase {
+            case .success(let image):
+                if contentMode == .fit {
+                    image
+                        .resizable()
+                        .scaledToFit()
+                } else {
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: contentMode)
+                }
+            case .failure:
+                placeholderView
+            case .empty:
+                ProgressView()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.gray.opacity(0.2))
+            @unknown default:
+                placeholderView
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var fallbackThumbnailView: some View {
         if let localURL = session.localThumbURL {
             // Load from local file
             AsyncImage(url: localURL) { phase in
@@ -229,7 +284,7 @@ struct SessionCard: View {
                 case .success(let image):
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .scaledToFit()
                 case .failure:
                     placeholderView
                 case .empty:
@@ -247,7 +302,7 @@ struct SessionCard: View {
                 case .success(let image):
                     image
                         .resizable()
-                        .aspectRatio(contentMode: .fill)
+                        .scaledToFit()
                 case .failure:
                     placeholderView
                 case .empty:
@@ -261,6 +316,41 @@ struct SessionCard: View {
         } else {
             placeholderView
         }
+    }
+    
+    private var footerSourceIcon: some View {
+        SessionSourceIndicator(source: session.source, style: .compact)
+    }
+
+    private var footerDateLabel: some View {
+        Text(session.formattedDate)
+            .font(.system(size: 11, weight: .medium))
+            .foregroundStyle(.white.opacity(0.8))
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+    }
+
+    private var footerTimeLabel: some View {
+        Text(session.formattedTime)
+            .font(.system(size: 10))
+            .foregroundStyle(.white.opacity(0.5))
+            .lineLimit(1)
+            .minimumScaleFactor(0.8)
+    }
+
+    private var footerView: some View {
+        HStack(alignment: .center, spacing: 0) {
+            footerSourceIcon
+            
+            Spacer()
+            
+            VStack(alignment: .trailing, spacing: 0) {
+                footerDateLabel
+                footerTimeLabel
+            }
+        }
+        .padding(.horizontal, 6)
+        .padding(.bottom, 4)
     }
     
     private var placeholderView: some View {

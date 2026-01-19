@@ -66,11 +66,7 @@ struct RootView: View {
                 SettingsView()
                     .transition(.opacity)
                 
-            case .gallery:
-                if let eventId = appState.selectedEvent?.id {
-                    GalleryView(eventId: eventId)
-                        .transition(.opacity)
-                }
+
             }
 
             GeometryReader { geometry in
@@ -107,7 +103,7 @@ struct RootView: View {
             SettingsView()
                 .fotoXStatusBarHidden()
         }
-        .sheet(isPresented: Binding(
+        .fullScreenCover(isPresented: Binding(
             get: { appState.showGallery },
             set: { appState.showGallery = $0 }
         )) {
