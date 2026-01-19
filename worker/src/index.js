@@ -3,78 +3,115 @@ import { GALLERY_JS, JS_HASH } from './gallery.js.js'
 
 const encoder = new TextEncoder()
 
+const ALLOWED_ORIGINS = new Set([
+  "https://picnic-client.id8-photobooth.workers.dev",
+  // add your prod custom domain later, e.g. "https://picnic.id8-photobooth.com"
+])
+
+function corsHeaders(request) {
+  const origin = request.headers.get("Origin") || ""
+  if (!ALLOWED_ORIGINS.has(origin)) return null
+
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "GET,POST,PUT,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, X-FotoX-Key, Range",
+    // so the browser can read video range metadata
+    "Access-Control-Expose-Headers": "Content-Length, Content-Range, Accept-Ranges",
+    "Vary": "Origin",
+  }
+}
+
+function withCors(request, response) {
+  const h = corsHeaders(request)
+  if (!h) return response
+  const out = new Response(response.body, response)
+  for (const [k, v] of Object.entries(h)) out.headers.set(k, v)
+  return out
+}
+
+function handleOptions(request) {
+  const h = corsHeaders(request)
+  if (!h) return new Response("CORS forbidden", { status: 403 })
+  return new Response(null, { status: 204, headers: h })
+}
+
 export default {
   async fetch(request, env) {
+    if (request.method === "OPTIONS") {
+      return handleOptions(request)
+    }
+
     const url = new URL(request.url)
     const baseURL = env.PUBLIC_BASE_URL || `${url.protocol}//${url.host}`
 
     if (request.method === "POST" && url.pathname === "/presign") {
-      return handlePresign(request, env, baseURL)
+      return withCors(request, await handlePresign(request, env, baseURL))
     }
 
     if (request.method === "PUT" && url.pathname === "/upload") {
-      return handleUpload(request, env, url)
+      return withCors(request, await handleUpload(request, env, url))
     }
 
     if (request.method === "POST" && url.pathname === "/complete") {
-      return handleComplete(request, env)
+      return withCors(request, await handleComplete(request, env))
     }
 
     if (request.method === "GET" && url.pathname.startsWith("/s/")) {
       const sessionId = url.pathname.replace("/s/", "")
       const validationError = validateSessionId(sessionId)
       if (validationError) {
-        return validationError
+        return withCors(request, validationError)
       }
-      return handleSessionGallery(env, baseURL, sessionId)
+      return withCors(request, await handleSessionGallery(env, baseURL, sessionId))
     }
 
     if (request.method === "GET" && url.pathname.startsWith("/api/e/")) {
       const eventId = url.pathname.replace("/api/e/", "")
       const validationError = validateEventId(eventId)
       if (validationError) {
-        return validationError
+        return withCors(request, validationError)
       }
-      return handleEventGalleryJSON(env, eventId)
+      return withCors(request, await handleEventGalleryJSON(env, eventId))
     }
 
     if (request.method === "GET" && url.pathname.startsWith("/e/")) {
       const eventId = url.pathname.replace("/e/", "")
       const validationError = validateEventId(eventId)
       if (validationError) {
-        return validationError
+        return withCors(request, validationError)
       }
-      return handleEventGallery(env, baseURL, eventId)
+      return withCors(request, await handleEventGallery(env, baseURL, eventId))
     }
 
     if (request.method === "GET" && url.pathname === "/asset") {
-      return handleAsset(env, url, request)
+      return withCors(request, await handleAsset(env, url, request))
     }
 
     if (request.method === "GET" && url.pathname === "/health") {
-      return json({ status: "ok" })
+      return withCors(request, json({ status: "ok" }))
     }
 
     // Static assets with aggressive caching
     if (request.method === "GET" && url.pathname === `/static/gallery.${CSS_HASH}.css`) {
-      return new Response(GALLERY_CSS, {
+      return withCors(request, new Response(GALLERY_CSS, {
         headers: {
           "Content-Type": "text/css; charset=utf-8",
           "Cache-Control": "public, max-age=31536000, immutable"
         }
-      })
+      }))
     }
 
     if (request.method === "GET" && url.pathname === `/static/gallery.${JS_HASH}.js`) {
-      return new Response(GALLERY_JS, {
+      return withCors(request, new Response(GALLERY_JS, {
         headers: {
           "Content-Type": "application/javascript; charset=utf-8",
           "Cache-Control": "public, max-age=31536000, immutable"
         }
-      })
+      }))
     }
 
-    return new Response("Not found", { status: 404 })
+    return withCors(request, new Response("Not found", { status: 404 }))
   },
 }
 
