@@ -53,8 +53,7 @@ struct WorkerAPIClient: Sendable {
     /// Fetches the event index with all sessions (public endpoint, no auth required)
     func fetchEventSessions(eventId: Int) async throws -> EventIndex {
         let url = WorkerConfiguration.currentBaseURL()
-            .appendingPathComponent("api")
-            .appendingPathComponent("e")
+            .appendingPathComponent("events")
             .appendingPathComponent("\(eventId)")
 
         var urlRequest = URLRequest(url: url)

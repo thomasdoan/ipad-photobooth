@@ -8,15 +8,15 @@ export default {
     const url = new URL(request.url)
     const baseURL = env.PUBLIC_BASE_URL || `${url.protocol}//${url.host}`
 
-    if (request.method === "POST" && url.pathname === "/presign") {
+    if (request.method === "POST" && url.pathname === "/api/presign") {
       return handlePresign(request, env, baseURL)
     }
 
-    if (request.method === "PUT" && url.pathname === "/upload") {
+    if (request.method === "PUT" && url.pathname === "/api/upload") {
       return handleUpload(request, env, url)
     }
 
-    if (request.method === "POST" && url.pathname === "/complete") {
+    if (request.method === "POST" && url.pathname === "/api/complete") {
       return handleComplete(request, env)
     }
 
@@ -29,8 +29,8 @@ export default {
       return handleSessionGallery(env, baseURL, sessionId)
     }
 
-    if (request.method === "GET" && url.pathname.startsWith("/api/e/")) {
-      const eventId = url.pathname.replace("/api/e/", "")
+    if (request.method === "GET" && url.pathname.startsWith("/api/events/")) {
+      const eventId = url.pathname.replace("/api/events/", "")
       const validationError = validateEventId(eventId)
       if (validationError) {
         return validationError
@@ -47,11 +47,11 @@ export default {
       return handleEventGallery(env, baseURL, eventId)
     }
 
-    if (request.method === "GET" && url.pathname === "/asset") {
+    if (request.method === "GET" && url.pathname === "/api/asset") {
       return handleAsset(env, url, request)
     }
 
-    if (request.method === "GET" && url.pathname === "/health") {
+    if (request.method === "GET" && url.pathname === "/api/health") {
       return json({ status: "ok" })
     }
 
@@ -443,7 +443,7 @@ function assetURL(env, baseURL, path) {
   if (env.R2_PUBLIC_BASE_URL) {
     return `${env.R2_PUBLIC_BASE_URL}/${path}`
   }
-  return `${baseURL}/asset?path=${encodeURIComponent(path)}`
+  return `${baseURL}/api/asset?path=${encodeURIComponent(path)}`
 }
 
 function json(value, status = 200) {

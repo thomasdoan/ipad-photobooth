@@ -3,10 +3,17 @@ main = "src/index.js"
 compatibility_date = "2024-04-01"
 compatibility_flags = ["nodejs_compat"]
 
+routes = [
+    { pattern = "id8.events/api/*", zone_name="id8.events"},
+    { pattern = "id8.events/s/*", zone_name="id8.events"},
+    { pattern = "id8.events/e/*", zone_name="id8.events"},
+    { pattern = "id8.events/static/*", zone_name="id8.events"}
+]
+
 [[r2_buckets]]
 binding = "R2_BUCKET"
 bucket_name = "fotox"
 
 [vars]
-PUBLIC_BASE_URL = "https://fotox-worker.id8-photobooth.workers.dev"
+PUBLIC_BASE_URL = "https://id8.events"
 R2_PUBLIC_BASE_URL = ""

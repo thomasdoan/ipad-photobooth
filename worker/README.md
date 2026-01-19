@@ -26,14 +26,20 @@ wrangler secret put PRESIGN_TOKEN
 
 ## Routes
 
-- `POST /presign`
-- `PUT /upload`
-- `POST /complete`
+Machine-to-machine API routes are prefixed with `/api`:
+
+- `POST /api/presign`
+- `PUT /api/upload`
+- `POST /api/complete`
+- `GET /api/events/:eventId` - Event sessions list (JSON, for app)
+- `GET /api/asset?path=...` - Proxy asset from R2
+- `GET /api/health`
+
+Public-facing gallery routes (cleaner URLs for QR codes):
+
 - `GET /s/:sessionId` - Session gallery page (HTML)
 - `GET /e/:eventId` - Event gallery page (HTML)
-- `GET /api/e/:eventId` - Event sessions list (JSON, for app)
-- `GET /asset?path=...` - Proxy asset from R2
-- `GET /health`
+- `GET /static/*` - Gallery CSS/JS assets
 
 Authentication:
 - `/presign` and `/complete` require header `X-FotoX-Key: <PRESIGN_TOKEN>`
