@@ -114,7 +114,7 @@ async function handlePresign(request, env, baseURL) {
     body.files.map(async (file) => {
       const message = `${file.path}:${expiresAt}`
       const sig = await hmacSignature(secret, message)
-      const url = `${baseURL}/upload?path=${encodeURIComponent(file.path)}&expires=${expiresAt}&sig=${sig}`
+      const url = `${baseURL}/api/upload?path=${encodeURIComponent(file.path)}&expires=${expiresAt}&sig=${sig}`
       return { path: file.path, method: "PUT", url }
     })
   )
