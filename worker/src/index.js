@@ -20,6 +20,15 @@ export default {
       return handleComplete(request, env)
     }
 
+    if (request.method === "GET" && url.pathname.startsWith("/api/s/") && url.pathname.endsWith("/strips")) {
+      const sessionId = url.pathname.replace("/api/s/", "").replace("/strips", "")
+      const validationError = validateSessionId(sessionId)
+      if (validationError) {
+        return validationError
+      }
+      return handleSessionStrips(env, baseURL, sessionId)
+    }
+
     if (request.method === "GET" && url.pathname.startsWith("/s/")) {
       const sessionId = url.pathname.replace("/s/", "")
       const validationError = validateSessionId(sessionId)
@@ -306,6 +315,34 @@ async function handleSessionGallery(env, baseURL, sessionId) {
     ${scriptData}
     ${lightboxHtml()}
   `, env)
+}
+
+async function handleSessionStrips(env, baseURL, sessionId) {
+  const manifestPath = `sessions/${sessionId}/manifest.json`
+  const manifestObject = await env.R2_BUCKET.get(manifestPath)
+  if (!manifestObject) {
+    return json({ error: "Session not found or still processing" }, 404)
+  }
+
+  const manifest = await manifestObject.json()
+  const assets = manifest.assets || []
+
+  // Filter to only strip_video and strip_photo
+  const strips = assets
+    .filter((asset) => asset.kind === "strip_video" || asset.kind === "strip_photo")
+    .map((asset) => ({
+      kind: asset.kind,
+      url: assetURL(env, baseURL, asset.path),
+      path: asset.path,
+      poster_url: asset.poster_path ? assetURL(env, baseURL, asset.poster_path) : null,
+    }))
+
+  return json({
+    session_id: sessionId,
+    event_id: manifest.event_id || null,
+    created_at: manifest.created_at || null,
+    strips,
+  })
 }
 
 async function handleEventGalleryJSON(env, eventId) {
