@@ -525,7 +525,7 @@ struct QRView: View {
             try? await Task.sleep(for: .milliseconds(500))
         }
 
-        videoPlayer = videoPlayerManager.play(id: "qr-composite-video", url: videoURL, fromStart: true)
+        videoPlayer = videoPlayerManager.play(id: "qr-composite-video", url: videoURL, fromStart: true, loop: true)
     }
 
     private func setupViewModel() {
