@@ -72,9 +72,6 @@ export default {
       return handleAsset(env, url, request)
     }
 
-<<<<<<< Updated upstream
-    if (request.method === "GET" && url.pathname === "/api/health") {
-=======
     if (request.method === "OPTIONS" && url.pathname === "/asset") {
       return new Response(null, {
         status: 204,
@@ -87,8 +84,7 @@ export default {
       })
     }
 
-    if (request.method === "GET" && url.pathname === "/health") {
->>>>>>> Stashed changes
+    if (request.method === "GET" && url.pathname === "/api/health") {
       return json({ status: "ok" })
     }
 
