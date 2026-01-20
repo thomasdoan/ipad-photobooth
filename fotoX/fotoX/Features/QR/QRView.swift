@@ -509,7 +509,7 @@ struct QRView: View {
     }
     
     // MARK: - Actions
-    
+    @MainActor
     private func startVideoPlayback() async {
         guard videoPlayer == nil else { return }
         guard let videoURL = compositeVideoURL else { return }
@@ -518,11 +518,18 @@ struct QRView: View {
         let deadline = Date().addingTimeInterval(autoReturnDelay)
 
         while !FileManager.default.fileExists(atPath: videoURL.path) {
+            if Task.isCancelled {
+                return
+            }
             if Date() >= deadline {
                 // Timeout reached - video file never appeared, abort silently
                 return
             }
-            try? await Task.sleep(for: .milliseconds(500))
+            do {
+                try await Task.sleep(for: .milliseconds(200))
+            } catch {
+                return
+            }
         }
 
         videoPlayer = videoPlayerManager.play(id: "qr-composite-video", url: videoURL, fromStart: true, loop: true)
