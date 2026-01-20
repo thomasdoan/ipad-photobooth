@@ -197,7 +197,7 @@ Change via:
 
 Notes:
 - `UPLOAD_SECRET` stays only on the Worker and is never stored in the app.
-- `PRESIGN_TOKEN` is a shared secret used by the iPad to call `/presign` and `/complete`.
+- `PRESIGN_TOKEN` is a shared secret used by the iPad to call `/api/presign` and `/api/complete`.
 
 ### Supported Endpoints (Worker)
 
@@ -277,7 +277,7 @@ The app requires these permissions (configured in build settings):
 ### "Cannot connect to Worker"
 
 1. Verify the Worker URL in Settings
-2. Open `https://<worker>.workers.dev/health` in a browser
+2. Open `https://<worker>.workers.dev/api/health` in a browser
 3. Ensure the iPad has internet access
 4. Check Cloudflare dashboard logs for errors
 

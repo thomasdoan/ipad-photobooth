@@ -42,5 +42,5 @@ Public-facing gallery routes (cleaner URLs for QR codes):
 - `GET /static/*` - Gallery CSS/JS assets
 
 Authentication:
-- `/presign` and `/complete` require header `X-FotoX-Key: <PRESIGN_TOKEN>`
+- `/api/presign` and `/api/complete` require header `X-FotoX-Key: <PRESIGN_TOKEN>`
 - All other routes are public
