@@ -23,9 +23,6 @@ enum AppRoute: Equatable, Sendable {
     
     /// Settings screen (operator access)
     case settings
-    
-    /// Event gallery (operator access)
-    case gallery
 }
 
 /// Phases within the capture flow

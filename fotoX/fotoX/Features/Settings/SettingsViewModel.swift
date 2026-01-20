@@ -10,6 +10,7 @@ import Observation
 
 /// ViewModel for operator settings
 @Observable
+@MainActor
 final class SettingsViewModel {
     // MARK: - State
     
@@ -47,21 +48,15 @@ final class SettingsViewModel {
     var urlError: String?
     
     // MARK: - Initialization
-    
     private let healthCheck: @Sendable (URL) async throws -> Bool
-    
-    init() {
-        self.healthCheck = { url in
-            try await SettingsViewModel.defaultHealthCheck(url: url)
-        }
-        loadCurrentSettings()
-    }
-
-    init(healthCheck: @escaping @Sendable (URL) async throws -> Bool) {
+       
+    init(healthCheck: @escaping @Sendable (URL) async throws -> Bool = { url in
+        try await SettingsViewModel.defaultHealthCheck(url: url)
+    }) {
         self.healthCheck = healthCheck
         loadCurrentSettings()
     }
-    
+
     // MARK: - Settings
     
     /// Loads current settings
@@ -135,7 +130,7 @@ final class SettingsViewModel {
         
         isTestingConnection = true
         connectionTestResult = nil
-        
+
         guard let url = URL(string: baseURLString) else {
             connectionTestResult = .failure("Invalid URL")
             isTestingConnection = false
@@ -153,7 +148,9 @@ final class SettingsViewModel {
     }
 
     static func defaultHealthCheck(url: URL, session: URLSession = .shared) async throws -> Bool {
-        var request = URLRequest(url: url.appendingPathComponent("health"))
+        let apiURL = url.appendingPathComponent("api").appendingPathComponent("health")
+
+        var request = URLRequest(url: apiURL)
         request.httpMethod = "GET"
         request.timeoutInterval = 10
 

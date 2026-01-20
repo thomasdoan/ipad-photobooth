@@ -66,7 +66,6 @@ struct RootView: View {
                 SettingsView()
                     .transition(.opacity)
                 
-
             }
 
             GeometryReader { geometry in
