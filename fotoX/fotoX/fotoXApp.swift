@@ -66,7 +66,11 @@ struct RootView: View {
                 SettingsView()
                     .transition(.opacity)
                 
-
+            case .gallery:
+                if let eventId = appState.selectedEvent?.id {
+                    GalleryView(eventId: eventId)
+                        .transition(.opacity)
+                }
             }
 
             GeometryReader { geometry in
