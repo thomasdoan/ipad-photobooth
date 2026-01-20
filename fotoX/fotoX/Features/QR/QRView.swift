@@ -514,8 +514,14 @@ struct QRView: View {
         guard videoPlayer == nil else { return }
         guard let videoURL = compositeVideoURL else { return }
 
-        // Poll for video file to exist (it may still be processing)
+        // Poll for video file with timeout matching autoReturnDelay
+        let deadline = Date().addingTimeInterval(autoReturnDelay)
+
         while !FileManager.default.fileExists(atPath: videoURL.path) {
+            if Date() >= deadline {
+                // Timeout reached - video file never appeared, abort silently
+                return
+            }
             try? await Task.sleep(for: .milliseconds(500))
         }
 
