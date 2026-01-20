@@ -20,6 +20,18 @@ export default {
       return handleComplete(request, env)
     }
 
+    if (request.method === "OPTIONS" && url.pathname.startsWith("/api/s/") && url.pathname.endsWith("/strips")) {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type",
+          "Access-Control-Max-Age": "86400",
+        }
+      })
+    }
+
     if (request.method === "GET" && url.pathname.startsWith("/api/s/") && url.pathname.endsWith("/strips")) {
       const sessionId = url.pathname.replace("/api/s/", "").replace("/strips", "")
       const validationError = validateSessionId(sessionId)
@@ -60,7 +72,23 @@ export default {
       return handleAsset(env, url, request)
     }
 
+<<<<<<< Updated upstream
     if (request.method === "GET" && url.pathname === "/api/health") {
+=======
+    if (request.method === "OPTIONS" && url.pathname === "/asset") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+          "Access-Control-Allow-Methods": "GET, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type, Range",
+          "Access-Control-Max-Age": "86400",
+        }
+      })
+    }
+
+    if (request.method === "GET" && url.pathname === "/health") {
+>>>>>>> Stashed changes
       return json({ status: "ok" })
     }
 
@@ -337,7 +365,7 @@ async function handleSessionStrips(env, baseURL, sessionId) {
       poster_url: asset.poster_path ? assetURL(env, baseURL, asset.poster_path) : null,
     }))
 
-  return json({
+  return jsonWithCors({
     session_id: sessionId,
     event_id: manifest.event_id || null,
     created_at: manifest.created_at || null,
@@ -458,6 +486,7 @@ async function handleAsset(env, url, request) {
     headers.set("Content-Range", `bytes ${start}-${end}/${fileSize}`)
     headers.set("Accept-Ranges", "bytes")
     headers.set("Cache-Control", "public, max-age=3600")
+    headers.set("Access-Control-Allow-Origin", "*")
 
     return new Response(object.body, { status: 206, headers })
   }
@@ -473,6 +502,7 @@ async function handleAsset(env, url, request) {
   headers.set("Content-Length", String(object.size))
   headers.set("Accept-Ranges", "bytes")
   headers.set("Cache-Control", "public, max-age=3600")
+  headers.set("Access-Control-Allow-Origin", "*")
   return new Response(object.body, { headers })
 }
 
@@ -487,6 +517,16 @@ function json(value, status = 200) {
   return new Response(JSON.stringify(value), {
     status,
     headers: { "Content-Type": "application/json" },
+  })
+}
+
+function jsonWithCors(value, status = 200) {
+  return new Response(JSON.stringify(value), {
+    status,
+    headers: {
+      "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
+    },
   })
 }
 
