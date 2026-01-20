@@ -89,6 +89,7 @@ final class VideoPlayerManager {
             queue: .main
         ) { [weak player = managed.player] _ in
             player?.seek(to: .zero)
+            player?.play()
         }
     }
 
