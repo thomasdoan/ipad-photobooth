@@ -17,7 +17,10 @@ struct WorkerAPIClient: Sendable {
     }
 
     func presign(request: PresignRequest) async throws -> PresignResponse {
-        let url = WorkerConfiguration.currentBaseURL().appendingPathComponent("presign")
+        let url = WorkerConfiguration.currentBaseURL()
+            .appendingPathComponent("api")
+            .appendingPathComponent("presign")
+        
         guard let token = WorkerConfiguration.currentPresignToken(), !token.isEmpty else {
             throw APIError.uploadFailed("Missing presign token")
         }
@@ -34,7 +37,10 @@ struct WorkerAPIClient: Sendable {
     }
 
     func complete(request: CompleteRequest) async throws -> CompleteResponse {
-        let url = WorkerConfiguration.currentBaseURL().appendingPathComponent("complete")
+        let url = WorkerConfiguration.currentBaseURL()
+            .appendingPathComponent("api")
+            .appendingPathComponent("complete")
+
         guard let token = WorkerConfiguration.currentPresignToken(), !token.isEmpty else {
             throw APIError.uploadFailed("Missing presign token")
         }
@@ -53,6 +59,7 @@ struct WorkerAPIClient: Sendable {
     /// Fetches the event index with all sessions (public endpoint, no auth required)
     func fetchEventSessions(eventId: Int) async throws -> EventIndex {
         let url = WorkerConfiguration.currentBaseURL()
+            .appendingPathComponent("api")
             .appendingPathComponent("events")
             .appendingPathComponent("\(eventId)")
 
@@ -68,7 +75,7 @@ struct WorkerAPIClient: Sendable {
 
     /// Builds a URL for fetching an asset from the Worker
     func assetURL(path: String) -> URL? {
-        let baseURL = WorkerConfiguration.currentBaseURL()
+        let baseURL = WorkerConfiguration.currentBaseURL().appendingPathComponent("api")
         guard var components = URLComponents(url: baseURL.appendingPathComponent("asset"), resolvingAgainstBaseURL: false) else {
             return nil
         }
