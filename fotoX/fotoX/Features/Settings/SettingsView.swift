@@ -249,6 +249,36 @@ struct SettingsView: View {
                 Divider()
                     .padding(.leading, 16)
 
+                // Photo countdown control
+                HStack {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Photo Countdown")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+
+                        Text("Countdown before capturing each photo")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Spacer()
+
+                    HStack(spacing: 12) {
+                        Text(viewModel.photoCountdownSeconds == 0 ? "Off" : "\(Int(viewModel.photoCountdownSeconds))s")
+                            .font(.headline.monospacedDigit())
+                            .foregroundStyle(.primary)
+                            .frame(minWidth: 40, alignment: .trailing)
+
+                        Stepper("", value: $viewModel.photoCountdownSeconds, in: 0...5, step: 1)
+                            .labelsHidden()
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
+
+                Divider()
+                    .padding(.leading, 16)
+
                 // Review duration control
                 HStack {
                     VStack(alignment: .leading, spacing: 4) {

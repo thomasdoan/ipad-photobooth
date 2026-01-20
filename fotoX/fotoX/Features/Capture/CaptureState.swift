@@ -88,7 +88,7 @@ struct CaptureConfiguration: Sendable {
         CaptureConfiguration(
             videoDuration: WorkerConfiguration.currentVideoDuration(),
             countdownSeconds: 0,
-            photoCountdownSeconds: 1,
+            photoCountdownSeconds: WorkerConfiguration.currentPhotoCountdownSeconds(),
             stripCount: 3,
             stripReviewDuration: WorkerConfiguration.currentStripReviewDuration(),
             autoAdvanceWithoutReview: WorkerConfiguration.autoAdvanceWithoutReview(),

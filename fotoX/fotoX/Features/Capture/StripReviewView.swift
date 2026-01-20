@@ -26,6 +26,35 @@ struct StripReviewView: View {
     @State private var playerManager = VideoPlayerManager()
     @State private var player: AVPlayer?
     @State private var showingVideo = true
+    @State private var remainingSeconds: Int
+    @State private var countdownTask: Task<Void, Never>?
+
+    init(
+        stripIndex: Int,
+        stripCount: Int,
+        videoURL: URL,
+        photoData: Data,
+        aspectRatio: CGFloat,
+        onRetake: @escaping () -> Void,
+        onContinue: @escaping () -> Void,
+        isLastStrip: Bool,
+        showsReviewControls: Bool,
+        showsAutoAdvanceLabel: Bool,
+        autoAdvanceSeconds: Int
+    ) {
+        self.stripIndex = stripIndex
+        self.stripCount = stripCount
+        self.videoURL = videoURL
+        self.photoData = photoData
+        self.aspectRatio = aspectRatio
+        self.onRetake = onRetake
+        self.onContinue = onContinue
+        self.isLastStrip = isLastStrip
+        self.showsReviewControls = showsReviewControls
+        self.showsAutoAdvanceLabel = showsAutoAdvanceLabel
+        self.autoAdvanceSeconds = autoAdvanceSeconds
+        self._remainingSeconds = State(initialValue: autoAdvanceSeconds)
+    }
     
     @Environment(\.appTheme) private var theme
     
@@ -66,10 +95,14 @@ struct StripReviewView: View {
         }
         .onAppear {
             startPlayback(fromStart: true)
+            if showsAutoAdvanceLabel {
+                startCountdown()
+            }
         }
         .onDisappear {
             playerManager.stop(id: playerID)
             player = nil
+            countdownTask?.cancel()
         }
     }
     
@@ -88,9 +121,20 @@ struct StripReviewView: View {
     }
     
     private var autoAdvanceLabel: some View {
-        Text("Auto-advancing in \(autoAdvanceSeconds)s")
+        Text("Auto-advancing in \(remainingSeconds)s")
             .font(.subheadline.weight(.semibold))
             .foregroundStyle(theme.accent.opacity(0.7))
+    }
+
+    private func startCountdown() {
+        countdownTask = Task { @MainActor in
+            while remainingSeconds > 0 && !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                if !Task.isCancelled {
+                    remainingSeconds -= 1
+                }
+            }
+        }
     }
 
     // MARK: - Media Preview

@@ -38,6 +38,9 @@ final class SettingsViewModel {
     /// Capture aspect ratio setting
     var captureAspectRatioSetting: CaptureAspectRatio = .auto
 
+    /// Photo countdown duration in seconds
+    var photoCountdownSeconds: Double = 3
+
     /// Whether testing connection
     var isTestingConnection: Bool = false
     
@@ -69,6 +72,7 @@ final class SettingsViewModel {
         manualAdvanceAfterReview = WorkerConfiguration.manualAdvanceAfterReview()
         keepFilesAfterUpload = WorkerConfiguration.keepFilesAfterUpload()
         captureAspectRatioSetting = WorkerConfiguration.currentCaptureAspectRatio()
+        photoCountdownSeconds = Double(WorkerConfiguration.currentPhotoCountdownSeconds())
     }
     
     /// Validates the URL
@@ -99,6 +103,7 @@ final class SettingsViewModel {
         WorkerConfiguration.saveManualAdvanceAfterReview(manualAdvanceAfterReview)
         WorkerConfiguration.saveKeepFilesAfterUpload(keepFilesAfterUpload)
         WorkerConfiguration.saveCaptureAspectRatio(captureAspectRatioSetting)
+        WorkerConfiguration.savePhotoCountdownSeconds(Int(photoCountdownSeconds))
         return true
     }
 
@@ -116,6 +121,7 @@ final class SettingsViewModel {
         manualAdvanceAfterReview = WorkerConfiguration.defaultManualAdvanceAfterReview
         keepFilesAfterUpload = false
         captureAspectRatioSetting = WorkerConfiguration.defaultCaptureAspectRatio
+        photoCountdownSeconds = Double(WorkerConfiguration.defaultPhotoCountdownSeconds)
         _ = saveSettings()
         connectionTestResult = nil
     }

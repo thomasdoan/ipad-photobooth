@@ -129,7 +129,7 @@ struct CaptureView: View {
                 readyOverlay
                 
             case .countdown(let remaining):
-                CountdownView(number: remaining, isPhotoCountdown: false)
+                CountdownView(number: remaining)
                 
             case .recording(let elapsed):
                 recordingOverlay(elapsed: elapsed, geometry: geometry)
@@ -138,7 +138,7 @@ struct CaptureView: View {
                 processingOverlay
                 
             case .photoCountdown(let remaining):
-                CountdownView(number: remaining, isPhotoCountdown: true)
+                CountdownView(number: remaining)
                 
             case .capturingPhoto:
                 Color.clear // Flash will handle this

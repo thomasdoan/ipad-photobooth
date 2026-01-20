@@ -170,18 +170,29 @@ final class CaptureViewModel: @unchecked Sendable {
     /// Captures the photo after video
     @MainActor
     func capturePhoto() async {
-        stripState = .photoCountdown(remaining: config.photoCountdownSeconds)
-        
-        // Brief countdown for photo
-        try? await Task.sleep(nanoseconds: UInt64(config.photoCountdownSeconds) * 1_000_000_000)
-        
+        // Run countdown timer if configured
+        if config.photoCountdownSeconds > 0 {
+            var remaining = config.photoCountdownSeconds
+            stripState = .photoCountdown(remaining: remaining)
+
+            while remaining > 1 {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                if case .error = stripState { return }
+                remaining -= 1
+                stripState = .photoCountdown(remaining: remaining)
+            }
+
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            if case .error = stripState { return }
+        }
+
         stripState = .capturingPhoto
-        
+
         do {
             let photoData = try await cameraController.capturePhoto()
             currentPhotoData = photoData
             stripState = .processingPhoto
-            
+
             // Generate thumbnail and finalize strip
             await finalizeStrip()
         } catch {
