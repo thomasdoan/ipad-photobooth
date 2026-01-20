@@ -18,6 +18,16 @@ final class VideoPlayerManager {
     private var players: [String: ManagedPlayer] = [:]
     private var activeID: String?
 
+    deinit {
+        // Clean up all players when manager is deallocated
+        for var managed in players.values {
+            managed.player.pause()
+            if let observer = managed.endObserver {
+                NotificationCenter.default.removeObserver(observer)
+            }
+        }
+    }
+
     func play(id: String, url: URL, fromStart: Bool = false) -> AVPlayer {
         let player = prepare(id: id, url: url)
         setActive(id: id)
