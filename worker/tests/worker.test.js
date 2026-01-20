@@ -144,7 +144,7 @@ describe('FotoX Worker Tests', () => {
 
   describe('Security - Authentication', () => {
     it('should require auth token for presign endpoint', async () => {
-      const request = makeRequest('/presign', {
+      const request = makeRequest('/api/presign', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ files: [] }),
@@ -157,7 +157,7 @@ describe('FotoX Worker Tests', () => {
     })
 
     it('should accept valid auth token for presign', async () => {
-      const request = makeRequest('/presign', {
+      const request = makeRequest('/api/presign', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -171,7 +171,7 @@ describe('FotoX Worker Tests', () => {
     })
 
     it('should reject invalid auth token for presign', async () => {
-      const request = makeRequest('/presign', {
+      const request = makeRequest('/api/presign', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -185,7 +185,7 @@ describe('FotoX Worker Tests', () => {
     })
 
     it('should require auth token for complete endpoint', async () => {
-      const request = makeRequest('/complete', {
+      const request = makeRequest('/api/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -276,7 +276,7 @@ describe('FotoX Worker Tests', () => {
     })
 
     it('should return JSON for event API endpoint', async () => {
-      const request = makeRequest('/api/e/123')
+      const request = makeRequest('/api/events/123')
       const response = await worker.fetch(request, env)
 
       expect(response.headers.get('Content-Type')).toContain('application/json')
@@ -294,7 +294,7 @@ describe('FotoX Worker Tests', () => {
     })
 
     it('should return empty event for missing event index', async () => {
-      const request = makeRequest('/api/e/999')
+      const request = makeRequest('/api/events/999')
       const response = await worker.fetch(request, env)
 
       const body = await response.json()
@@ -348,7 +348,7 @@ describe('FotoX Worker Tests', () => {
 
   describe('Functionality - Asset Serving', () => {
     it('should require path parameter', async () => {
-      const request = makeRequest('/asset')
+      const request = makeRequest('/api/asset')
       const response = await worker.fetch(request, env)
 
       expect(response.status).toBe(400)
@@ -357,7 +357,7 @@ describe('FotoX Worker Tests', () => {
     })
 
     it('should return 404 for missing assets', async () => {
-      const request = makeRequest('/asset?path=nonexistent.jpg')
+      const request = makeRequest('/api/asset?path=nonexistent.jpg')
       const response = await worker.fetch(request, env)
 
       expect(response.status).toBe(404)
@@ -376,7 +376,7 @@ describe('FotoX Worker Tests', () => {
         },
       }
 
-      const request = makeRequest('/asset?path=test.jpg')
+      const request = makeRequest('/api/asset?path=test.jpg')
       const response = await worker.fetch(request, mockEnv)
 
       expect(response.headers.get('Accept-Ranges')).toBe('bytes')
@@ -386,7 +386,7 @@ describe('FotoX Worker Tests', () => {
 
   describe('Functionality - Upload Flow', () => {
     it('should return presigned upload URLs', async () => {
-      const request = makeRequest('/presign', {
+      const request = makeRequest('/api/presign', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -411,7 +411,7 @@ describe('FotoX Worker Tests', () => {
     })
 
     it('should reject upload with missing parameters', async () => {
-      const request = makeRequest('/upload', { method: 'PUT' })
+      const request = makeRequest('/api/upload', { method: 'PUT' })
       const response = await worker.fetch(request, env)
 
       expect(response.status).toBe(400)
@@ -419,7 +419,7 @@ describe('FotoX Worker Tests', () => {
 
     it('should reject expired upload URLs', async () => {
       const request = makeRequest(
-        '/upload?path=test.jpg&expires=1000000000&sig=invalid',
+        '/api/upload?path=test.jpg&expires=1000000000&sig=invalid',
         { method: 'PUT', body: 'test' }
       )
       const response = await worker.fetch(request, env)
@@ -432,7 +432,7 @@ describe('FotoX Worker Tests', () => {
     it('should reject upload with invalid signature', async () => {
       const futureTime = Math.floor(Date.now() / 1000) + 3600
       const request = makeRequest(
-        `/upload?path=test.jpg&expires=${futureTime}&sig=invalid`,
+        `/api/upload?path=test.jpg&expires=${futureTime}&sig=invalid`,
         { method: 'PUT', body: 'test' }
       )
       const response = await worker.fetch(request, env)
@@ -443,7 +443,7 @@ describe('FotoX Worker Tests', () => {
     })
 
     it('should require fields for complete endpoint', async () => {
-      const request = makeRequest('/complete', {
+      const request = makeRequest('/api/complete', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -478,7 +478,7 @@ describe('FotoX Worker Tests', () => {
     })
 
     it('should handle HEAD requests', async () => {
-      const request = makeRequest('/health', { method: 'HEAD' })
+      const request = makeRequest('/api/health', { method: 'HEAD' })
       const response = await worker.fetch(request, env)
 
       // Should return 404 since only GET is supported
@@ -486,7 +486,7 @@ describe('FotoX Worker Tests', () => {
     })
 
     it('should handle OPTIONS requests', async () => {
-      const request = makeRequest('/health', { method: 'OPTIONS' })
+      const request = makeRequest('/api/health', { method: 'OPTIONS' })
       const response = await worker.fetch(request, env)
 
       expect(response.status).toBe(404)
@@ -495,7 +495,7 @@ describe('FotoX Worker Tests', () => {
 
   describe('Health Check', () => {
     it('should return ok status', async () => {
-      const request = makeRequest('/health')
+      const request = makeRequest('/api/health')
       const response = await worker.fetch(request, env)
 
       expect(response.status).toBe(200)
@@ -504,7 +504,7 @@ describe('FotoX Worker Tests', () => {
     })
 
     it('should return JSON content type', async () => {
-      const request = makeRequest('/health')
+      const request = makeRequest('/api/health')
       const response = await worker.fetch(request, env)
 
       expect(response.headers.get('Content-Type')).toContain('application/json')

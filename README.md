@@ -197,20 +197,23 @@ Change via:
 
 Notes:
 - `UPLOAD_SECRET` stays only on the Worker and is never stored in the app.
-- `PRESIGN_TOKEN` is a shared secret used by the iPad to call `/presign` and `/complete`.
+- `PRESIGN_TOKEN` is a shared secret used by the iPad to call `/api/presign` and `/api/complete`.
 
 ### Supported Endpoints (Worker)
 
+Machine-to-machine API routes are prefixed with `/api`. Public-facing gallery pages use cleaner URLs.
+
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/health` | GET | Health check |
-| `/presign` | POST | Get presigned upload URLs |
-| `/upload` | PUT | Upload asset to R2 |
-| `/complete` | POST | Finalize session + index |
+| `/api/health` | GET | Health check |
+| `/api/presign` | POST | Get presigned upload URLs |
+| `/api/upload` | PUT | Upload asset to R2 |
+| `/api/complete` | POST | Finalize session + index |
+| `/api/events/{event_id}` | GET | Event sessions list (JSON) |
+| `/api/asset` | GET | Proxy asset from R2 |
 | `/s/{session_id}` | GET | Session gallery page (HTML) |
 | `/e/{event_id}` | GET | Event gallery page (HTML) |
-| `/api/e/{event_id}` | GET | Event sessions list (JSON) |
-| `/asset` | GET | Proxy asset from R2 |
+| `/static/*` | GET | Gallery CSS/JS assets |
 
 ## Development
 
@@ -274,7 +277,7 @@ The app requires these permissions (configured in build settings):
 ### "Cannot connect to Worker"
 
 1. Verify the Worker URL in Settings
-2. Open `https://<worker>.workers.dev/health` in a browser
+2. Open `https://<worker>.workers.dev/api/health` in a browser
 3. Ensure the iPad has internet access
 4. Check Cloudflare dashboard logs for errors
 

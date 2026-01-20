@@ -107,7 +107,9 @@ Notes:
 
 ## Worker API (minimal)
 
-### POST /presign
+Machine-to-machine API routes are prefixed with `/api`. Public-facing gallery pages use cleaner URLs without the prefix.
+
+### POST /api/presign
 
 Request:
 ```json
@@ -133,7 +135,7 @@ Response:
 }
 ```
 
-### POST /complete
+### POST /api/complete
 
 Request:
 ```json
@@ -154,14 +156,14 @@ Response:
 
 ### GET /s/{session_id}
 
-- Returns an HTML gallery page.
+- Returns an HTML gallery page (public-facing, no `/api` prefix).
 - If manifest is missing: return a "Processing" placeholder.
 
 ### GET /e/{event_id}
 
-- Returns an HTML event gallery page using `index.json`.
+- Returns an HTML event gallery page using `index.json` (public-facing, no `/api` prefix).
 
-### GET /api/e/{event_id}
+### GET /api/events/{event_id}
 
 Returns the event index as JSON (for app consumption).
 
@@ -186,11 +188,11 @@ Notes:
 - No authentication required (public endpoint)
 - Returns empty `sessions` array if no sessions exist yet
 
-### GET /health
+### GET /api/health
 
 - Returns `{ "status": "ok" }` for connectivity checks.
 
-### GET /asset
+### GET /api/asset
 
 Proxies assets from R2 with caching and range request support.
 
@@ -204,7 +206,7 @@ Response:
 
 Example:
 ```
-GET /asset?path=events/42/sessions/ABC123/video_0.mov
+GET /api/asset?path=events/42/sessions/ABC123/video_0.mov
 Range: bytes=0-1000000
 
 HTTP/1.1 206 Partial Content
