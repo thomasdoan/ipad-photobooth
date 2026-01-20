@@ -509,7 +509,6 @@ struct QRView: View {
     }
     
     // MARK: - Actions
-    @MainActor
     private func startVideoPlayback() async {
         guard videoPlayer == nil else { return }
         guard let videoURL = compositeVideoURL else { return }
@@ -526,7 +525,7 @@ struct QRView: View {
                 return
             }
             do {
-                try await Task.sleep(for: .milliseconds(200))
+                try await Task.sleep(for: .milliseconds(500))
             } catch {
                 return
             }
