@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import AVFoundation
 
 /// Screen showing QR code and email input
 struct QRView: View {
@@ -18,45 +19,36 @@ struct QRView: View {
     @State private var viewModel: QRViewModel<LocalSessionService>?
     @State private var showDoneAnimation = false
     @State private var autoReturnTimer: Timer?
+    @State private var videoPlayerManager = VideoPlayerManager()
+    @State private var videoPlayer: AVPlayer?
     
     /// Auto-return delay in seconds
     private let autoReturnDelay: TimeInterval = 60
     
     var body: some View {
         GeometryReader { geometry in
+            let availableWidth = geometry.size.width - 80 // 40pt padding each side
+            let availableHeight = geometry.size.height - 80 // 40pt padding top/bottom
+
             ZStack {
                 // Themed background
                 backgroundLayer
-                
-                ScrollView {
-                    VStack(spacing: 32) {
-                        // Logo
-                        logoSection
-                        
-                        // Captured strips
-                        capturedStripsSection(geometry: geometry)
-                        
-                        // QR Code
-                        qrCodeSection(geometry: geometry)
-                        
-                        // URL display
-                        urlSection
 
-                        // Upload status
-                        uploadStatusSection
-                        
-                        // Email section
-                        if let viewModel = viewModel {
-                            emailSection(viewModel: viewModel)
-                        }
-                        
-                        // Done button
-                        doneButton
+                VStack(spacing: 24) {
+                    // Logo at top
+                    logoSection
+
+                    // Main content: side-by-side layout
+                    HStack(alignment: .center, spacing: 40) {
+                        // Left panel: Photo and video composites stacked
+                        leftPanel(availableWidth: availableWidth, availableHeight: availableHeight)
+
+                        // Right panel: QR code and controls
+                        rightPanel(availableWidth: availableWidth, availableHeight: availableHeight)
                     }
-                    .padding(.horizontal, 40)
-                    .padding(.vertical, 60)
                 }
-                
+                .padding(40)
+
                 // Hidden settings trigger
                 settingsTrigger
             }
@@ -64,37 +56,138 @@ struct QRView: View {
         .task {
             setupViewModel()
             startAutoReturnTimer()
+            await startVideoPlayback()
         }
         .onDisappear {
             autoReturnTimer?.invalidate()
         }
     }
 
-    private var stripAspectRatio: CGFloat {
-        appState.resolvedCaptureAspectRatio.widthToHeight
-    }
-    
-    // MARK: - Captured Strips
-    
-    @ViewBuilder
-    private func capturedStripsSection(geometry: GeometryProxy) -> some View {
-        let strips = appState.capturedStrips
-        if !strips.isEmpty {
-            VStack(spacing: 12) {
-                Text("Your Photos")
-                    .font(.headline)
-                    .foregroundStyle(theme.accent.opacity(0.8))
+    // MARK: - Composite URL Helpers
 
-                StripCompositeView(
-                    slots: stripSlots(),
-                    footerText: stripFooterText(),
-                    slotAspectRatio: stripAspectRatio
-                ) { slot in
-                    stripSlotContent(slot: slot, strips: strips)
-                }
-                .frame(width: stripSize(for: geometry).width, height: stripSize(for: geometry).height)
+    private var compositePhotoURL: URL? {
+        guard let sessionId = appState.currentSession?.sessionId else { return nil }
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return documents
+            .appendingPathComponent("Uploads")
+            .appendingPathComponent(sessionId)
+            .appendingPathComponent(CompositeStripAssets.photoFileName)
+    }
+
+    private var compositeVideoURL: URL? {
+        guard let sessionId = appState.currentSession?.sessionId else { return nil }
+        let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        return documents
+            .appendingPathComponent("Uploads")
+            .appendingPathComponent(sessionId)
+            .appendingPathComponent(CompositeStripAssets.videoFileName)
+    }
+
+    // MARK: - Left Panel (Composites)
+
+    @ViewBuilder
+    private func leftPanel(availableWidth: CGFloat, availableHeight: CGFloat) -> some View {
+        let panelWidth = availableWidth * 0.55
+        let panelHeight = availableHeight - 100 // Account for logo
+        let stripHeight = panelHeight // Full height since strips are side by side
+
+        HStack(spacing: 16) {
+            // Photo composite
+            if let photoURL = compositePhotoURL,
+               FileManager.default.fileExists(atPath: photoURL.path) {
+                QRCompositeImageView(imageURL: photoURL)
+                    .frame(maxWidth: panelWidth, maxHeight: stripHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: theme.secondary.opacity(0.3), radius: 8, y: 4)
+            } else {
+                // Fallback to current strip composite view
+                fallbackStripView(maxWidth: panelWidth, maxHeight: stripHeight)
+            }
+
+            // Video composite
+            if let player = videoPlayer {
+                QRLoopingVideoView(player: player)
+                    .frame(maxWidth: panelWidth, maxHeight: stripHeight)
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .shadow(color: theme.secondary.opacity(0.3), radius: 8, y: 4)
+            } else {
+                // Video not available placeholder
+                videoUnavailablePlaceholder(maxWidth: panelWidth, maxHeight: stripHeight)
             }
         }
+    }
+
+    @ViewBuilder
+    private func fallbackStripView(maxWidth: CGFloat, maxHeight: CGFloat) -> some View {
+        let strips = appState.capturedStrips
+        if !strips.isEmpty {
+            let size = StripCompositeMetrics.sizeThatFits(
+                maxWidth: maxWidth,
+                maxHeight: maxHeight,
+                slotCount: 3,
+                slotAspectRatio: stripAspectRatio
+            )
+            StripCompositeView(
+                slots: stripSlots(),
+                footerText: stripFooterText(),
+                slotAspectRatio: stripAspectRatio
+            ) { slot in
+                stripSlotContent(slot: slot, strips: strips)
+            }
+            .frame(width: size.width, height: size.height)
+        }
+    }
+
+    @ViewBuilder
+    private func videoUnavailablePlaceholder(maxWidth: CGFloat, maxHeight: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 12)
+            .fill(theme.secondary.opacity(0.2))
+            .frame(maxWidth: maxWidth, maxHeight: maxHeight)
+            .overlay {
+                VStack(spacing: 8) {
+                    Image(systemName: "video.slash")
+                        .font(.title)
+                        .foregroundStyle(theme.accent.opacity(0.5))
+                    Text("Video processing...")
+                        .font(.caption)
+                        .foregroundStyle(theme.accent.opacity(0.5))
+                }
+            }
+    }
+
+    // MARK: - Right Panel (QR + Controls)
+
+    @ViewBuilder
+    private func rightPanel(availableWidth: CGFloat, availableHeight: CGFloat) -> some View {
+        let panelWidth = availableWidth * 0.42
+
+        VStack(spacing: 20) {
+            Spacer()
+
+            // QR Code section
+            qrCodeSection(maxWidth: panelWidth)
+
+            // URL display
+            urlSection
+
+            // Upload status
+            uploadStatusSection
+
+            // Email section
+            if let viewModel = viewModel {
+                emailSection(viewModel: viewModel)
+            }
+
+            // Done button
+            doneButton
+
+            Spacer()
+        }
+        .frame(maxWidth: panelWidth)
+    }
+
+    private var stripAspectRatio: CGFloat {
+        appState.resolvedCaptureAspectRatio.widthToHeight
     }
 
     private func stripSlots() -> [StripSlot] {
@@ -103,17 +196,6 @@ struct QRView: View {
 
     private func stripFooterText() -> String {
         theme.stripFooterText ?? appState.selectedEvent?.name ?? "FotoX"
-    }
-
-    private func stripSize(for geometry: GeometryProxy) -> CGSize {
-        let maxWidth = min(geometry.size.width * 0.6, 320)
-        let maxHeight = geometry.size.height * 0.5
-        return StripCompositeMetrics.sizeThatFits(
-            maxWidth: maxWidth,
-            maxHeight: maxHeight,
-            slotCount: 3,
-            slotAspectRatio: stripAspectRatio
-        )
     }
 
     @ViewBuilder
@@ -131,7 +213,7 @@ struct QRView: View {
             }
         }
     }
-    
+
     // MARK: - Background
     
     private var backgroundLayer: some View {
@@ -186,15 +268,16 @@ struct QRView: View {
     }
     
     // MARK: - QR Code Section
-    
-    private func qrCodeSection(geometry: GeometryProxy) -> some View {
-        let qrSize = min(geometry.size.width * 0.6, 300.0)
-        
-        return VStack(spacing: 20) {
+
+    private func qrCodeSection(maxWidth: CGFloat) -> some View {
+        // Smaller QR code: 180pt max or 50% of panel width
+        let qrSize = min(maxWidth * 0.5, 180.0)
+
+        return VStack(spacing: 16) {
             Text("Scan to view your photos")
                 .font(.headline)
                 .foregroundStyle(theme.accent.opacity(0.8))
-            
+
             if let qrImage = viewModel?.qrImage {
                 // QR Code
                 Image(uiImage: qrImage)
@@ -202,40 +285,40 @@ struct QRView: View {
                     .resizable()
                     .aspectRatio(1, contentMode: .fit)
                     .frame(width: qrSize, height: qrSize)
-                    .padding(20)
+                    .padding(16)
                     .background(
-                        RoundedRectangle(cornerRadius: 24)
+                        RoundedRectangle(cornerRadius: 20)
                             .fill(.white)
                     )
-                    .shadow(color: .black.opacity(0.2), radius: 20, y: 10)
+                    .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
             } else if viewModel?.isLoadingQR == true {
                 // Loading
                 ZStack {
-                    RoundedRectangle(cornerRadius: 24)
+                    RoundedRectangle(cornerRadius: 20)
                         .fill(.white)
-                        .frame(width: qrSize + 40, height: qrSize + 40)
-                    
+                        .frame(width: qrSize + 32, height: qrSize + 32)
+
                     ProgressView()
                         .progressViewStyle(CircularProgressViewStyle(tint: theme.primary))
-                        .scaleEffect(1.5)
+                        .scaleEffect(1.2)
                 }
-                .shadow(color: .black.opacity(0.2), radius: 20, y: 10)
+                .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
             } else {
                 // Error state with retry
                 ZStack {
-                    RoundedRectangle(cornerRadius: 24)
+                    RoundedRectangle(cornerRadius: 20)
                         .fill(.white)
-                        .frame(width: qrSize + 40, height: qrSize + 40)
-                    
-                    VStack(spacing: 16) {
+                        .frame(width: qrSize + 32, height: qrSize + 32)
+
+                    VStack(spacing: 12) {
                         Image(systemName: "qrcode")
-                            .font(.system(size: 50))
+                            .font(.system(size: 40))
                             .foregroundStyle(.gray)
-                        
+
                         Text("QR code unavailable")
-                            .font(.subheadline)
+                            .font(.caption)
                             .foregroundStyle(.gray)
-                        
+
                         Button("Retry") {
                             Task {
                                 if let sessionId = appState.currentSession?.sessionId {
@@ -247,7 +330,7 @@ struct QRView: View {
                         .foregroundStyle(theme.primary)
                     }
                 }
-                .shadow(color: .black.opacity(0.2), radius: 20, y: 10)
+                .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
             }
         }
     }
@@ -385,29 +468,27 @@ struct QRView: View {
                 }
             }
         }
-        .padding(.top, 16)
     }
-    
+
     // MARK: - Done Button
-    
+
     private var doneButton: some View {
         Button {
             finishSession()
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: 10) {
                 Text("Done")
                 Image(systemName: "checkmark")
             }
-            .font(.headline)
+            .font(.subheadline.bold())
             .foregroundStyle(theme.accent)
-            .padding(.horizontal, 48)
-            .padding(.vertical, 16)
+            .padding(.horizontal, 32)
+            .padding(.vertical, 12)
             .background(
                 Capsule()
                     .stroke(theme.accent.opacity(0.5), lineWidth: 2)
             )
         }
-        .padding(.top, 24)
     }
     
     // MARK: - Settings Trigger
@@ -429,6 +510,24 @@ struct QRView: View {
     
     // MARK: - Actions
     
+    private func startVideoPlayback() async {
+        guard videoPlayer == nil else { return }
+        guard let videoURL = compositeVideoURL else { return }
+
+        // Poll for video file with timeout matching autoReturnDelay
+        let deadline = Date().addingTimeInterval(autoReturnDelay)
+
+        while !FileManager.default.fileExists(atPath: videoURL.path) {
+            if Date() >= deadline {
+                // Timeout reached - video file never appeared, abort silently
+                return
+            }
+            try? await Task.sleep(for: .milliseconds(500))
+        }
+
+        videoPlayer = videoPlayerManager.play(id: "qr-composite-video", url: videoURL, fromStart: true, loop: true)
+    }
+
     private func setupViewModel() {
         let vm = QRViewModel(sessionService: services.sessionService, testableServices: testableServices)
         vm.setup(session: appState.currentSession)

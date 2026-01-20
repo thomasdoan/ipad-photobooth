@@ -18,8 +18,18 @@ final class VideoPlayerManager {
     private var players: [String: ManagedPlayer] = [:]
     private var activeID: String?
 
-    func play(id: String, url: URL, fromStart: Bool = false) -> AVPlayer {
-        let player = prepare(id: id, url: url)
+    deinit {
+        // Clean up all players when manager is deallocated
+        for var managed in players.values {
+            managed.player.pause()
+            if let observer = managed.endObserver {
+                NotificationCenter.default.removeObserver(observer)
+            }
+        }
+    }
+
+    func play(id: String, url: URL, fromStart: Bool = false, loop: Bool = false) -> AVPlayer {
+        let player = prepare(id: id, url: url, loop: loop)
         setActive(id: id)
         if fromStart {
             player.seek(to: .zero)
@@ -49,10 +59,10 @@ final class VideoPlayerManager {
         activeID = nil
     }
 
-    private func prepare(id: String, url: URL) -> AVPlayer {
+    private func prepare(id: String, url: URL, loop: Bool) -> AVPlayer {
         var managed = players[id] ?? ManagedPlayer(player: AVPlayer(), currentURL: nil, endObserver: nil)
         if managed.currentURL != url || managed.player.currentItem == nil {
-            replaceItem(for: &managed, url: url)
+            replaceItem(for: &managed, url: url, loop: loop)
         }
         players[id] = managed
         return managed.player
@@ -67,18 +77,22 @@ final class VideoPlayerManager {
         activeID = id
     }
 
-    private func replaceItem(for managed: inout ManagedPlayer, url: URL) {
+    private func replaceItem(for managed: inout ManagedPlayer, url: URL, loop: Bool) {
         tearDown(&managed)
         let item = AVPlayerItem(url: url)
         managed.player.replaceCurrentItem(with: item)
         managed.player.actionAtItemEnd = .pause
         managed.currentURL = url
-        managed.endObserver = NotificationCenter.default.addObserver(
-            forName: .AVPlayerItemDidPlayToEndTime,
-            object: item,
-            queue: .main
-        ) { [weak player = managed.player] _ in
-            player?.seek(to: .zero)
+
+        if loop {
+            managed.endObserver = NotificationCenter.default.addObserver(
+                forName: .AVPlayerItemDidPlayToEndTime,
+                object: item,
+                queue: .main
+            ) { [weak player = managed.player] _ in
+                player?.seek(to: .zero)
+                player?.play()
+            }
         }
     }
 
