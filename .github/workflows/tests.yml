@@ -33,21 +33,52 @@ jobs:
 
       - name: Build and Test Unit
         run: |
-          set -o pipefail
+          set -euo pipefail
+
           xcodebuild test \
             -project fotoX/fotoX.xcodeproj \
             -scheme fotoX \
             -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' \
             -only-testing:fotoXTests \
-            | xcpretty || xcodebuild test \
-            -project fotoX/fotoX.xcodeproj \
-            -scheme fotoX \
-            -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' \
-            -only-testing:fotoXTests
+            -resultBundlePath UnitTests.xcresult \
+            -quiet
+
+      - name: Unit Test Summary
+        if: always()
+        run: |
+          set -euo pipefail
+
+          echo "🧪 Unit Test Summary"
+          xcresulttool get \
+            --path UnitTests.xcresult \
+            --format json \
+          | jq -r '
+            .metrics
+            | "Total: \(.testsCount), Failed: \(.testsFailedCount)"
+          '
+
+          echo ""
+          echo "❌ Failed Tests:"
+          xcresulttool get \
+            --path UnitTests.xcresult \
+            --format json \
+          | jq -r '
+            .. | objects
+            | select(.testStatus? == "Failure")
+            | .identifier as $test
+            | .failureSummaries[]
+            | "• \($test)\n  ↳ \(.message)\n  ↳ \(.fileName):\(.lineNumber)\n"
+          '
+
+      - name: Upload Unit Test Results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-tests-xcresult
+          path: UnitTests.xcresult
 
   ui-tests:
     runs-on: macos-latest
-
     if: >
       github.event_name == 'pull_request' &&
       github.base_ref == 'main'
@@ -67,14 +98,46 @@ jobs:
 
       - name: Build and Test UI
         run: |
-          set -o pipefail
+          set -euo pipefail
+
           xcodebuild test \
             -project fotoX/fotoX.xcodeproj \
             -scheme fotoX \
             -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' \
             -only-testing:fotoXUITests \
-            | xcpretty || xcodebuild test \
-            -project fotoX/fotoX.xcodeproj \
-            -scheme fotoX \
-            -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' \
-            -only-testing:fotoXUITests
+            -resultBundlePath UITests.xcresult \
+            -quiet
+
+      - name: UI Test Summary
+        if: always()
+        run: |
+          set -euo pipefail
+
+          echo "🧪 UI Test Summary"
+          xcresulttool get \
+            --path UITests.xcresult \
+            --format json \
+          | jq -r '
+            .metrics
+            | "Total: \(.testsCount), Failed: \(.testsFailedCount)"
+          '
+
+          echo ""
+          echo "❌ Failed Tests:"
+          xcresulttool get \
+            --path UITests.xcresult \
+            --format json \
+          | jq -r '
+            .. | objects
+            | select(.testStatus? == "Failure")
+            | .identifier as $test
+            | .failureSummaries[]
+            | "• \($test)\n  ↳ \(.message)\n  ↳ \(.fileName):\(.lineNumber)\n"
+          '
+
+      - name: Upload UI Test Results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-tests-xcresult
+          path: UITests.xcresult
