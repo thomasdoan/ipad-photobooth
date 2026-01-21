@@ -238,17 +238,22 @@ private extension SessionDetailView {
 
     var stripPages: [StripPage] {
         var pages: [StripPage] = []
+        let showIndividual = WorkerConfiguration.showIndividualMedia()
 
-        let photoSlots = stripSlots(for: .photo)
-        if !photoSlots.isEmpty {
-            pages.append(StripPage(kind: .photo, title: "Photo Strip", slots: photoSlots, slotCount: 3))
+        // Priority 1: Strip Video (composite) - primary artifact
+        if let compositeVideo = compositeAsset(for: .stripVideo) {
+            pages.append(
+                StripPage(
+                    kind: .stripVideo,
+                    title: "Strip Video",
+                    slots: [],
+                    slotCount: 3,
+                    compositeAsset: compositeVideo
+                )
+            )
         }
 
-        let videoSlots = stripSlots(for: .video)
-        if !videoSlots.isEmpty {
-            pages.append(StripPage(kind: .video, title: "Video Strip", slots: videoSlots, slotCount: 3))
-        }
-
+        // Priority 2: Strip Photo (composite)
         if let compositePhoto = compositeAsset(for: .stripPhoto) {
             pages.append(
                 StripPage(
@@ -261,16 +266,17 @@ private extension SessionDetailView {
             )
         }
 
-        if let compositeVideo = compositeAsset(for: .stripVideo) {
-            pages.append(
-                StripPage(
-                    kind: .stripVideo,
-                    title: "Strip Video",
-                    slots: [],
-                    slotCount: 3,
-                    compositeAsset: compositeVideo
-                )
-            )
+        // Priority 3: Individual media (only if setting enabled OR no composites exist)
+        if showIndividual || pages.isEmpty {
+            let photoSlots = stripSlots(for: .photo)
+            if !photoSlots.isEmpty {
+                pages.append(StripPage(kind: .photo, title: "Photo Strip", slots: photoSlots, slotCount: 3))
+            }
+
+            let videoSlots = stripSlots(for: .video)
+            if !videoSlots.isEmpty {
+                pages.append(StripPage(kind: .video, title: "Video Strip", slots: videoSlots, slotCount: 3))
+            }
         }
 
         return pages

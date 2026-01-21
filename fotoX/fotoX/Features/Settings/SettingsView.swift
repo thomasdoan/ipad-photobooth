@@ -383,6 +383,24 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
+
+                Divider()
+                    .padding(.leading, 16)
+
+                // Show individual media toggle
+                Toggle(isOn: $viewModel.showIndividualMedia) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Show Individual Media")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+
+                        Text("Display individual photos and videos in session details")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
             }
             .background(
                 RoundedRectangle(cornerRadius: 12)

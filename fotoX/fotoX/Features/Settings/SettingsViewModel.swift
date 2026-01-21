@@ -41,6 +41,9 @@ final class SettingsViewModel {
     /// Photo countdown duration in seconds
     var photoCountdownSeconds: Double = 3
 
+    /// Whether to show individual photos/videos in session details
+    var showIndividualMedia: Bool = false
+
     /// Whether testing connection
     var isTestingConnection: Bool = false
     
@@ -73,6 +76,7 @@ final class SettingsViewModel {
         keepFilesAfterUpload = WorkerConfiguration.keepFilesAfterUpload()
         captureAspectRatioSetting = WorkerConfiguration.currentCaptureAspectRatio()
         photoCountdownSeconds = Double(WorkerConfiguration.currentPhotoCountdownSeconds())
+        showIndividualMedia = WorkerConfiguration.showIndividualMedia()
     }
     
     /// Validates the URL
@@ -104,6 +108,7 @@ final class SettingsViewModel {
         WorkerConfiguration.saveKeepFilesAfterUpload(keepFilesAfterUpload)
         WorkerConfiguration.saveCaptureAspectRatio(captureAspectRatioSetting)
         WorkerConfiguration.savePhotoCountdownSeconds(Int(photoCountdownSeconds))
+        WorkerConfiguration.saveShowIndividualMedia(showIndividualMedia)
         return true
     }
 
@@ -122,6 +127,7 @@ final class SettingsViewModel {
         keepFilesAfterUpload = false
         captureAspectRatioSetting = WorkerConfiguration.defaultCaptureAspectRatio
         photoCountdownSeconds = Double(WorkerConfiguration.defaultPhotoCountdownSeconds)
+        showIndividualMedia = WorkerConfiguration.defaultShowIndividualMedia
         _ = saveSettings()
         connectionTestResult = nil
     }

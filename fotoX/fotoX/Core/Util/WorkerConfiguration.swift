@@ -17,6 +17,7 @@ enum WorkerConfiguration {
     static let manualAdvanceAfterReviewKey = "manualAdvanceAfterReview"
     static let captureAspectRatioKey = "captureAspectRatio"
     static let photoCountdownSecondsKey = "photoCountdownSeconds"
+    static let showIndividualMediaKey = "showIndividualMedia"
     static let defaultBaseURL = URL(string: "https://your-worker.workers.dev")!
     static let defaultVideoDuration: TimeInterval = 10
     static let defaultStripReviewDuration: TimeInterval = 5
@@ -28,6 +29,7 @@ enum WorkerConfiguration {
     static let defaultPhotoCountdownSeconds: Int = 3
     static let minPhotoCountdownSeconds: Int = 0
     static let maxPhotoCountdownSeconds: Int = 5
+    static let defaultShowIndividualMedia = false
 
     static func currentBaseURL() -> URL {
         if let urlString = UserDefaults.standard.string(forKey: baseURLKey),
@@ -133,5 +135,16 @@ enum WorkerConfiguration {
     static func savePhotoCountdownSeconds(_ seconds: Int) {
         let clamped = max(minPhotoCountdownSeconds, min(maxPhotoCountdownSeconds, seconds))
         UserDefaults.standard.set(clamped, forKey: photoCountdownSecondsKey)
+    }
+
+    static func showIndividualMedia() -> Bool {
+        if UserDefaults.standard.object(forKey: showIndividualMediaKey) == nil {
+            return defaultShowIndividualMedia
+        }
+        return UserDefaults.standard.bool(forKey: showIndividualMediaKey)
+    }
+
+    static func saveShowIndividualMedia(_ show: Bool) {
+        UserDefaults.standard.set(show, forKey: showIndividualMediaKey)
     }
 }
