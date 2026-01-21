@@ -43,6 +43,7 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' \
             -only-testing:fotoXTests \
             -resultBundlePath UnitTests.xcresult \
+            IPHONEOS_DEPLOYMENT_TARGET=18.0 \
             2>&1 | xcbeautify --report junit --report-path test-results --junit-report-filename unit-results.xml
 
       - name: Publish Unit Test Results
@@ -88,6 +89,7 @@ jobs:
             -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' \
             -only-testing:fotoXUITests \
             -resultBundlePath UITests.xcresult \
+            IPHONEOS_DEPLOYMENT_TARGET=18.0 \
             2>&1 | xcbeautify --report junit --report-path test-results --junit-report-filename ui-results.xml
 
       - name: Publish UI Test Results
