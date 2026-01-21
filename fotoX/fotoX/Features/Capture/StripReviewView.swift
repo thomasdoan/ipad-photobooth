@@ -103,6 +103,7 @@ struct StripReviewView: View {
             playerManager.stop(id: playerID)
             player = nil
             countdownTask?.cancel()
+            countdownTask = nil
         }
     }
     
@@ -127,6 +128,8 @@ struct StripReviewView: View {
     }
 
     private func startCountdown() {
+        countdownTask?.cancel()
+        countdownTask = nil
         countdownTask = Task { @MainActor in
             while remainingSeconds > 0 && !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
