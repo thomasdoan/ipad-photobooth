@@ -135,7 +135,7 @@ struct CaptureView: View {
                 recordingOverlay(elapsed: elapsed, geometry: geometry)
                 
             case .processingVideo, .processingPhoto:
-                processingOverlay
+                EmptyView() // Camera preview stays visible during processing
                 
             case .photoCountdown(let remaining):
                 CountdownView(number: remaining)
@@ -268,25 +268,6 @@ struct CaptureView: View {
             Spacer()
                 .frame(height: 150)
         }
-    }
-    
-    // MARK: - Processing Overlay
-    
-    private var processingOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.5)
-            
-            VStack(spacing: 16) {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    .scaleEffect(1.5)
-                
-                Text("Processing...")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-            }
-        }
-        .ignoresSafeArea()
     }
     
     // MARK: - Error Overlay
