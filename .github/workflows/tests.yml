@@ -33,7 +33,7 @@ jobs:
 
       - name: Build and Test Unit
         run: |
-          set -o pipefail \
+          set -o pipefail
           xcodebuild test \
             -project fotoX/fotoX.xcodeproj \
             -scheme fotoX \
@@ -67,7 +67,7 @@ jobs:
 
       - name: Build and Test UI
         run: |
-          set -o pipefail \
+          set -o pipefail
           xcodebuild test \
             -project fotoX/fotoX.xcodeproj \
             -scheme fotoX \
