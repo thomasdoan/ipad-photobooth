@@ -1,5 +1,4 @@
 name: Tests
-
 on:
   push:
     branches:
@@ -7,23 +6,18 @@ on:
     paths:
       - 'fotoX/**'
       - '.github/workflows/tests.yml'
-
   pull_request:
     branches:
       - main
     paths:
       - 'fotoX/**'
       - '.github/workflows/tests.yml'
-
 jobs:
   unit-tests:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
-      
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
-      
+
       - name: Cache SPM dependencies
         uses: actions/cache@v4
         with:
@@ -36,38 +30,37 @@ jobs:
 
       - name: Run Unit Tests
         run: |
-          set -euo pipefail
-
+          set -eo pipefail
           xcodebuild test \
             -project fotoX/fotoX.xcodeproj \
             -scheme fotoX \
             -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' \
             -only-testing:fotoXTests \
             -resultBundlePath UnitTests.xcresult \
-            -quiet
+            2>&1 | xcbeautify --report junit --report-path unit-results.xml
 
       - name: Publish Unit Test Results
-        uses: kishikawakatsumi/xcresulttool@v1
+        uses: mikepenz/action-junit-report@v4
         if: success() || failure()
         with:
-          path: UnitTests.xcresult
-          title: Unit Tests
-          show-passed-tests: false
-          show-code-coverage: false
-          upload-bundles: failure
+          report_paths: unit-results.xml
+          check_name: Unit Tests
+          include_passed: false
 
+      - name: Upload xcresult
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: UnitTests.xcresult
+          path: UnitTests.xcresult
 
   ui-tests:
     runs-on: macos-latest
     if: >
       github.event_name == 'pull_request' &&
       github.base_ref == 'main'
-
     steps:
       - uses: actions/checkout@v5
-
-      - name: Select Xcode
-        run: sudo xcode-select -s /Applications/Xcode.app
 
       - name: Cache SPM dependencies
         uses: actions/cache@v4
@@ -81,22 +74,26 @@ jobs:
 
       - name: Run UI Tests
         run: |
-          set -euo pipefail
-
+          set -eo pipefail
           xcodebuild test \
             -project fotoX/fotoX.xcodeproj \
             -scheme fotoX \
             -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' \
             -only-testing:fotoXUITests \
             -resultBundlePath UITests.xcresult \
-            -quiet
+            2>&1 | xcbeautify --report junit --report-path ui-results.xml
 
       - name: Publish UI Test Results
-        uses: kishikawakatsumi/xcresulttool@v1
+        uses: mikepenz/action-junit-report@v4
         if: success() || failure()
         with:
+          report_paths: ui-results.xml
+          check_name: UI Tests
+          include_passed: false
+
+      - name: Upload xcresult
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: UITests.xcresult
           path: UITests.xcresult
-          title: UI Tests
-          show-passed-tests: false
-          show-code-coverage: false
-          upload-bundles: failure
