@@ -18,7 +18,8 @@ class FotoXUITestCase: XCTestCase {
         app = XCUIApplication()
         
         // Enable mock data for testing
-        app.launchArguments = ["--uitesting", "--use-mock-data"]
+        // Use faster capture settings for UI tests (3s video, no photo countdown)
+        app.launchArguments = ["--uitesting", "--use-mock-data", "-captureVideoDuration", "3", "-photoCountdownSeconds", "0"]
         app.launch()
     }
     
