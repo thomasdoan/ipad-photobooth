@@ -20,7 +20,10 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v5
-
+      
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+      
       - name: Cache SPM dependencies
         uses: actions/cache@v4
         with:
@@ -62,6 +65,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v5
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
 
       - name: Cache SPM dependencies
         uses: actions/cache@v4
