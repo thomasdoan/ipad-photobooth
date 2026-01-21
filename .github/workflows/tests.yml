@@ -31,7 +31,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-spm-
 
-      - name: Build and Test Unit
+      - name: Run Unit Tests
         run: |
           set -euo pipefail
 
@@ -43,39 +43,16 @@ jobs:
             -resultBundlePath UnitTests.xcresult \
             -quiet
 
-      - name: Unit Test Summary
-        if: always()
-        run: |
-          set -euo pipefail
-
-          echo "🧪 Unit Test Summary"
-          xcresulttool get \
-            --path UnitTests.xcresult \
-            --format json \
-          | jq -r '
-            .metrics
-            | "Total: \(.testsCount), Failed: \(.testsFailedCount)"
-          '
-
-          echo ""
-          echo "❌ Failed Tests:"
-          xcresulttool get \
-            --path UnitTests.xcresult \
-            --format json \
-          | jq -r '
-            .. | objects
-            | select(.testStatus? == "Failure")
-            | .identifier as $test
-            | .failureSummaries[]
-            | "• \($test)\n  ↳ \(.message)\n  ↳ \(.fileName):\(.lineNumber)\n"
-          '
-
-      - name: Upload Unit Test Results
-        if: failure()
-        uses: actions/upload-artifact@v4
+      - name: Publish Unit Test Results
+        uses: kishikawakatsumi/xcresulttool@v1
+        if: success() || failure()
         with:
-          name: unit-tests-xcresult
           path: UnitTests.xcresult
+          title: Unit Tests
+          show-passed-tests: false
+          show-code-coverage: false
+          upload-bundles: failure
+
 
   ui-tests:
     runs-on: macos-latest
@@ -96,7 +73,7 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-spm-
 
-      - name: Build and Test UI
+      - name: Run UI Tests
         run: |
           set -euo pipefail
 
@@ -108,36 +85,12 @@ jobs:
             -resultBundlePath UITests.xcresult \
             -quiet
 
-      - name: UI Test Summary
-        if: always()
-        run: |
-          set -euo pipefail
-
-          echo "🧪 UI Test Summary"
-          xcresulttool get \
-            --path UITests.xcresult \
-            --format json \
-          | jq -r '
-            .metrics
-            | "Total: \(.testsCount), Failed: \(.testsFailedCount)"
-          '
-
-          echo ""
-          echo "❌ Failed Tests:"
-          xcresulttool get \
-            --path UITests.xcresult \
-            --format json \
-          | jq -r '
-            .. | objects
-            | select(.testStatus? == "Failure")
-            | .identifier as $test
-            | .failureSummaries[]
-            | "• \($test)\n  ↳ \(.message)\n  ↳ \(.fileName):\(.lineNumber)\n"
-          '
-
-      - name: Upload UI Test Results
-        if: failure()
-        uses: actions/upload-artifact@v4
+      - name: Publish UI Test Results
+        uses: kishikawakatsumi/xcresulttool@v1
+        if: success() || failure()
         with:
-          name: ui-tests-xcresult
           path: UITests.xcresult
+          title: UI Tests
+          show-passed-tests: false
+          show-code-coverage: false
+          upload-bundles: failure
