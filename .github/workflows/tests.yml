@@ -1,0 +1,74 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'fotoX/**'
+      - '.github/workflows/tests.yml'
+
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'fotoX/**'
+      - '.github/workflows/tests.yml'
+
+jobs:
+  unit-tests:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Cache SPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/swiftpm/org.swift.swiftpm
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Build and Test Unit
+        run: |
+          xcodebuild test \
+            -scheme fotoX \
+            -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' \
+            -only-testing:fotoXTests \
+            | xcpretty || xcodebuild test \
+            -scheme fotoX \
+            -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' \
+            -only-testing:fotoXTests
+
+  ui-tests:
+    runs-on: macos-latest
+
+    if: >
+      github.event_name == 'pull_request' &&
+      github.base_ref == 'main'
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Cache SPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/swiftpm/org.swift.swiftpm
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('**/Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Build and Test UI
+        run: |
+          xcodebuild test \
+            -scheme fotoX \
+            -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' \
+            -only-testing:fotoXUITests \
+            | xcpretty || xcodebuild test \
+            -scheme fotoX \
+            -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' \
+            -only-testing:fotoXUITests
