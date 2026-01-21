@@ -33,11 +33,14 @@ jobs:
 
       - name: Build and Test Unit
         run: |
+          set -o pipefail \
           xcodebuild test \
+            -project fotoX/fotoX.xcodeproj \
             -scheme fotoX \
             -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' \
             -only-testing:fotoXTests \
             | xcpretty || xcodebuild test \
+            -project fotoX/fotoX.xcodeproj \
             -scheme fotoX \
             -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' \
             -only-testing:fotoXTests
@@ -64,11 +67,14 @@ jobs:
 
       - name: Build and Test UI
         run: |
+          set -o pipefail \
           xcodebuild test \
+            -project fotoX/fotoX.xcodeproj \
             -scheme fotoX \
             -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' \
             -only-testing:fotoXUITests \
             | xcpretty || xcodebuild test \
+            -project fotoX/fotoX.xcodeproj \
             -scheme fotoX \
             -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' \
             -only-testing:fotoXUITests
