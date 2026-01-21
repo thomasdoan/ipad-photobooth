@@ -129,16 +129,16 @@ struct CaptureView: View {
                 readyOverlay
                 
             case .countdown(let remaining):
-                CountdownView(number: remaining, isPhotoCountdown: false)
+                CountdownView(number: remaining)
                 
             case .recording(let elapsed):
                 recordingOverlay(elapsed: elapsed, geometry: geometry)
                 
             case .processingVideo, .processingPhoto:
-                processingOverlay
+                EmptyView() // Camera preview stays visible during processing
                 
             case .photoCountdown(let remaining):
-                CountdownView(number: remaining, isPhotoCountdown: true)
+                CountdownView(number: remaining)
                 
             case .capturingPhoto:
                 Color.clear // Flash will handle this
@@ -268,25 +268,6 @@ struct CaptureView: View {
             Spacer()
                 .frame(height: 150)
         }
-    }
-    
-    // MARK: - Processing Overlay
-    
-    private var processingOverlay: some View {
-        ZStack {
-            Color.black.opacity(0.5)
-            
-            VStack(spacing: 16) {
-                ProgressView()
-                    .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                    .scaleEffect(1.5)
-                
-                Text("Processing...")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-            }
-        }
-        .ignoresSafeArea()
     }
     
     // MARK: - Error Overlay

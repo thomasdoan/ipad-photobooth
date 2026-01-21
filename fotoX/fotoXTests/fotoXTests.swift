@@ -723,12 +723,13 @@ struct CaptureStateTests {
     func defaultCaptureConfig() {
         // Reset to ensure test isolation
         WorkerConfiguration.saveVideoDuration(10)
+        WorkerConfiguration.savePhotoCountdownSeconds(3)
 
         let config = CaptureConfiguration.default
 
         #expect(config.videoDuration == 10)
         #expect(config.countdownSeconds == 0)
-        #expect(config.photoCountdownSeconds == 1)
+        #expect(config.photoCountdownSeconds == 3)
         #expect(config.stripCount == 3)
     }
 

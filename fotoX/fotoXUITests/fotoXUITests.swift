@@ -57,7 +57,7 @@ class FotoXUITestCase: XCTestCase {
             if index < 2 {
                 tapWhenReady(app.buttons["Continue"], timeout: 10)
                 _ = waitForElementToDisappear(reviewTitle, timeout: 5)
-                _ = tapIfExists(app.buttons["Tap to Start"], timeout: 5)
+                // Capture auto-starts after Continue - no need to tap "Tap to Start"
             } else {
                 tapWhenReady(app.buttons["Finish"], timeout: 10)
             }

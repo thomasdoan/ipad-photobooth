@@ -16,6 +16,7 @@ enum WorkerConfiguration {
     static let autoAdvanceWithoutReviewKey = "autoAdvanceWithoutReview"
     static let manualAdvanceAfterReviewKey = "manualAdvanceAfterReview"
     static let captureAspectRatioKey = "captureAspectRatio"
+    static let photoCountdownSecondsKey = "photoCountdownSeconds"
     static let defaultBaseURL = URL(string: "https://your-worker.workers.dev")!
     static let defaultVideoDuration: TimeInterval = 10
     static let defaultStripReviewDuration: TimeInterval = 5
@@ -24,6 +25,9 @@ enum WorkerConfiguration {
     static let defaultAutoAdvanceWithoutReview = false
     static let defaultManualAdvanceAfterReview = false
     static let defaultCaptureAspectRatio: CaptureAspectRatio = .auto
+    static let defaultPhotoCountdownSeconds: Int = 3
+    static let minPhotoCountdownSeconds: Int = 0
+    static let maxPhotoCountdownSeconds: Int = 5
 
     static func currentBaseURL() -> URL {
         if let urlString = UserDefaults.standard.string(forKey: baseURLKey),
@@ -115,5 +119,19 @@ enum WorkerConfiguration {
 
     static func saveKeepFilesAfterUpload(_ keep: Bool) {
         UserDefaults.standard.set(keep, forKey: keepFilesAfterUploadKey)
+    }
+
+    static func currentPhotoCountdownSeconds() -> Int {
+        // Check if key exists (integer returns 0 for missing keys, so we need explicit check)
+        if UserDefaults.standard.object(forKey: photoCountdownSecondsKey) == nil {
+            return defaultPhotoCountdownSeconds
+        }
+        let value = UserDefaults.standard.integer(forKey: photoCountdownSecondsKey)
+        return max(minPhotoCountdownSeconds, min(maxPhotoCountdownSeconds, value))
+    }
+
+    static func savePhotoCountdownSeconds(_ seconds: Int) {
+        let clamped = max(minPhotoCountdownSeconds, min(maxPhotoCountdownSeconds, seconds))
+        UserDefaults.standard.set(clamped, forKey: photoCountdownSecondsKey)
     }
 }

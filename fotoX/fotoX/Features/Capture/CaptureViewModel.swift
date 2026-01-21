@@ -69,6 +69,7 @@ final class CaptureViewModel: @unchecked Sendable {
     private var recordingTimer: Timer?
     private var recordingStartTime: Date?
     private var reviewTask: Task<Void, Never>?
+    private var captureTask: Task<Void, Never>?
 
     // MARK: - Initialization
 
@@ -115,6 +116,8 @@ final class CaptureViewModel: @unchecked Sendable {
             cameraController.cleanupTempFiles()
             discardPendingStrip(deleteFile: true)
         }
+        captureTask?.cancel()
+        captureTask = nil
         cancelReviewTask()
         invalidateTimers()
     }
@@ -170,18 +173,31 @@ final class CaptureViewModel: @unchecked Sendable {
     /// Captures the photo after video
     @MainActor
     func capturePhoto() async {
-        stripState = .photoCountdown(remaining: config.photoCountdownSeconds)
-        
-        // Brief countdown for photo
-        try? await Task.sleep(nanoseconds: UInt64(config.photoCountdownSeconds) * 1_000_000_000)
-        
+        // Run countdown timer if configured
+        if config.photoCountdownSeconds > 0 {
+            var remaining = config.photoCountdownSeconds
+            stripState = .photoCountdown(remaining: remaining)
+
+            while remaining > 1 {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                if Task.isCancelled { return }
+                if case .error = stripState { return }
+                remaining -= 1
+                stripState = .photoCountdown(remaining: remaining)
+            }
+
+            try? await Task.sleep(nanoseconds: 1_000_000_000)
+            if Task.isCancelled { return }
+            if case .error = stripState { return }
+        }
+
         stripState = .capturingPhoto
-        
+
         do {
             let photoData = try await cameraController.capturePhoto()
             currentPhotoData = photoData
             stripState = .processingPhoto
-            
+
             // Generate thumbnail and finalize strip
             await finalizeStrip()
         } catch {
@@ -410,7 +426,7 @@ extension CaptureViewModel: CameraControllerDelegate {
         currentVideoURL = url
 
         // Trigger photo capture
-        Task { @MainActor in
+        captureTask = Task { @MainActor in
             await capturePhoto()
         }
     }

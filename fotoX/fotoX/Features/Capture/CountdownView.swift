@@ -10,8 +10,7 @@ import SwiftUI
 /// Animated countdown display
 struct CountdownView: View {
     let number: Int
-    let isPhotoCountdown: Bool
-    
+
     @State private var scale: CGFloat = 0.5
     @State private var opacity: Double = 0
     
@@ -24,34 +23,25 @@ struct CountdownView: View {
                 .ignoresSafeArea()
             
             // Countdown number
-            VStack(spacing: 16) {
-                ZStack {
-                    // Glow effect
-                    Circle()
-                        .fill(theme.primary.opacity(0.3))
-                        .frame(width: 200, height: 200)
-                        .blur(radius: 40)
-                    
-                    // Number circle
-                    Circle()
-                        .fill(theme.primary)
-                        .frame(width: 150, height: 150)
-                        .shadow(color: theme.primary.opacity(0.5), radius: 20)
-                    
-                    Text("\(number)")
-                        .font(.system(size: 80, weight: .bold, design: .rounded))
-                        .foregroundStyle(theme.secondary)
-                }
-                .scaleEffect(scale)
-                .opacity(opacity)
-                
-                if isPhotoCountdown {
-                    Text("Smile!")
-                        .font(.title.bold())
-                        .foregroundStyle(.white)
-                        .opacity(opacity)
-                }
+            ZStack {
+                // Glow effect
+                Circle()
+                    .fill(theme.primary.opacity(0.3))
+                    .frame(width: 300, height: 300)
+                    .blur(radius: 40)
+
+                // Number circle
+                Circle()
+                    .fill(theme.primary)
+                    .frame(width: 220, height: 220)
+                    .shadow(color: theme.primary.opacity(0.5), radius: 20)
+
+                Text("\(number)")
+                    .font(.system(size: 120, weight: .bold, design: .rounded))
+                    .foregroundStyle(theme.secondary)
             }
+            .scaleEffect(scale)
+            .opacity(opacity)
         }
         .onAppear {
             withAnimation(.spring(response: 0.4, dampingFraction: 0.6)) {
@@ -161,7 +151,7 @@ struct PhotoFlashView: View {
 #Preview {
     ZStack {
         Color.black
-        CountdownView(number: 3, isPhotoCountdown: false)
+        CountdownView(number: 3)
     }
     .withTheme(.default)
 }
