@@ -50,6 +50,15 @@ export default {
       return handleSessionGallery(env, baseURL, sessionId)
     }
 
+    if (request.method === "GET" && url.pathname.startsWith("/api/events/") && url.pathname.endsWith("/thumbnails")) {
+      const eventId = url.pathname.replace("/api/events/", "").replace("/thumbnails", "")
+      const validationError = validateEventId(eventId)
+      if (validationError) {
+        return validationError
+      }
+      return handleEventThumbnails(env, baseURL, eventId, url)
+    }
+
     if (request.method === "GET" && url.pathname.startsWith("/api/events/")) {
       const eventId = url.pathname.replace("/api/events/", "")
       const validationError = validateEventId(eventId)
@@ -383,6 +392,65 @@ async function handleEventGalleryJSON(env, eventId) {
 
   const index = await indexObject.json()
   return json(index)
+}
+
+async function handleEventThumbnails(env, baseURL, eventId, url) {
+  // Pagination params: limit (default 20, max 100), cursor (session_id to start after)
+  const limitParam = url.searchParams.get("limit")
+  const cursor = url.searchParams.get("cursor")
+
+  let limit = 20
+  if (limitParam) {
+    const parsed = parseInt(limitParam, 10)
+    if (!isNaN(parsed) && parsed > 0) {
+      limit = Math.min(parsed, 100)
+    }
+  }
+
+  const indexPath = `events/${eventId}/index.json`
+  const indexObject = await env.R2_BUCKET.get(indexPath)
+  if (!indexObject) {
+    return json({
+      event_id: Number(eventId),
+      thumbnails: [],
+      next_cursor: null,
+      has_more: false,
+    })
+  }
+
+  const index = await indexObject.json()
+  let sessions = index.sessions || []
+
+  // If cursor provided, find the position and slice from there
+  if (cursor) {
+    const cursorIndex = sessions.findIndex((s) => s.session_id === cursor)
+    if (cursorIndex !== -1) {
+      sessions = sessions.slice(cursorIndex + 1)
+    }
+    // If cursor not found, return from beginning (cursor may be stale)
+  }
+
+  // Take limit + 1 to check if there are more
+  const hasMore = sessions.length > limit
+  const pageSessions = sessions.slice(0, limit)
+
+  const thumbnails = pageSessions.map((session) => ({
+    session_id: session.session_id,
+    created_at: session.created_at,
+    url: assetURL(env, baseURL, session.thumb_path),
+  }))
+
+  const nextCursor = hasMore && pageSessions.length > 0
+    ? pageSessions[pageSessions.length - 1].session_id
+    : null
+
+  return json({
+    event_id: Number(eventId),
+    updated_at: index.updated_at || null,
+    thumbnails,
+    next_cursor: nextCursor,
+    has_more: hasMore,
+  })
 }
 
 async function handleEventGallery(env, baseURL, eventId) {

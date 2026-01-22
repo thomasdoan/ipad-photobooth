@@ -188,6 +188,43 @@ Notes:
 - No authentication required (public endpoint)
 - Returns empty `sessions` array if no sessions exist yet
 
+### GET /api/events/{event_id}/thumbnails
+
+Returns a single representative photo URL from each session at the event, with pagination.
+
+Query parameters:
+- `limit`: Number of thumbnails to return (default: 20, max: 100)
+- `cursor`: Session ID to start after (for pagination)
+
+Response:
+```json
+{
+  "event_id": 42,
+  "updated_at": "2025-02-01T18:22:40Z",
+  "thumbnails": [
+    {
+      "session_id": "8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B",
+      "created_at": "2025-02-01T18:20:15Z",
+      "url": "https://<worker>.workers.dev/api/asset?path=events/42/sessions/.../photo_0.jpg"
+    }
+  ],
+  "next_cursor": "NEXT-SESSION-ID",
+  "has_more": true
+}
+```
+
+Example pagination:
+```
+GET /api/events/42/thumbnails?limit=10
+GET /api/events/42/thumbnails?limit=10&cursor=8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B
+```
+
+Notes:
+- No authentication required (public endpoint)
+- Returns resolved asset URLs (either via `/api/asset` proxy or direct R2 URL if configured)
+- `next_cursor` is `null` when there are no more results
+- `has_more` indicates if more pages are available
+
 ### GET /api/health
 
 - Returns `{ "status": "ok" }` for connectivity checks.
