@@ -7,7 +7,6 @@
 
 import Foundation
 import UIKit
-import CoreImage.CIFilterBuiltins
 
 @MainActor
 final class LocalSessionService: SessionServicing {
@@ -35,7 +34,7 @@ final class LocalSessionService: SessionServicing {
 
     func fetchQRCode(sessionId: String) async throws -> Data {
         let urlString = galleryURLString(for: sessionId)
-        guard let qrData = generateQRCode(from: urlString) else {
+        guard let qrData = QRCodeGenerator.generateData(from: urlString) else {
             throw APIError.invalidResponse
         }
         return qrData
@@ -46,19 +45,6 @@ final class LocalSessionService: SessionServicing {
     }
 
     private func galleryURLString(for sessionId: String) -> String {
-        galleryBaseURLProvider().appendingPathComponent("s").appendingPathComponent(sessionId).absoluteString
-    }
-
-    private func generateQRCode(from string: String) -> Data? {
-        guard let data = string.data(using: .ascii) else { return nil }
-        let filter = CIFilter.qrCodeGenerator()
-        filter.setValue(data, forKey: "inputMessage")
-        filter.setValue("Q", forKey: "inputCorrectionLevel")
-
-        guard let outputImage = filter.outputImage else { return nil }
-        let scaled = outputImage.transformed(by: CGAffineTransform(scaleX: 10, y: 10))
-        let context = CIContext()
-        guard let cgImage = context.createCGImage(scaled, from: scaled.extent) else { return nil }
-        return UIImage(cgImage: cgImage).pngData()
+        galleryBaseURLProvider().appendingPathComponent("session").appendingPathComponent(sessionId).absoluteString
     }
 }

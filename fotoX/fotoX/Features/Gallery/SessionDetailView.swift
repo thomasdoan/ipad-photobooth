@@ -37,8 +37,17 @@ struct SessionDetailView: View {
                     emptyAssetsView
                 } else {
                     VStack(spacing: 0) {
-                        // Main content area
-                        assetPager
+                        // Main content: media + QR side by side
+                        HStack(spacing: 0) {
+                            // Left: Asset pager
+                            assetPager
+                                .frame(maxWidth: .infinity)
+                            
+                            // Right: QR code panel
+                            qrCodePanel
+                                .frame(width: 280)
+                                .background(.ultraThinMaterial)
+                        }
                         
                         // Thumbnails strip
                         thumbnailStrip
@@ -226,6 +235,50 @@ struct SessionDetailView: View {
                 }
             }
         }
+    }
+    
+    // MARK: - QR Code Panel
+    
+    private var qrCodePanel: some View {
+        let galleryURL = QRCodeGenerator.galleryURL(from: viewModel.session.galleryPath)
+        
+        return VStack(spacing: 20) {
+            Spacer()
+            
+            // Title
+            VStack(spacing: 4) {
+                Text("Scan to View")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                
+                Text("Access online")
+                    .font(.caption)
+                    .foregroundStyle(.white.opacity(0.6))
+            }
+            
+            // QR Code
+            QRCodeDisplayView(
+                urlString: galleryURL,
+                config: QRCodeDisplayConfig(
+                    maxSize: 160,
+                    padding: 16,
+                    cornerRadius: 16,
+                    shadowRadius: 8,
+                    shadowY: 4,
+                    shadowOpacity: 0.2
+                )
+            )
+            
+            // URL (compact)
+            Text(viewModel.session.sessionId.prefix(8) + "...")
+                .font(.system(.caption2, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.5))
+                .lineLimit(1)
+            
+            Spacer()
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
     }
     
     // MARK: - Helpers
@@ -830,7 +883,77 @@ struct StripPageButton: View {
     }
 }
 
-#Preview {
+// MARK: - Session QR Code View
+
+struct SessionQRCodeView: View {
+    let session: GallerySession
+    
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.appTheme) private var theme
+    
+    private var galleryURL: String {
+        QRCodeGenerator.galleryURL(from: session.galleryPath)
+    }
+    
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                // Background
+                LinearGradient(
+                    colors: [
+                        Color(hex: "#1a1a2e") ?? .black,
+                        Color(hex: "#16213e") ?? .black,
+                        Color(hex: "#0f3460") ?? .black
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+                .ignoresSafeArea()
+                
+                VStack(spacing: 32) {
+                    // Title
+                    VStack(spacing: 8) {
+                        Text("Scan to View")
+                            .font(.title.bold())
+                            .foregroundStyle(.white)
+                        
+                        Text("Access your photos and videos online")
+                            .font(.subheadline)
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                    
+                    // QR Code (using modular component)
+                    QRCodeDisplayView(urlString: galleryURL)
+                    
+                    // URL display (using modular component)
+                    QRCodeURLView(urlString: galleryURL)
+                    
+                    // Session info
+                    Text(session.formattedDateTime)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.4))
+                }
+                .padding(40)
+            }
+            .navigationTitle("QR Code")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Button {
+                        dismiss()
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(.white.opacity(0.7))
+                    }
+                }
+            }
+        }
+    }
+}
+
+#Preview("Session Detail") {
     SessionDetailView(session: GallerySession(
         id: "test",
         sessionId: "test-session",
@@ -840,6 +963,20 @@ struct StripPageButton: View {
         thumbPath: nil,
         localThumbURL: nil,
         galleryPath: "s/test",
+        assets: []
+    ))
+}
+
+#Preview("QR Code") {
+    SessionQRCodeView(session: GallerySession(
+        id: "test",
+        sessionId: "test-session",
+        eventId: 1,
+        createdAt: Date(),
+        source: .local,
+        thumbPath: nil,
+        localThumbURL: nil,
+        galleryPath: "s/test-session",
         assets: []
     ))
 }

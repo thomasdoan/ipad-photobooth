@@ -65,3 +65,7 @@ fastlane/test_output
 .env
 
 node_modules/
+
+
+# xcode env
+fotoX/Config/Local.xcconfig

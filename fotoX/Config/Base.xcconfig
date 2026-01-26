@@ -1,0 +1,4 @@
+// Base configuration - includes local overrides
+#include? "Local.xcconfig"
+
+// Add any shared settings here

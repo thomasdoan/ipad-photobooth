@@ -17,7 +17,7 @@ enum WorkerConfiguration {
     static let manualAdvanceAfterReviewKey = "manualAdvanceAfterReview"
     static let captureAspectRatioKey = "captureAspectRatio"
     static let photoCountdownSecondsKey = "photoCountdownSeconds"
-    static let defaultBaseURL = URL(string: "https://your-worker.workers.dev")!
+    static let defaultBaseURL = URL(string: "https://id8.events")!
     static let defaultVideoDuration: TimeInterval = 10
     static let defaultStripReviewDuration: TimeInterval = 5
     static let minStripReviewDuration: TimeInterval = 5
