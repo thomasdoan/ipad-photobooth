@@ -272,65 +272,31 @@ struct QRView: View {
     private func qrCodeSection(maxWidth: CGFloat) -> some View {
         // Smaller QR code: 180pt max or 50% of panel width
         let qrSize = min(maxWidth * 0.5, 180.0)
+        let config = QRCodeDisplayConfig(
+            maxSize: qrSize,
+            padding: 16,
+            cornerRadius: 20,
+            shadowRadius: 12,
+            shadowY: 6,
+            shadowOpacity: 0.15
+        )
 
         return VStack(spacing: 16) {
             Text("Scan to view your photos")
                 .font(.headline)
                 .foregroundStyle(theme.accent.opacity(0.8))
 
-            if let qrImage = viewModel?.qrImage {
-                // QR Code
-                Image(uiImage: qrImage)
-                    .interpolation(.none)
-                    .resizable()
-                    .aspectRatio(1, contentMode: .fit)
-                    .frame(width: qrSize, height: qrSize)
-                    .padding(16)
-                    .background(
-                        RoundedRectangle(cornerRadius: 20)
-                            .fill(.white)
-                    )
-                    .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
-            } else if viewModel?.isLoadingQR == true {
-                // Loading
-                ZStack {
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(.white)
-                        .frame(width: qrSize + 32, height: qrSize + 32)
-
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: theme.primary))
-                        .scaleEffect(1.2)
-                }
-                .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
-            } else {
-                // Error state with retry
-                ZStack {
-                    RoundedRectangle(cornerRadius: 20)
-                        .fill(.white)
-                        .frame(width: qrSize + 32, height: qrSize + 32)
-
-                    VStack(spacing: 12) {
-                        Image(systemName: "qrcode")
-                            .font(.system(size: 40))
-                            .foregroundStyle(.gray)
-
-                        Text("QR code unavailable")
-                            .font(.caption)
-                            .foregroundStyle(.gray)
-
-                        Button("Retry") {
-                            Task {
-                                if let sessionId = appState.currentSession?.sessionId {
-                                    await viewModel?.fetchQRIfNeeded(sessionId: sessionId)
-                                }
-                            }
-                        }
-                        .font(.caption.bold())
-                        .foregroundStyle(theme.primary)
+            QRCodeDisplayView(
+                qrImage: viewModel?.qrImage,
+                isLoading: viewModel?.isLoadingQR == true,
+                config: config,
+                accentColor: theme.primary
+            ) {
+                Task {
+                    if let sessionId = appState.currentSession?.sessionId {
+                        await viewModel?.fetchQRIfNeeded(sessionId: sessionId)
                     }
                 }
-                .shadow(color: .black.opacity(0.15), radius: 12, y: 6)
             }
         }
     }
