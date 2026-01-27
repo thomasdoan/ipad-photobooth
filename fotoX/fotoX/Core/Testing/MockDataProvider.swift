@@ -39,7 +39,7 @@ enum MockDataProvider {
                 logoURL: nil,
                 backgroundURL: nil,
                 photoFrameURL: nil,
-                stripFrameURL: nil,
+                stripFrameURL: "asset:CustomStripFrame",
                 stripFooterText: nil
             )
         ),
@@ -56,7 +56,7 @@ enum MockDataProvider {
                 logoURL: nil,
                 backgroundURL: nil,
                 photoFrameURL: nil,
-                stripFrameURL: nil,
+                stripFrameURL: "asset:CustomStripFrame",
                 stripFooterText: nil
             )
         ),
@@ -73,7 +73,7 @@ enum MockDataProvider {
                 logoURL: nil,
                 backgroundURL: nil,
                 photoFrameURL: nil,
-                stripFrameURL: nil,
+                stripFrameURL: "asset:CustomStripFrame",
                 stripFooterText: nil
             )
         )
