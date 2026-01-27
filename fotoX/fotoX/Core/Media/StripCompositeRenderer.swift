@@ -47,8 +47,34 @@ struct StripCompositeRenderLayout: Sendable {
         self.footerHeight = footerHeight
         self.horizontalPadding = horizontalPadding
         self.verticalPadding = verticalPadding
-        self.slotCornerRadius = slotWidth * 0.08
-        self.outerCornerRadius = slotWidth * 0.12
+        self.slotCornerRadius = 0
+        self.outerCornerRadius = 0
+    }
+
+    init(exactSlotSize: CGSize, slotCount: Int) {
+        let slots = max(slotCount, 1)
+        let slotWidth = exactSlotSize.width
+        let slotHeight = exactSlotSize.height
+        let spacing = slotWidth * StripCompositeMetrics.spacingRatio
+        let footerHeight = slotWidth * StripCompositeMetrics.footerHeightRatio
+        let horizontalPadding = slotWidth * StripCompositeMetrics.horizontalPaddingRatio
+        let verticalPadding = slotWidth * StripCompositeMetrics.verticalPaddingRatio
+        let totalWidth = slotWidth + horizontalPadding * 2
+        let totalHeight = slotHeight * CGFloat(slots)
+            + spacing * CGFloat(slots - 1)
+            + footerHeight
+            + verticalPadding * 2
+        let roundedHeight = totalHeight.rounded(.toNearestOrAwayFromZero)
+
+        self.slotCount = slots
+        self.totalSize = CGSize(width: totalWidth, height: roundedHeight)
+        self.slotSize = CGSize(width: slotWidth, height: slotHeight)
+        self.slotSpacing = spacing
+        self.footerHeight = footerHeight
+        self.horizontalPadding = horizontalPadding
+        self.verticalPadding = verticalPadding
+        self.slotCornerRadius = 0
+        self.outerCornerRadius = 0
     }
 
     func slotFrame(at index: Int) -> CGRect {
@@ -62,6 +88,9 @@ struct StripCompositeRenderLayout: Sendable {
 enum StripCompositeRenderer {
     // TODO: Make composite render size configurable once target resolution is finalized.
     static let defaultOutputWidth: CGFloat = 720
+    // Slot size set to exactly match 16:9 aspect ratio to prevent cropping
+    // 621 / (16/9) = 349.3125
+    static let exactSlotSize = CGSize(width: 621, height: 621 / (16.0/9.0))
 
     static func renderCompositeAssets(
         strips: [CapturedStrip],
@@ -78,9 +107,8 @@ enum StripCompositeRenderer {
         }
 
         let layout = StripCompositeRenderLayout(
-            outputWidth: outputWidth,
-            slotCount: activeStrips.count,
-            slotAspectRatio: slotAspectRatio
+            exactSlotSize: exactSlotSize,
+            slotCount: activeStrips.count
         )
 
         let photoData = try renderCompositePhoto(
@@ -430,7 +458,9 @@ private struct StripCompositePhotoRenderView: View {
     @Environment(\.appTheme) private var theme
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .topLeading) {
+            theme.secondary.opacity(0.9)
+            
             StripCompositeContentView(
                 layout: layout,
                 footerText: footerText,
@@ -439,6 +469,7 @@ private struct StripCompositePhotoRenderView: View {
                         Image(uiImage: image)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
+                            .scaleEffect(x: -1, y: 1) // Mirror horizontally
                     } else {
                         Color.black.opacity(0.2)
                     }
@@ -447,8 +478,7 @@ private struct StripCompositePhotoRenderView: View {
 
             StripCompositeFrameOverlayView(layout: layout)
         }
-        .background(theme.secondary.opacity(0.9))
-        .frame(width: layout.totalSize.width, height: layout.totalSize.height)
+        .frame(width: layout.totalSize.width, height: layout.totalSize.height, alignment: .topLeading)
     }
 }
 
@@ -489,13 +519,13 @@ private struct StripCompositeContentView<SlotContent: View>: View {
     }
 
     var body: some View {
-        VStack(spacing: layout.slotSpacing) {
+        VStack(alignment: .center, spacing: layout.slotSpacing) {
             ForEach(0..<layout.slotCount, id: \.self) { index in
                 slotContent(index)
-                    .frame(width: layout.slotSize.width, height: layout.slotSize.height)
-                    .clipped()
                     .background(theme.secondary.opacity(0.6))
-                    .clipShape(RoundedRectangle(cornerRadius: layout.slotCornerRadius, style: .continuous))
+                    .frame(width: layout.slotSize.width, height: layout.slotSize.height, alignment: .center)
+                    .clipped()
+                    // .clipShape(RoundedRectangle(cornerRadius: layout.slotCornerRadius, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: layout.slotCornerRadius, style: .continuous)
                             .stroke(theme.accent.opacity(0.2), lineWidth: 1)
@@ -506,7 +536,7 @@ private struct StripCompositeContentView<SlotContent: View>: View {
         }
         .padding(.horizontal, layout.horizontalPadding)
         .padding(.vertical, layout.verticalPadding)
-        .frame(width: layout.totalSize.width, height: layout.totalSize.height)
+        .frame(width: layout.totalSize.width, height: layout.totalSize.height, alignment: .top)
         .background(theme.secondary.opacity(0.9))
     }
 }
@@ -556,9 +586,8 @@ private struct StripCompositeFrameOverlayView: View {
         ZStack {
             if let frame = assets?.stripFrame {
                 frame
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .clipShape(shape)
+                    .resizable(resizingMode: .stretch)
+                    .frame(width: layout.totalSize.width, height: layout.totalSize.height)
             } else {
                 defaultFrame(shape: shape)
             }

@@ -145,21 +145,21 @@ struct StripReviewView: View {
     private func mediaPreview(geometry: GeometryProxy) -> some View {
         let previewHeight = geometry.size.height * 0.5
         
-        return ThemedStripFrame {
-            ZStack {
-                theme.secondary.opacity(0.4)
+        return ZStack {
+            theme.secondary.opacity(0.4)
 
-                if showingVideo, let player = player {
-                    VideoPlayer(player: player)
-                        .aspectRatio(aspectRatio, contentMode: .fit)
-                } else if let uiImage = UIImage(data: photoData) {
-                    Image(uiImage: uiImage)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                }
+            if showingVideo, let player = player {
+                VideoPlayer(player: player)
+                    .aspectRatio(aspectRatio, contentMode: .fit)
+            } else if let uiImage = UIImage(data: photoData) {
+                Image(uiImage: uiImage)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
             }
-            .frame(maxHeight: previewHeight)
         }
+        .frame(maxHeight: previewHeight)
+        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .shadow(color: .black.opacity(0.3), radius: 20)
     }
     
     // MARK: - Media Toggle
