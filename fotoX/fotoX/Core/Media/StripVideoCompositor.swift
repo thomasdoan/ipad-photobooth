@@ -53,7 +53,7 @@ final class StripVideoCompositionInstruction: NSObject, AVVideoCompositionInstru
         for (trackID, frame) in frames {
             let filter = CIFilter.roundedRectangleGenerator()
             filter.extent = frame
-            filter.radius = Float(cornerRadius)
+            filter.radius = 0.0
             filter.color = CIColor(red: 1, green: 1, blue: 1, alpha: 1)
             if let mask = filter.outputImage {
                 masks[trackID] = mask

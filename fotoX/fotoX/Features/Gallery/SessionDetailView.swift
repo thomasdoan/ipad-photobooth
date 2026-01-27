@@ -292,16 +292,6 @@ private extension SessionDetailView {
     var stripPages: [StripPage] {
         var pages: [StripPage] = []
 
-        let photoSlots = stripSlots(for: .photo)
-        if !photoSlots.isEmpty {
-            pages.append(StripPage(kind: .photo, title: "Photo Strip", slots: photoSlots, slotCount: 3))
-        }
-
-        let videoSlots = stripSlots(for: .video)
-        if !videoSlots.isEmpty {
-            pages.append(StripPage(kind: .video, title: "Video Strip", slots: videoSlots, slotCount: 3))
-        }
-
         if let compositePhoto = compositeAsset(for: .stripPhoto) {
             pages.append(
                 StripPage(
@@ -327,13 +317,6 @@ private extension SessionDetailView {
         }
 
         return pages
-    }
-
-    func stripSlots(for kind: AssetKind) -> [StripSlot] {
-        guard !kind.isComposite else { return [] }
-        let assets = assetsByIndex(for: kind)
-        guard !assets.isEmpty else { return [] }
-        return (0..<3).map { StripSlot(id: $0, isVideo: kind == .video) }
     }
 
     func assetsByIndex(for kind: AssetKind) -> [Int: GalleryAsset] {

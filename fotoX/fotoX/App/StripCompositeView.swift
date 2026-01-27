@@ -13,7 +13,7 @@ struct StripSlot: Identifiable, Hashable {
 }
 
 enum StripCompositeMetrics {
-    static let defaultSlotAspectRatio: CGFloat = 9.0 / 16.0
+    static let defaultSlotAspectRatio: CGFloat = 16.0 / 9.0
     static let spacingRatio: CGFloat = 0.08
     static let footerHeightRatio: CGFloat = 0.45
     static let horizontalPaddingRatio: CGFloat = 0.08
