@@ -14,6 +14,10 @@ actor UploadQueueWorker {
     private let fileManager: FileManager
     let uploadsDirectory: URL
     private var isProcessing = false
+    private var autoRetryTask: Task<Void, Never>?
+    
+    /// Default interval for automatic retry checks (30 seconds)
+    static let defaultAutoRetryInterval: TimeInterval = 30
 
     init(
         store: UploadQueueStore = UploadQueueStore(),
@@ -233,7 +237,7 @@ actor UploadQueueWorker {
         try await historyStore.clearAll()
     }
 
-    /// Retries a single failed session by ID
+    /// Retries a single failed session by ID (manual retry resets retry count)
     func retrySession(
         sessionId: String,
         onProgress: (@MainActor @Sendable (String) -> Void)? = nil,
@@ -241,11 +245,16 @@ actor UploadQueueWorker {
     ) async {
         do {
             let sessions = try await store.sessions()
-            guard let session = sessions.first(where: { $0.sessionId == sessionId }) else {
+            guard var session = sessions.first(where: { $0.sessionId == sessionId }) else {
                 return
             }
             // Only retry if the session has failures
             guard uploadSessionStatus(session) == .failed else { return }
+            
+            // Reset retry count for manual retry (gives user fresh attempts)
+            session.retryCount = 0
+            try await store.updateSession(session)
+            
             _ = try await process(session: session, onProgress: onProgress, onError: onError)
         } catch let error as APIError {
             await MainActor.run { onError?(sessionId, error) }
@@ -254,7 +263,7 @@ actor UploadQueueWorker {
         }
     }
 
-    /// Retries all failed sessions
+    /// Retries all failed sessions (manual retry resets retry count)
     func retryAllFailed(
         onProgress: (@MainActor @Sendable (String) -> Void)? = nil,
         onError: (@MainActor @Sendable (String, APIError) -> Void)? = nil
@@ -263,13 +272,74 @@ actor UploadQueueWorker {
             let sessions = try await store.sessions()
             let failed = sessions.filter { uploadSessionStatus($0) == .failed }
             for session in failed {
-                _ = try await process(session: session, onProgress: onProgress, onError: onError)
+                // Reset retry count for manual retry (gives user fresh attempts)
+                var resetSession = session
+                resetSession.retryCount = 0
+                try await store.updateSession(resetSession)
+                _ = try await process(session: resetSession, onProgress: onProgress, onError: onError)
             }
         } catch let error as APIError {
             await MainActor.run { onError?("", error) }
         } catch {
             await MainActor.run { onError?("", .unknown(error)) }
         }
+    }
+    
+    // MARK: - Auto Retry
+    
+    /// Starts periodic automatic retry of failed sessions
+    /// - Parameter interval: Time between retry attempts (default 30 seconds)
+    func startAutoRetry(interval: TimeInterval = defaultAutoRetryInterval) {
+        // Cancel any existing task
+        autoRetryTask?.cancel()
+        
+        autoRetryTask = Task {
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+                
+                guard !Task.isCancelled else { break }
+                
+                await autoRetryFailedSessions()
+            }
+        }
+    }
+    
+    /// Stops the automatic retry timer
+    func stopAutoRetry() {
+        autoRetryTask?.cancel()
+        autoRetryTask = nil
+    }
+    
+    /// Automatically retries failed sessions that haven't exceeded max retry attempts
+    /// Called periodically by the auto-retry timer
+    func autoRetryFailedSessions(
+        onProgress: (@MainActor @Sendable (String) -> Void)? = nil,
+        onError: (@MainActor @Sendable (String, APIError) -> Void)? = nil
+    ) async {
+        do {
+            let sessions = try await store.sessions()
+            // Only retry failed sessions that can still be auto-retried
+            let retryable = sessions.filter { session in
+                uploadSessionStatus(session) == .failed && session.canAutoRetry
+            }
+            
+            for session in retryable {
+                // Increment retry count before attempting
+                var updatedSession = session
+                updatedSession.retryCount += 1
+                try await store.updateSession(updatedSession)
+                
+                _ = try await process(session: updatedSession, onProgress: onProgress, onError: onError)
+            }
+        } catch {
+            // Silently handle errors during auto-retry to avoid spamming
+            // The session will be retried on the next interval
+        }
+    }
+    
+    /// Returns whether auto-retry is currently active
+    var isAutoRetryActive: Bool {
+        autoRetryTask != nil && autoRetryTask?.isCancelled == false
     }
 
     // MARK: - Processing

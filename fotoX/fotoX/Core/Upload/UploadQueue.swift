@@ -38,6 +38,34 @@ struct UploadQueueSession: Identifiable, Codable, Sendable {
     var assets: [UploadQueueAsset]
     var manifestState: UploadQueueItemState
     var completeState: UploadQueueItemState
+    /// Number of automatic retry attempts made for this session
+    var retryCount: Int
+    
+    /// Maximum number of automatic retry attempts before requiring manual intervention
+    static let maxAutoRetries = 5
+    
+    // Custom init with default retryCount for backward compatibility
+    init(
+        id: String,
+        eventId: Int,
+        sessionId: String,
+        createdAt: String,
+        publicGalleryURL: String,
+        assets: [UploadQueueAsset],
+        manifestState: UploadQueueItemState,
+        completeState: UploadQueueItemState,
+        retryCount: Int = 0
+    ) {
+        self.id = id
+        self.eventId = eventId
+        self.sessionId = sessionId
+        self.createdAt = createdAt
+        self.publicGalleryURL = publicGalleryURL
+        self.assets = assets
+        self.manifestState = manifestState
+        self.completeState = completeState
+        self.retryCount = retryCount
+    }
 }
 
 struct UploadQueueSnapshot: Codable, Sendable {
@@ -90,6 +118,16 @@ extension UploadQueueSession {
     var totalAssetCount: Int {
         assets.count
     }
+    
+    /// Whether this session can be automatically retried (hasn't exceeded max retries)
+    var canAutoRetry: Bool {
+        retryCount < Self.maxAutoRetries
+    }
+    
+    /// Whether this session requires manual intervention (exceeded max auto-retries)
+    var requiresManualRetry: Bool {
+        status == .failed && retryCount >= Self.maxAutoRetries
+    }
 
     /// Human-readable progress string
     var progressSummary: String {
@@ -97,6 +135,9 @@ extension UploadQueueSession {
             return "Complete"
         }
         if status == .failed {
+            if requiresManualRetry {
+                return "Retry required"
+            }
             let failedCount = assets.filter { $0.state == .failed }.count
             let manifestFailed = manifestState == .failed ? 1 : 0
             let completeFailed = completeState == .failed ? 1 : 0

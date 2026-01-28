@@ -2960,3 +2960,311 @@ struct UploadQueueWorkerTests {
         try? fileManager.removeItem(at: documents.appendingPathComponent("worker_retry_nonexistent_history.json"))
     }
 }
+
+// MARK: - Auto Retry Tests
+
+struct AutoRetryTests {
+    
+    private func makeAsset(state: UploadQueueItemState) -> UploadQueueAsset {
+        UploadQueueAsset(
+            id: UUID(),
+            kind: .photo,
+            stripIndex: 0,
+            sequenceIndex: 1,
+            fileName: "photo.jpg",
+            mimeType: "image/jpeg",
+            localURL: URL(fileURLWithPath: "/tmp/photo.jpg"),
+            remotePath: "events/1/sessions/test/photo.jpg",
+            sizeBytes: 100,
+            durationSeconds: nil,
+            posterPath: nil,
+            state: state
+        )
+    }
+    
+    private func makeSession(
+        sessionId: String,
+        assets: [UploadQueueAsset]? = nil,
+        manifestState: UploadQueueItemState = .pending,
+        completeState: UploadQueueItemState = .pending,
+        retryCount: Int = 0
+    ) -> UploadQueueSession {
+        UploadQueueSession(
+            id: sessionId,
+            eventId: 1,
+            sessionId: sessionId,
+            createdAt: "2025-01-01T00:00:00Z",
+            publicGalleryURL: "https://example.com/s/\(sessionId)",
+            assets: assets ?? [makeAsset(state: .pending)],
+            manifestState: manifestState,
+            completeState: completeState,
+            retryCount: retryCount
+        )
+    }
+    
+    @Test("Session canAutoRetry returns true when retryCount is below max")
+    func canAutoRetryBelowMax() {
+        let session = makeSession(sessionId: "test", retryCount: 0)
+        #expect(session.canAutoRetry == true)
+        
+        let session2 = makeSession(sessionId: "test2", retryCount: 4)
+        #expect(session2.canAutoRetry == true)
+    }
+    
+    @Test("Session canAutoRetry returns false when retryCount equals max")
+    func canAutoRetryAtMax() {
+        let session = makeSession(sessionId: "test", retryCount: 5)
+        #expect(session.canAutoRetry == false)
+    }
+    
+    @Test("Session canAutoRetry returns false when retryCount exceeds max")
+    func canAutoRetryAboveMax() {
+        let session = makeSession(sessionId: "test", retryCount: 10)
+        #expect(session.canAutoRetry == false)
+    }
+    
+    @Test("Session requiresManualRetry is true when failed and exceeded max retries")
+    func requiresManualRetryWhenExceeded() {
+        let session = makeSession(
+            sessionId: "test",
+            assets: [makeAsset(state: .failed)],
+            retryCount: 5
+        )
+        #expect(session.requiresManualRetry == true)
+    }
+    
+    @Test("Session requiresManualRetry is false when failed but can still auto-retry")
+    func requiresManualRetryWhenCanAutoRetry() {
+        let session = makeSession(
+            sessionId: "test",
+            assets: [makeAsset(state: .failed)],
+            retryCount: 3
+        )
+        #expect(session.requiresManualRetry == false)
+    }
+    
+    @Test("Session requiresManualRetry is false when completed")
+    func requiresManualRetryWhenCompleted() {
+        let session = makeSession(
+            sessionId: "test",
+            assets: [makeAsset(state: .uploaded)],
+            manifestState: .uploaded,
+            completeState: .uploaded,
+            retryCount: 5
+        )
+        #expect(session.requiresManualRetry == false)
+    }
+    
+    @Test("progressSummary shows 'Retry required' when manual retry needed")
+    func progressSummaryShowsRetryRequired() {
+        let session = makeSession(
+            sessionId: "test",
+            assets: [makeAsset(state: .failed)],
+            retryCount: 5
+        )
+        #expect(session.progressSummary == "Retry required")
+    }
+    
+    @Test("Auto retry skips sessions that exceeded max retries")
+    func autoRetrySkipsExceededSessions() async throws {
+        let fileManager = FileManager.default
+        let queueStore = UploadQueueStore(fileManager: fileManager, fileName: "auto_retry_skip_test_queue.json")
+        let historyStore = UploadHistoryStore(fileManager: fileManager, fileName: "auto_retry_skip_test_history.json")
+        let mockApiClient = MockWorkerAPIClient()
+        
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        try? fileManager.removeItem(at: documents.appendingPathComponent("auto_retry_skip_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("auto_retry_skip_test_history.json"))
+        
+        let worker = UploadQueueWorker(
+            store: queueStore,
+            historyStore: historyStore,
+            apiClient: mockApiClient,
+            fileManager: fileManager
+        )
+        
+        // Add a failed session that has exceeded max retries
+        let exceededSession = makeSession(
+            sessionId: "exceeded",
+            assets: [makeAsset(state: .failed)],
+            retryCount: 5
+        )
+        try await queueStore.addSession(exceededSession)
+        
+        // Auto retry should skip this session
+        await worker.autoRetryFailedSessions()
+        
+        #expect(mockApiClient.presignCallCount == 0)
+        
+        // Cleanup
+        try? fileManager.removeItem(at: documents.appendingPathComponent("auto_retry_skip_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("auto_retry_skip_test_history.json"))
+    }
+    
+    @Test("Auto retry increments retry count")
+    func autoRetryIncrementsRetryCount() async throws {
+        let fileManager = FileManager.default
+        let queueStore = UploadQueueStore(fileManager: fileManager, fileName: "auto_retry_increment_test_queue.json")
+        let historyStore = UploadHistoryStore(fileManager: fileManager, fileName: "auto_retry_increment_test_history.json")
+        let mockApiClient = MockWorkerAPIClient()
+        
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        try? fileManager.removeItem(at: documents.appendingPathComponent("auto_retry_increment_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("auto_retry_increment_test_history.json"))
+        
+        let worker = UploadQueueWorker(
+            store: queueStore,
+            historyStore: historyStore,
+            apiClient: mockApiClient,
+            fileManager: fileManager
+        )
+        
+        // Add a failed session with retryCount = 2
+        let session = makeSession(
+            sessionId: "retry-test",
+            assets: [makeAsset(state: .failed)],
+            retryCount: 2
+        )
+        try await queueStore.addSession(session)
+        
+        // Auto retry should increment retry count
+        await worker.autoRetryFailedSessions()
+        
+        // Check the session was updated with incremented retry count
+        let sessions = try await queueStore.sessions()
+        let updatedSession = sessions.first(where: { $0.sessionId == "retry-test" })
+        #expect(updatedSession?.retryCount == 3)
+        
+        // Cleanup
+        try? fileManager.removeItem(at: documents.appendingPathComponent("auto_retry_increment_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("auto_retry_increment_test_history.json"))
+    }
+    
+    @Test("Manual retry resets retry count")
+    func manualRetryResetsRetryCount() async throws {
+        let fileManager = FileManager.default
+        let queueStore = UploadQueueStore(fileManager: fileManager, fileName: "manual_retry_reset_test_queue.json")
+        let historyStore = UploadHistoryStore(fileManager: fileManager, fileName: "manual_retry_reset_test_history.json")
+        let mockApiClient = MockWorkerAPIClient()
+        
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        try? fileManager.removeItem(at: documents.appendingPathComponent("manual_retry_reset_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("manual_retry_reset_test_history.json"))
+        
+        let worker = UploadQueueWorker(
+            store: queueStore,
+            historyStore: historyStore,
+            apiClient: mockApiClient,
+            fileManager: fileManager
+        )
+        
+        // Add a failed session with retryCount = 5 (exceeded max)
+        let session = makeSession(
+            sessionId: "manual-retry-test",
+            assets: [makeAsset(state: .failed)],
+            retryCount: 5
+        )
+        try await queueStore.addSession(session)
+        
+        // Manual retry should reset retry count to 0
+        await worker.retrySession(sessionId: "manual-retry-test")
+        
+        // Check the session was updated with reset retry count
+        let sessions = try await queueStore.sessions()
+        let updatedSession = sessions.first(where: { $0.sessionId == "manual-retry-test" })
+        #expect(updatedSession?.retryCount == 0)
+        
+        // Cleanup
+        try? fileManager.removeItem(at: documents.appendingPathComponent("manual_retry_reset_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("manual_retry_reset_test_history.json"))
+    }
+    
+    @Test("Auto retry processes retryable sessions only")
+    func autoRetryProcessesOnlyRetryableSessions() async throws {
+        let fileManager = FileManager.default
+        let queueStore = UploadQueueStore(fileManager: fileManager, fileName: "auto_retry_mixed_test_queue.json")
+        let historyStore = UploadHistoryStore(fileManager: fileManager, fileName: "auto_retry_mixed_test_history.json")
+        let mockApiClient = MockWorkerAPIClient()
+        
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        try? fileManager.removeItem(at: documents.appendingPathComponent("auto_retry_mixed_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("auto_retry_mixed_test_history.json"))
+        
+        let worker = UploadQueueWorker(
+            store: queueStore,
+            historyStore: historyStore,
+            apiClient: mockApiClient,
+            fileManager: fileManager
+        )
+        
+        // Add sessions with different states
+        let retryable = makeSession(
+            sessionId: "retryable",
+            assets: [makeAsset(state: .failed)],
+            retryCount: 2
+        )
+        let exceeded = makeSession(
+            sessionId: "exceeded",
+            assets: [makeAsset(state: .failed)],
+            retryCount: 5
+        )
+        let pending = makeSession(
+            sessionId: "pending",
+            assets: [makeAsset(state: .pending)],
+            retryCount: 0
+        )
+        
+        try await queueStore.addSession(retryable)
+        try await queueStore.addSession(exceeded)
+        try await queueStore.addSession(pending)
+        
+        // Auto retry should only process the retryable session
+        await worker.autoRetryFailedSessions()
+        
+        // Should have called presign once (only for retryable)
+        #expect(mockApiClient.presignCallCount == 1)
+        
+        // Cleanup
+        try? fileManager.removeItem(at: documents.appendingPathComponent("auto_retry_mixed_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("auto_retry_mixed_test_history.json"))
+    }
+    
+    @Test("isAutoRetryActive reflects timer state")
+    func isAutoRetryActiveReflectsTimerState() async {
+        let fileManager = FileManager.default
+        let queueStore = UploadQueueStore(fileManager: fileManager, fileName: "auto_retry_active_test_queue.json")
+        let historyStore = UploadHistoryStore(fileManager: fileManager, fileName: "auto_retry_active_test_history.json")
+        let mockApiClient = MockWorkerAPIClient()
+        
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        try? fileManager.removeItem(at: documents.appendingPathComponent("auto_retry_active_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("auto_retry_active_test_history.json"))
+        
+        let worker = UploadQueueWorker(
+            store: queueStore,
+            historyStore: historyStore,
+            apiClient: mockApiClient,
+            fileManager: fileManager
+        )
+        
+        // Initially not active
+        var isActive = await worker.isAutoRetryActive
+        #expect(isActive == false)
+        
+        // Start auto retry
+        await worker.startAutoRetry(interval: 60) // Use long interval so it doesn't fire during test
+        
+        isActive = await worker.isAutoRetryActive
+        #expect(isActive == true)
+        
+        // Stop auto retry
+        await worker.stopAutoRetry()
+        
+        isActive = await worker.isAutoRetryActive
+        #expect(isActive == false)
+        
+        // Cleanup
+        try? fileManager.removeItem(at: documents.appendingPathComponent("auto_retry_active_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("auto_retry_active_test_history.json"))
+    }
+}
