@@ -55,10 +55,13 @@ actor UploadQueueWorker {
         }
         
         // Configure upload session with explicit timeouts
+        // Note: waitsForConnectivity is set to false so uploads fail fast when offline.
+        // This lets auto-retry handle reconnection rather than waiting indefinitely,
+        // since timeouts don't apply while waiting for connectivity.
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = Self.uploadRequestTimeout
         config.timeoutIntervalForResource = Self.uploadResourceTimeout
-        config.waitsForConnectivity = true
+        config.waitsForConnectivity = false
         config.allowsConstrainedNetworkAccess = true
         config.allowsExpensiveNetworkAccess = true
         self.uploadSession = URLSession(configuration: config)

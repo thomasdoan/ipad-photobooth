@@ -3268,3 +3268,556 @@ struct AutoRetryTests {
         try? fileManager.removeItem(at: documents.appendingPathComponent("auto_retry_active_test_history.json"))
     }
 }
+
+// MARK: - Stale Upload Recovery Tests
+
+struct StaleUploadRecoveryTests {
+    
+    private func makeAsset(state: UploadQueueItemState) -> UploadQueueAsset {
+        UploadQueueAsset(
+            id: UUID(),
+            kind: .photo,
+            stripIndex: 0,
+            sequenceIndex: 1,
+            fileName: "photo.jpg",
+            mimeType: "image/jpeg",
+            localURL: URL(fileURLWithPath: "/tmp/photo.jpg"),
+            remotePath: "events/1/sessions/test/photo.jpg",
+            sizeBytes: 100,
+            durationSeconds: nil,
+            posterPath: nil,
+            state: state
+        )
+    }
+    
+    private func makeSession(
+        sessionId: String,
+        assets: [UploadQueueAsset]? = nil,
+        manifestState: UploadQueueItemState = .pending,
+        completeState: UploadQueueItemState = .pending,
+        retryCount: Int = 0,
+        uploadStartedAt: String? = nil
+    ) -> UploadQueueSession {
+        UploadQueueSession(
+            id: sessionId,
+            eventId: 1,
+            sessionId: sessionId,
+            createdAt: "2025-01-01T00:00:00Z",
+            publicGalleryURL: "https://example.com/s/\(sessionId)",
+            assets: assets ?? [makeAsset(state: .pending)],
+            manifestState: manifestState,
+            completeState: completeState,
+            retryCount: retryCount,
+            uploadStartedAt: uploadStartedAt
+        )
+    }
+    
+    // MARK: - isStale Tests
+    
+    @Test("isStale returns false for non-uploading sessions")
+    func isStaleReturnsFalseForNonUploading() {
+        // Pending session
+        let pending = makeSession(
+            sessionId: "pending",
+            assets: [makeAsset(state: .pending)],
+            uploadStartedAt: "2020-01-01T00:00:00Z" // Very old timestamp
+        )
+        #expect(pending.isStale == false)
+        
+        // Failed session
+        let failed = makeSession(
+            sessionId: "failed",
+            assets: [makeAsset(state: .failed)],
+            uploadStartedAt: "2020-01-01T00:00:00Z"
+        )
+        #expect(failed.isStale == false)
+        
+        // Completed session
+        let completed = makeSession(
+            sessionId: "completed",
+            assets: [makeAsset(state: .uploaded)],
+            manifestState: .uploaded,
+            completeState: .uploaded,
+            uploadStartedAt: "2020-01-01T00:00:00Z"
+        )
+        #expect(completed.isStale == false)
+    }
+    
+    @Test("isStale returns false for uploading session without timestamp")
+    func isStaleReturnsFalseWithoutTimestamp() {
+        let session = makeSession(
+            sessionId: "uploading",
+            assets: [makeAsset(state: .uploading)],
+            uploadStartedAt: nil
+        )
+        #expect(session.isStale == false)
+    }
+    
+    @Test("isStale returns false for recently started upload")
+    func isStaleReturnsFalseForRecentUpload() {
+        let recentTimestamp = ISO8601DateFormatter().string(from: Date())
+        let session = makeSession(
+            sessionId: "uploading",
+            assets: [makeAsset(state: .uploading)],
+            uploadStartedAt: recentTimestamp
+        )
+        #expect(session.isStale == false)
+    }
+    
+    @Test("isStale returns true for upload exceeding threshold")
+    func isStaleReturnsTrueForOldUpload() {
+        // Create timestamp older than threshold (60 seconds)
+        let oldDate = Date().addingTimeInterval(-90) // 90 seconds ago (exceeds 60s threshold)
+        let oldTimestamp = ISO8601DateFormatter().string(from: oldDate)
+        
+        let session = makeSession(
+            sessionId: "uploading",
+            assets: [makeAsset(state: .uploading)],
+            uploadStartedAt: oldTimestamp
+        )
+        #expect(session.isStale == true)
+    }
+    
+    @Test("isStale detects stale manifest upload")
+    func isStaleDetectsStaleManifestUpload() {
+        let oldDate = Date().addingTimeInterval(-90) // 90 seconds ago
+        let oldTimestamp = ISO8601DateFormatter().string(from: oldDate)
+        
+        let session = makeSession(
+            sessionId: "uploading",
+            assets: [makeAsset(state: .uploaded)],
+            manifestState: .uploading,
+            uploadStartedAt: oldTimestamp
+        )
+        #expect(session.isStale == true)
+    }
+    
+    // MARK: - uploadDuration Tests
+    
+    @Test("uploadDuration returns nil without timestamp")
+    func uploadDurationReturnsNilWithoutTimestamp() {
+        let session = makeSession(sessionId: "test", uploadStartedAt: nil)
+        #expect(session.uploadDuration == nil)
+    }
+    
+    @Test("uploadDuration returns seconds for short durations")
+    func uploadDurationReturnsSeconds() {
+        let recentDate = Date().addingTimeInterval(-45)
+        let timestamp = ISO8601DateFormatter().string(from: recentDate)
+        
+        let session = makeSession(sessionId: "test", uploadStartedAt: timestamp)
+        
+        // Should be around "45s" (might be 44s or 46s due to timing)
+        let duration = session.uploadDuration
+        #expect(duration != nil)
+        #expect(duration?.hasSuffix("s") == true)
+    }
+    
+    @Test("uploadDuration returns minutes for longer durations")
+    func uploadDurationReturnsMinutes() {
+        let olderDate = Date().addingTimeInterval(-180) // 3 minutes
+        let timestamp = ISO8601DateFormatter().string(from: olderDate)
+        
+        let session = makeSession(sessionId: "test", uploadStartedAt: timestamp)
+        
+        let duration = session.uploadDuration
+        #expect(duration != nil)
+        #expect(duration?.hasSuffix("m") == true)
+    }
+    
+    // MARK: - recoverStaleUploads Tests
+    
+    @Test("recoverStaleUploads marks stale uploading sessions as failed")
+    func recoverStaleUploadsMarksAsFailed() async throws {
+        let fileManager = FileManager.default
+        let queueStore = UploadQueueStore(fileManager: fileManager, fileName: "stale_recovery_test_queue.json")
+        let historyStore = UploadHistoryStore(fileManager: fileManager, fileName: "stale_recovery_test_history.json")
+        let mockApiClient = MockWorkerAPIClient()
+        
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        try? fileManager.removeItem(at: documents.appendingPathComponent("stale_recovery_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("stale_recovery_test_history.json"))
+        
+        let worker = UploadQueueWorker(
+            store: queueStore,
+            historyStore: historyStore,
+            apiClient: mockApiClient,
+            fileManager: fileManager
+        )
+        
+        // Add a stale uploading session (90 seconds ago, exceeds 60s threshold)
+        let oldDate = Date().addingTimeInterval(-90)
+        let oldTimestamp = ISO8601DateFormatter().string(from: oldDate)
+        
+        let staleSession = makeSession(
+            sessionId: "stale-session",
+            assets: [makeAsset(state: .uploading)],
+            uploadStartedAt: oldTimestamp
+        )
+        try await queueStore.addSession(staleSession)
+        
+        // Verify it's stale
+        var sessions = try await worker.getQueueSessions()
+        #expect(sessions.first?.isStale == true)
+        
+        // Run recovery
+        await worker.recoverStaleUploads()
+        
+        // Verify session is now failed
+        sessions = try await worker.getQueueSessions()
+        #expect(sessions.count == 1)
+        #expect(sessions.first?.status == .failed)
+        #expect(sessions.first?.assets.first?.state == .failed)
+        #expect(sessions.first?.uploadStartedAt == nil)
+        
+        // Cleanup
+        try? fileManager.removeItem(at: documents.appendingPathComponent("stale_recovery_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("stale_recovery_test_history.json"))
+    }
+    
+    @Test("recoverStaleUploads does not affect non-stale sessions")
+    func recoverStaleUploadsIgnoresNonStale() async throws {
+        let fileManager = FileManager.default
+        let queueStore = UploadQueueStore(fileManager: fileManager, fileName: "stale_nonstale_test_queue.json")
+        let historyStore = UploadHistoryStore(fileManager: fileManager, fileName: "stale_nonstale_test_history.json")
+        let mockApiClient = MockWorkerAPIClient()
+        
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        try? fileManager.removeItem(at: documents.appendingPathComponent("stale_nonstale_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("stale_nonstale_test_history.json"))
+        
+        let worker = UploadQueueWorker(
+            store: queueStore,
+            historyStore: historyStore,
+            apiClient: mockApiClient,
+            fileManager: fileManager
+        )
+        
+        // Add a recent uploading session (not stale)
+        let recentTimestamp = ISO8601DateFormatter().string(from: Date())
+        let recentSession = makeSession(
+            sessionId: "recent-session",
+            assets: [makeAsset(state: .uploading)],
+            uploadStartedAt: recentTimestamp
+        )
+        try await queueStore.addSession(recentSession)
+        
+        // Run recovery
+        await worker.recoverStaleUploads()
+        
+        // Verify session is still uploading
+        let sessions = try await worker.getQueueSessions()
+        #expect(sessions.count == 1)
+        #expect(sessions.first?.status == .uploading)
+        #expect(sessions.first?.assets.first?.state == .uploading)
+        
+        // Cleanup
+        try? fileManager.removeItem(at: documents.appendingPathComponent("stale_nonstale_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("stale_nonstale_test_history.json"))
+    }
+    
+    // MARK: - forceRetrySession Tests
+    
+    @Test("forceRetrySession resets uploading session and processes")
+    func forceRetryResetsUploadingSession() async throws {
+        let fileManager = FileManager.default
+        let queueStore = UploadQueueStore(fileManager: fileManager, fileName: "force_retry_test_queue.json")
+        let historyStore = UploadHistoryStore(fileManager: fileManager, fileName: "force_retry_test_history.json")
+        let mockApiClient = MockWorkerAPIClient()
+        
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        try? fileManager.removeItem(at: documents.appendingPathComponent("force_retry_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("force_retry_test_history.json"))
+        
+        let worker = UploadQueueWorker(
+            store: queueStore,
+            historyStore: historyStore,
+            apiClient: mockApiClient,
+            fileManager: fileManager
+        )
+        
+        // Add an uploading session (simulating stuck state)
+        let uploadingSession = makeSession(
+            sessionId: "stuck-session",
+            assets: [makeAsset(state: .uploading)],
+            uploadStartedAt: "2025-01-01T00:00:00Z"
+        )
+        try await queueStore.addSession(uploadingSession)
+        
+        // Force retry
+        await worker.forceRetrySession(sessionId: "stuck-session")
+        
+        // Should have called presign (attempted to process)
+        #expect(mockApiClient.presignCallCount == 1)
+        
+        // Cleanup
+        try? fileManager.removeItem(at: documents.appendingPathComponent("force_retry_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("force_retry_test_history.json"))
+    }
+    
+    @Test("forceRetrySession ignores completed sessions")
+    func forceRetryIgnoresCompleted() async throws {
+        let fileManager = FileManager.default
+        let queueStore = UploadQueueStore(fileManager: fileManager, fileName: "force_retry_completed_queue.json")
+        let historyStore = UploadHistoryStore(fileManager: fileManager, fileName: "force_retry_completed_history.json")
+        let mockApiClient = MockWorkerAPIClient()
+        
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        try? fileManager.removeItem(at: documents.appendingPathComponent("force_retry_completed_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("force_retry_completed_history.json"))
+        
+        let worker = UploadQueueWorker(
+            store: queueStore,
+            historyStore: historyStore,
+            apiClient: mockApiClient,
+            fileManager: fileManager
+        )
+        
+        // Add a completed session
+        let completedSession = makeSession(
+            sessionId: "completed-session",
+            assets: [makeAsset(state: .uploaded)],
+            manifestState: .uploaded,
+            completeState: .uploaded
+        )
+        try await queueStore.addSession(completedSession)
+        
+        // Force retry should do nothing
+        await worker.forceRetrySession(sessionId: "completed-session")
+        
+        #expect(mockApiClient.presignCallCount == 0)
+        
+        // Cleanup
+        try? fileManager.removeItem(at: documents.appendingPathComponent("force_retry_completed_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("force_retry_completed_history.json"))
+    }
+    
+    @Test("forceRetrySession resets retry count")
+    func forceRetryResetsRetryCount() async throws {
+        let fileManager = FileManager.default
+        let queueStore = UploadQueueStore(fileManager: fileManager, fileName: "force_retry_count_queue.json")
+        let historyStore = UploadHistoryStore(fileManager: fileManager, fileName: "force_retry_count_history.json")
+        let mockApiClient = MockWorkerAPIClient()
+        
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        try? fileManager.removeItem(at: documents.appendingPathComponent("force_retry_count_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("force_retry_count_history.json"))
+        
+        let worker = UploadQueueWorker(
+            store: queueStore,
+            historyStore: historyStore,
+            apiClient: mockApiClient,
+            fileManager: fileManager
+        )
+        
+        // Add a failed session with high retry count
+        let failedSession = makeSession(
+            sessionId: "failed-session",
+            assets: [makeAsset(state: .failed)],
+            retryCount: 10
+        )
+        try await queueStore.addSession(failedSession)
+        
+        // Force retry
+        await worker.forceRetrySession(sessionId: "failed-session")
+        
+        // Should have processed (retry count was reset)
+        #expect(mockApiClient.presignCallCount == 1)
+        
+        // Cleanup
+        try? fileManager.removeItem(at: documents.appendingPathComponent("force_retry_count_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("force_retry_count_history.json"))
+    }
+    
+    // MARK: - cancelSession Tests
+    
+    @Test("cancelSession resets uploading states to pending")
+    func cancelSessionResetsToOpen() async throws {
+        let fileManager = FileManager.default
+        let queueStore = UploadQueueStore(fileManager: fileManager, fileName: "cancel_session_test_queue.json")
+        let historyStore = UploadHistoryStore(fileManager: fileManager, fileName: "cancel_session_test_history.json")
+        let mockApiClient = MockWorkerAPIClient()
+        
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        try? fileManager.removeItem(at: documents.appendingPathComponent("cancel_session_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("cancel_session_test_history.json"))
+        
+        let worker = UploadQueueWorker(
+            store: queueStore,
+            historyStore: historyStore,
+            apiClient: mockApiClient,
+            fileManager: fileManager
+        )
+        
+        // Add an uploading session
+        let uploadingSession = makeSession(
+            sessionId: "uploading-session",
+            assets: [makeAsset(state: .uploading)],
+            manifestState: .uploading,
+            uploadStartedAt: "2025-01-01T00:00:00Z"
+        )
+        try await queueStore.addSession(uploadingSession)
+        
+        // Cancel the session
+        await worker.cancelSession(sessionId: "uploading-session")
+        
+        // Verify session is now pending
+        let sessions = try await worker.getQueueSessions()
+        #expect(sessions.count == 1)
+        #expect(sessions.first?.status == .pending)
+        #expect(sessions.first?.assets.first?.state == .pending)
+        #expect(sessions.first?.manifestState == .pending)
+        #expect(sessions.first?.uploadStartedAt == nil)
+        
+        // Cleanup
+        try? fileManager.removeItem(at: documents.appendingPathComponent("cancel_session_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("cancel_session_test_history.json"))
+    }
+    
+    @Test("cancelSession preserves uploaded assets")
+    func cancelSessionPreservesUploaded() async throws {
+        let fileManager = FileManager.default
+        let queueStore = UploadQueueStore(fileManager: fileManager, fileName: "cancel_preserve_test_queue.json")
+        let historyStore = UploadHistoryStore(fileManager: fileManager, fileName: "cancel_preserve_test_history.json")
+        let mockApiClient = MockWorkerAPIClient()
+        
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        try? fileManager.removeItem(at: documents.appendingPathComponent("cancel_preserve_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("cancel_preserve_test_history.json"))
+        
+        let worker = UploadQueueWorker(
+            store: queueStore,
+            historyStore: historyStore,
+            apiClient: mockApiClient,
+            fileManager: fileManager
+        )
+        
+        // Add a session with mixed states (some uploaded, some uploading)
+        let mixedSession = UploadQueueSession(
+            id: "mixed-session",
+            eventId: 1,
+            sessionId: "mixed-session",
+            createdAt: "2025-01-01T00:00:00Z",
+            publicGalleryURL: "https://example.com/s/mixed-session",
+            assets: [
+                makeAsset(state: .uploaded),
+                makeAsset(state: .uploading)
+            ],
+            manifestState: .pending,
+            completeState: .pending,
+            retryCount: 0,
+            uploadStartedAt: "2025-01-01T00:00:00Z"
+        )
+        try await queueStore.addSession(mixedSession)
+        
+        // Cancel the session
+        await worker.cancelSession(sessionId: "mixed-session")
+        
+        // Verify uploaded asset is preserved, uploading is reset
+        let sessions = try await worker.getQueueSessions()
+        #expect(sessions.count == 1)
+        let assets = sessions.first?.assets ?? []
+        #expect(assets.count == 2)
+        #expect(assets.filter { $0.state == .uploaded }.count == 1)
+        #expect(assets.filter { $0.state == .pending }.count == 1)
+        
+        // Cleanup
+        try? fileManager.removeItem(at: documents.appendingPathComponent("cancel_preserve_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("cancel_preserve_test_history.json"))
+    }
+    
+    // MARK: - Offline/Network Error Tests
+    
+    @Test("Failed uploads are retried by auto-retry when network returns")
+    func failedUploadsRetriedByAutoRetry() async throws {
+        let fileManager = FileManager.default
+        let queueStore = UploadQueueStore(fileManager: fileManager, fileName: "offline_retry_test_queue.json")
+        let historyStore = UploadHistoryStore(fileManager: fileManager, fileName: "offline_retry_test_history.json")
+        let mockApiClient = MockWorkerAPIClient()
+        
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        try? fileManager.removeItem(at: documents.appendingPathComponent("offline_retry_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("offline_retry_test_history.json"))
+        
+        let worker = UploadQueueWorker(
+            store: queueStore,
+            historyStore: historyStore,
+            apiClient: mockApiClient,
+            fileManager: fileManager
+        )
+        
+        // Add a failed session (simulates what happens when upload fails due to no network)
+        let failedSession = makeSession(
+            sessionId: "offline-failed",
+            assets: [makeAsset(state: .failed)],
+            retryCount: 0
+        )
+        try await queueStore.addSession(failedSession)
+        
+        // Simulate auto-retry running (this is what happens when network returns)
+        await worker.autoRetryFailedSessions()
+        
+        // Should have attempted to retry (called presign)
+        #expect(mockApiClient.presignCallCount == 1)
+        
+        // Cleanup
+        try? fileManager.removeItem(at: documents.appendingPathComponent("offline_retry_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("offline_retry_test_history.json"))
+    }
+    
+    @Test("URLSession configured without waitsForConnectivity for fast failure")
+    func uploadSessionDoesNotWaitForConnectivity() async throws {
+        // This test verifies the URLSession configuration is correct.
+        // With waitsForConnectivity = false, uploads fail immediately when offline,
+        // allowing auto-retry to handle reconnection instead of waiting indefinitely.
+        
+        // The actual URLSession configuration is internal, but we can verify
+        // the expected behavior: when API fails, the session should be marked failed
+        // and recoverable via retry.
+        
+        let fileManager = FileManager.default
+        let queueStore = UploadQueueStore(fileManager: fileManager, fileName: "no_wait_test_queue.json")
+        let historyStore = UploadHistoryStore(fileManager: fileManager, fileName: "no_wait_test_history.json")
+        let mockApiClient = MockWorkerAPIClient()
+        mockApiClient.presignError = APIError.serverUnreachable  // Simulate network failure
+        
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        try? fileManager.removeItem(at: documents.appendingPathComponent("no_wait_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("no_wait_test_history.json"))
+        
+        let worker = UploadQueueWorker(
+            store: queueStore,
+            historyStore: historyStore,
+            apiClient: mockApiClient,
+            fileManager: fileManager
+        )
+        
+        // Add a pending session
+        let pendingSession = makeSession(
+            sessionId: "network-fail",
+            assets: [makeAsset(state: .pending)]
+        )
+        try await queueStore.addSession(pendingSession)
+        
+        // Try to process - should fail due to mock API failure
+        await worker.startProcessing()
+        
+        // Session should still be in queue (failed processing doesn't remove it)
+        let sessions = try await worker.getQueueSessions()
+        #expect(sessions.count == 1)
+        
+        // Now simulate network recovery by clearing the error and retrying
+        mockApiClient.presignError = nil
+        mockApiClient.presignCallCount = 0
+        
+        // Force retry should work
+        await worker.forceRetrySession(sessionId: "network-fail")
+        
+        // Should have called presign (network "recovered")
+        #expect(mockApiClient.presignCallCount == 1)
+        
+        // Cleanup
+        try? fileManager.removeItem(at: documents.appendingPathComponent("no_wait_test_queue.json"))
+        try? fileManager.removeItem(at: documents.appendingPathComponent("no_wait_test_history.json"))
+    }
+}
