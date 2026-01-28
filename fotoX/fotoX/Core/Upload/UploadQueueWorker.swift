@@ -433,10 +433,12 @@ actor UploadQueueWorker {
                 var recovered = session
                 
                 // Reset uploading states to failed (so they show in UI and get auto-retried)
+                var hasMarkedAsFailed = false
                 recovered.assets = session.assets.map { asset in
                     var asset = asset
-                    if asset.state == .uploading {
+                    if asset.state == .uploading | asset.state == .pending {
                         asset.state = .failed
+                        hasMarkedAsFailed = true
                     }
                     return asset
                 }

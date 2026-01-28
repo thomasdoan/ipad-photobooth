@@ -140,7 +140,7 @@ extension UploadQueueSession {
     
     /// Whether this session appears to be stuck (uploading for too long)
     var isStale: Bool {
-        guard status == .uploading,
+        guard status == .pending || status == .uploading,
               let startedAt = uploadStartedAt,
               let startDate = ISO8601DateFormatter().date(from: startedAt) else {
             return false
