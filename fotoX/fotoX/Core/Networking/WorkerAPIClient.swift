@@ -7,7 +7,18 @@
 
 import Foundation
 
-struct WorkerAPIClient: Sendable {
+// MARK: - Protocol for Upload Queue
+
+/// Protocol for Worker API client methods used by UploadQueueWorker
+/// This enables mock injection for testing
+protocol WorkerAPIClientProtocol: Sendable {
+    func presign(request: PresignRequest) async throws -> PresignResponse
+    func complete(request: CompleteRequest) async throws -> CompleteResponse
+}
+
+// MARK: - Implementation
+
+struct WorkerAPIClient: WorkerAPIClientProtocol, Sendable {
     static let shared = WorkerAPIClient()
 
     private let session: URLSession

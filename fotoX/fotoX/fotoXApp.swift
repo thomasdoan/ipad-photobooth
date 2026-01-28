@@ -63,7 +63,7 @@ struct RootView: View {
                     .transition(.opacity)
                 
             case .settings:
-                SettingsView()
+                SettingsView(uploadQueueWorker: services.uploadQueueWorker)
                     .transition(.opacity)
                 
             }
@@ -99,7 +99,7 @@ struct RootView: View {
             get: { appState.showSettings },
             set: { appState.showSettings = $0 }
         )) {
-            SettingsView()
+            SettingsView(uploadQueueWorker: services.uploadQueueWorker)
                 .fotoXStatusBarHidden()
         }
         .fullScreenCover(isPresented: Binding(

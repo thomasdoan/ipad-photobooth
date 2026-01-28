@@ -9,21 +9,29 @@ import Foundation
 
 actor UploadQueueWorker {
     private let store: UploadQueueStore
-    private let apiClient: WorkerAPIClient
+    private let historyStore: UploadHistoryStore
+    private let apiClient: any WorkerAPIClientProtocol
     private let fileManager: FileManager
-    private let uploadsDirectory: URL
+    let uploadsDirectory: URL
     private var isProcessing = false
 
     init(
         store: UploadQueueStore = UploadQueueStore(),
-        apiClient: WorkerAPIClient = .shared,
-        fileManager: FileManager = .default
+        historyStore: UploadHistoryStore = UploadHistoryStore(),
+        apiClient: any WorkerAPIClientProtocol = WorkerAPIClient.shared,
+        fileManager: FileManager = .default,
+        uploadsDirectory: URL? = nil
     ) {
         self.store = store
+        self.historyStore = historyStore
         self.apiClient = apiClient
         self.fileManager = fileManager
-        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        self.uploadsDirectory = documents.appendingPathComponent("Uploads", isDirectory: true)
+        if let uploadsDirectory {
+            self.uploadsDirectory = uploadsDirectory
+        } else {
+            let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            self.uploadsDirectory = documents.appendingPathComponent("Uploads", isDirectory: true)
+        }
     }
 
     func enqueueSession(
@@ -208,6 +216,62 @@ actor UploadQueueWorker {
         await startProcessing(onProgress: onProgress, onError: onError)
     }
 
+    // MARK: - Public API for UI
+
+    /// Returns current queue sessions for UI display
+    func getQueueSessions() async throws -> [UploadQueueSession] {
+        try await store.sessions()
+    }
+
+    /// Returns completed upload history
+    func getCompletedHistory() async throws -> [CompletedUploadRecord] {
+        try await historyStore.records()
+    }
+
+    /// Clears completed upload history
+    func clearHistory() async throws {
+        try await historyStore.clearAll()
+    }
+
+    /// Retries a single failed session by ID
+    func retrySession(
+        sessionId: String,
+        onProgress: (@MainActor @Sendable (String) -> Void)? = nil,
+        onError: (@MainActor @Sendable (String, APIError) -> Void)? = nil
+    ) async {
+        do {
+            let sessions = try await store.sessions()
+            guard let session = sessions.first(where: { $0.sessionId == sessionId }) else {
+                return
+            }
+            // Only retry if the session has failures
+            guard uploadSessionStatus(session) == .failed else { return }
+            _ = try await process(session: session, onProgress: onProgress, onError: onError)
+        } catch let error as APIError {
+            await MainActor.run { onError?(sessionId, error) }
+        } catch {
+            await MainActor.run { onError?(sessionId, .unknown(error)) }
+        }
+    }
+
+    /// Retries all failed sessions
+    func retryAllFailed(
+        onProgress: (@MainActor @Sendable (String) -> Void)? = nil,
+        onError: (@MainActor @Sendable (String, APIError) -> Void)? = nil
+    ) async {
+        do {
+            let sessions = try await store.sessions()
+            let failed = sessions.filter { uploadSessionStatus($0) == .failed }
+            for session in failed {
+                _ = try await process(session: session, onProgress: onProgress, onError: onError)
+            }
+        } catch let error as APIError {
+            await MainActor.run { onError?("", error) }
+        } catch {
+            await MainActor.run { onError?("", .unknown(error)) }
+        }
+    }
+
     // MARK: - Processing
 
     private func process(
@@ -342,6 +406,18 @@ actor UploadQueueWorker {
                 return workingSession
             }
         }
+
+        // Record in history before removing from active queue
+        let historyRecord = CompletedUploadRecord(
+            id: workingSession.sessionId,
+            sessionId: workingSession.sessionId,
+            eventId: workingSession.eventId,
+            createdAt: workingSession.createdAt,
+            completedAt: ISO8601DateFormatter().string(from: Date()),
+            assetCount: workingSession.assets.count,
+            publicGalleryURL: workingSession.publicGalleryURL
+        )
+        try? await historyStore.addRecord(historyRecord)
 
         try cleanupFiles(for: workingSession)
         try await store.removeSession(sessionId: workingSession.sessionId)

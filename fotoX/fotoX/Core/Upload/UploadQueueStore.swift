@@ -13,10 +13,10 @@ actor UploadQueueStore {
     private var snapshot = UploadQueueSnapshot(sessions: [])
     private var isLoaded = false
 
-    init(fileManager: FileManager = .default) {
+    init(fileManager: FileManager = .default, fileName: String = "upload_queue.json") {
         self.fileManager = fileManager
         let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        self.fileURL = documents.appendingPathComponent("upload_queue.json")
+        self.fileURL = documents.appendingPathComponent(fileName)
     }
 
     func loadIfNeeded() async throws {
