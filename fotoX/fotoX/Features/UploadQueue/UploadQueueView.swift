@@ -7,6 +7,7 @@
 
 import SwiftUI
 
+@MainActor
 struct UploadQueueView: View {
     @State private var viewModel: UploadQueueViewModel
 
