@@ -39,7 +39,8 @@ struct UploadQueueSession: Identifiable, Codable, Sendable {
     var manifestState: UploadQueueItemState
     var completeState: UploadQueueItemState
     /// Number of automatic retry attempts made for this session
-    var retryCount: Int
+    /// Default to 0 for backward compatibility with older persisted JSON
+    var retryCount: Int = 0
     
     /// Maximum number of automatic retry attempts before requiring manual intervention
     static let maxAutoRetries = 5
