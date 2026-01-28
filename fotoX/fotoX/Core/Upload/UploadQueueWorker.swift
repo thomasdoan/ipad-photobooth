@@ -15,6 +15,8 @@ actor UploadQueueWorker {
     let uploadsDirectory: URL
     private var isProcessing = false
     private var autoRetryTask: Task<Void, Never>?
+    /// Tracks session IDs currently being processed to prevent duplicate concurrent uploads
+    private var inFlightSessions: Set<String> = []
     
     /// Default interval for automatic retry checks (30 seconds)
     static let defaultAutoRetryInterval: TimeInterval = 30
@@ -195,6 +197,13 @@ actor UploadQueueWorker {
         do {
             let sessions = try await store.sessions()
             for session in sessions {
+                // Skip if session is already being processed by retry
+                guard !inFlightSessions.contains(session.sessionId) else { continue }
+                
+                // Mark session as in-flight before processing
+                inFlightSessions.insert(session.sessionId)
+                defer { inFlightSessions.remove(session.sessionId) }
+                
                 _ = try await process(session: session, onProgress: onProgress, onError: onError)
             }
         } catch let error as APIError {
@@ -243,6 +252,9 @@ actor UploadQueueWorker {
         onProgress: (@MainActor @Sendable (String) -> Void)? = nil,
         onError: (@MainActor @Sendable (String, APIError) -> Void)? = nil
     ) async {
+        // Prevent concurrent processing - check if already processing or session in flight
+        guard !isProcessing, !inFlightSessions.contains(sessionId) else { return }
+        
         do {
             let sessions = try await store.sessions()
             guard var session = sessions.first(where: { $0.sessionId == sessionId }) else {
@@ -254,6 +266,10 @@ actor UploadQueueWorker {
             // Reset retry count for manual retry (gives user fresh attempts)
             session.retryCount = 0
             try await store.updateSession(session)
+            
+            // Mark session as in-flight before processing
+            inFlightSessions.insert(sessionId)
+            defer { inFlightSessions.remove(sessionId) }
             
             _ = try await process(session: session, onProgress: onProgress, onError: onError)
         } catch let error as APIError {
@@ -268,14 +284,25 @@ actor UploadQueueWorker {
         onProgress: (@MainActor @Sendable (String) -> Void)? = nil,
         onError: (@MainActor @Sendable (String, APIError) -> Void)? = nil
     ) async {
+        // Prevent concurrent processing with startProcessing
+        guard !isProcessing else { return }
+        
         do {
             let sessions = try await store.sessions()
             let failed = sessions.filter { uploadSessionStatus($0) == .failed }
             for session in failed {
+                // Skip if session is already being processed
+                guard !inFlightSessions.contains(session.sessionId) else { continue }
+                
                 // Reset retry count for manual retry (gives user fresh attempts)
                 var resetSession = session
                 resetSession.retryCount = 0
                 try await store.updateSession(resetSession)
+                
+                // Mark session as in-flight before processing
+                inFlightSessions.insert(session.sessionId)
+                defer { inFlightSessions.remove(session.sessionId) }
+                
                 _ = try await process(session: resetSession, onProgress: onProgress, onError: onError)
             }
         } catch let error as APIError {
@@ -316,18 +343,30 @@ actor UploadQueueWorker {
         onProgress: (@MainActor @Sendable (String) -> Void)? = nil,
         onError: (@MainActor @Sendable (String, APIError) -> Void)? = nil
     ) async {
+        // Prevent concurrent processing with startProcessing
+        guard !isProcessing else { return }
+        
         do {
             let sessions = try await store.sessions()
-            // Only retry failed sessions that can still be auto-retried
+            // Only retry failed sessions that can still be auto-retried and aren't in flight
             let retryable = sessions.filter { session in
-                uploadSessionStatus(session) == .failed && session.canAutoRetry
+                uploadSessionStatus(session) == .failed 
+                    && session.canAutoRetry 
+                    && !inFlightSessions.contains(session.sessionId)
             }
             
             for session in retryable {
+                // Double-check session isn't now in flight (actor re-entrancy)
+                guard !inFlightSessions.contains(session.sessionId) else { continue }
+                
                 // Increment retry count before attempting
                 var updatedSession = session
                 updatedSession.retryCount += 1
                 try await store.updateSession(updatedSession)
+                
+                // Mark session as in-flight before processing
+                inFlightSessions.insert(session.sessionId)
+                defer { inFlightSessions.remove(session.sessionId) }
                 
                 _ = try await process(session: updatedSession, onProgress: onProgress, onError: onError)
             }
@@ -487,7 +526,13 @@ actor UploadQueueWorker {
             assetCount: workingSession.assets.count,
             publicGalleryURL: workingSession.publicGalleryURL
         )
-        try? await historyStore.addRecord(historyRecord)
+        do {
+            try await historyStore.addRecord(historyRecord)
+        } catch {
+            // Log the error with context but don't fail the upload
+            // The session completed successfully, history is non-critical
+            print("[UploadQueueWorker] Failed to record CompletedUploadRecord in historyStore.addRecord for sessionId=\(workingSession.sessionId), eventId=\(workingSession.eventId): \(error)")
+        }
 
         try cleanupFiles(for: workingSession)
         try await store.removeSession(sessionId: workingSession.sessionId)

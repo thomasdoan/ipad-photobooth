@@ -18,7 +18,8 @@ actor UploadHistoryStore {
 
     init(fileManager: FileManager = .default, fileName: String = "upload_history.json", maxRecords: Int = 1000) {
         self.fileManager = fileManager
-        self.maxRecords = maxRecords
+        // Clamp to non-negative value to prevent Array.prefix(_:) from trapping
+        self.maxRecords = max(0, maxRecords)
         let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
         self.fileURL = documents.appendingPathComponent(fileName)
     }
