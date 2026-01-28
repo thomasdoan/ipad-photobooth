@@ -436,7 +436,7 @@ actor UploadQueueWorker {
                 var hasMarkedAsFailed = false
                 recovered.assets = session.assets.map { asset in
                     var asset = asset
-                    if asset.state == .uploading | asset.state == .pending {
+                    if asset.state == .uploading || asset.state == .pending {
                         asset.state = .failed
                         hasMarkedAsFailed = true
                     }
