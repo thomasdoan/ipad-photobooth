@@ -120,6 +120,13 @@ struct UploadQueueView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
 
+                    // Show elapsed time for uploading sessions
+                    if session.status == .uploading, let duration = session.uploadDuration {
+                        Text("(\(duration))")
+                            .font(.caption2)
+                            .foregroundStyle(session.isStale ? Color.red : Color.secondary)
+                    }
+
                     Text(session.createdAt.formattedQueueDate)
                         .font(.caption2)
                         .foregroundStyle(.tertiary)
@@ -128,24 +135,36 @@ struct UploadQueueView: View {
 
             Spacer()
 
-            // Retry button for failed sessions
-            if session.status == .failed {
-                Button {
-                    Task {
-                        await viewModel.retrySession(sessionId: session.sessionId)
+            // Action menu for all non-complete sessions
+            if session.status != .completed {
+                if viewModel.retryingSessionId == session.sessionId {
+                    ProgressView()
+                        .progressViewStyle(.circular)
+                        .scaleEffect(0.8)
+                } else {
+                    Menu {
+                        if session.status == .uploading {
+                            Button(role: .destructive) {
+                                Task { await viewModel.cancelSession(sessionId: session.sessionId) }
+                            } label: {
+                                Label("Cancel Upload", systemImage: "xmark.circle")
+                            }
+                        }
+                        
+                        Button {
+                            Task { await viewModel.forceRetrySession(sessionId: session.sessionId) }
+                        } label: {
+                            Label(
+                                session.status == .uploading ? "Restart Upload" : "Retry Upload",
+                                systemImage: "arrow.clockwise"
+                            )
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .foregroundStyle(session.isStale ? .red : .secondary)
                     }
-                } label: {
-                    if viewModel.retryingSessionId == session.sessionId {
-                        ProgressView()
-                            .progressViewStyle(.circular)
-                            .scaleEffect(0.8)
-                    } else {
-                        Image(systemName: "arrow.clockwise")
-                            .foregroundStyle(.blue)
-                    }
+                    .disabled(viewModel.isRetrying)
                 }
-                .buttonStyle(.borderless)
-                .disabled(viewModel.isRetrying)
             }
         }
         .padding(.vertical, 4)

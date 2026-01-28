@@ -18,8 +18,17 @@ actor UploadQueueWorker {
     /// Tracks session IDs currently being processed to prevent duplicate concurrent uploads
     private var inFlightSessions: Set<String> = []
     
+    /// Configured URLSession for uploads with explicit timeouts
+    private let uploadSession: URLSession
+    
     /// Default interval for automatic retry checks (30 seconds)
     static let defaultAutoRetryInterval: TimeInterval = 30
+    
+    /// Timeout for individual upload requests (30 seconds)
+    static let uploadRequestTimeout: TimeInterval = 30
+    
+    /// Timeout for the entire upload resource - (1 minute)
+    static let uploadResourceTimeout: TimeInterval = 60
     
     /// Minimum interval between auto-retry error logs to prevent spam (60 seconds)
     private static let autoRetryErrorLogThrottleInterval: TimeInterval = 60
@@ -44,6 +53,15 @@ actor UploadQueueWorker {
             let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
             self.uploadsDirectory = documents.appendingPathComponent("Uploads", isDirectory: true)
         }
+        
+        // Configure upload session with explicit timeouts
+        let config = URLSessionConfiguration.default
+        config.timeoutIntervalForRequest = Self.uploadRequestTimeout
+        config.timeoutIntervalForResource = Self.uploadResourceTimeout
+        config.waitsForConnectivity = true
+        config.allowsConstrainedNetworkAccess = true
+        config.allowsExpensiveNetworkAccess = true
+        self.uploadSession = URLSession(configuration: config)
     }
 
     func enqueueSession(
@@ -318,6 +336,128 @@ actor UploadQueueWorker {
         }
     }
     
+    /// Force retry a session - works for stuck uploading sessions too
+    func forceRetrySession(
+        sessionId: String,
+        onProgress: (@MainActor @Sendable (String) -> Void)? = nil,
+        onError: (@MainActor @Sendable (String, APIError) -> Void)? = nil
+    ) async {
+        // Remove from in-flight set first (might be stuck there)
+        inFlightSessions.remove(sessionId)
+        
+        do {
+            let sessions = try await store.sessions()
+            guard var session = sessions.first(where: { $0.sessionId == sessionId }) else {
+                return
+            }
+            
+            // Don't retry if already complete
+            guard session.status != .completed else { return }
+            
+            // Reset ALL non-uploaded states (including uploading) to pending
+            session.assets = session.assets.map { asset in
+                var asset = asset
+                if asset.state != .uploaded {
+                    asset.state = .pending
+                }
+                return asset
+            }
+            if session.manifestState != .uploaded {
+                session.manifestState = .pending
+            }
+            if session.completeState != .uploaded {
+                session.completeState = .pending
+            }
+            
+            // Reset retry count and timestamp for manual retry
+            session.retryCount = 0
+            session.uploadStartedAt = nil
+            try await store.updateSession(session)
+            
+            // Now process normally
+            inFlightSessions.insert(sessionId)
+            defer { inFlightSessions.remove(sessionId) }
+            
+            _ = try await process(session: session, onProgress: onProgress, onError: onError)
+        } catch let error as APIError {
+            await MainActor.run { onError?(sessionId, error) }
+        } catch {
+            await MainActor.run { onError?(sessionId, .unknown(error)) }
+        }
+    }
+    
+    /// Cancels an upload and resets it to pending state
+    func cancelSession(sessionId: String) async {
+        // Remove from in-flight to stop processing
+        inFlightSessions.remove(sessionId)
+        
+        do {
+            let sessions = try await store.sessions()
+            guard var session = sessions.first(where: { $0.sessionId == sessionId }) else {
+                return
+            }
+            
+            // Reset uploading states to pending
+            session.assets = session.assets.map { asset in
+                var asset = asset
+                if asset.state == .uploading {
+                    asset.state = .pending
+                }
+                return asset
+            }
+            if session.manifestState == .uploading {
+                session.manifestState = .pending
+            }
+            if session.completeState == .uploading {
+                session.completeState = .pending
+            }
+            session.uploadStartedAt = nil
+            
+            try await store.updateSession(session)
+        } catch {
+            print("[UploadQueueWorker] Failed to cancel session: \(error)")
+        }
+    }
+    
+    // MARK: - Stale Upload Recovery
+    
+    /// Resets any sessions that appear to be stuck in uploading state
+    /// Called on app startup and periodically before auto-retry
+    func recoverStaleUploads() async {
+        do {
+            let sessions = try await store.sessions()
+            for session in sessions where session.isStale {
+                var recovered = session
+                
+                // Reset uploading states to failed (so they show in UI and get auto-retried)
+                recovered.assets = session.assets.map { asset in
+                    var asset = asset
+                    if asset.state == .uploading {
+                        asset.state = .failed
+                    }
+                    return asset
+                }
+                if recovered.manifestState == .uploading {
+                    recovered.manifestState = .failed
+                }
+                if recovered.completeState == .uploading {
+                    recovered.completeState = .failed
+                }
+                
+                // Clear the stale timestamp
+                recovered.uploadStartedAt = nil
+                
+                // Remove from in-flight tracking
+                inFlightSessions.remove(session.sessionId)
+                
+                try await store.updateSession(recovered)
+                print("[UploadQueueWorker] Recovered stale session: \(session.sessionId)")
+            }
+        } catch {
+            print("[UploadQueueWorker] Failed to recover stale uploads: \(error)")
+        }
+    }
+    
     // MARK: - Auto Retry
     
     /// Starts periodic automatic retry of failed sessions
@@ -327,11 +467,16 @@ actor UploadQueueWorker {
         autoRetryTask?.cancel()
         
         autoRetryTask = Task {
+            // Recover stale uploads immediately on startup (handles crash recovery)
+            await recoverStaleUploads()
+            
             while !Task.isCancelled {
                 try? await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
                 
                 guard !Task.isCancelled else { break }
                 
+                // Recover stale uploads before retrying failed sessions
+                await recoverStaleUploads()
                 await autoRetryFailedSessions()
             }
         }
@@ -418,6 +563,9 @@ actor UploadQueueWorker {
         onError: (@MainActor @Sendable (String, APIError) -> Void)?
     ) async throws -> UploadQueueSession {
         var workingSession = resetFailures(in: session)
+        
+        // Mark upload start time for stale detection
+        workingSession.uploadStartedAt = ISO8601DateFormatter().string(from: Date())
         try await store.updateSession(workingSession)
 
         let pendingAssets = workingSession.assets.filter { $0.state != .uploaded }
@@ -652,7 +800,7 @@ actor UploadQueueWorker {
         request.httpMethod = method
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
 
-        let (_, response) = try await URLSession.shared.upload(for: request, fromFile: fileURL)
+        let (_, response) = try await uploadSession.upload(for: request, fromFile: fileURL)
         try validateUploadResponse(response)
     }
 
@@ -664,7 +812,7 @@ actor UploadQueueWorker {
         request.httpMethod = method
         request.setValue(contentType, forHTTPHeaderField: "Content-Type")
 
-        let (_, response) = try await URLSession.shared.upload(for: request, from: data)
+        let (_, response) = try await uploadSession.upload(for: request, from: data)
         try validateUploadResponse(response)
     }
 

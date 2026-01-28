@@ -41,11 +41,17 @@ struct UploadQueueSession: Identifiable, Codable, Sendable {
     /// Number of automatic retry attempts made for this session
     /// Default to 0 for backward compatibility with older persisted JSON
     var retryCount: Int = 0
+    /// Timestamp when the current upload attempt started (ISO8601)
+    /// Used to detect stale uploads that may have hung
+    var uploadStartedAt: String?
     
     /// Maximum number of automatic retry attempts before requiring manual intervention
     static let maxAutoRetries = 5
     
-    // Custom init with default retryCount for backward compatibility
+    /// Timeout threshold for considering an upload as stale/stuck (10 minutes)
+    static let staleUploadThreshold: TimeInterval = 60
+    
+    // Custom init with defaults for backward compatibility
     init(
         id: String,
         eventId: Int,
@@ -55,7 +61,8 @@ struct UploadQueueSession: Identifiable, Codable, Sendable {
         assets: [UploadQueueAsset],
         manifestState: UploadQueueItemState,
         completeState: UploadQueueItemState,
-        retryCount: Int = 0
+        retryCount: Int = 0,
+        uploadStartedAt: String? = nil
     ) {
         self.id = id
         self.eventId = eventId
@@ -66,6 +73,7 @@ struct UploadQueueSession: Identifiable, Codable, Sendable {
         self.manifestState = manifestState
         self.completeState = completeState
         self.retryCount = retryCount
+        self.uploadStartedAt = uploadStartedAt
     }
 }
 
@@ -128,6 +136,32 @@ extension UploadQueueSession {
     /// Whether this session requires manual intervention (exceeded max auto-retries)
     var requiresManualRetry: Bool {
         status == .failed && retryCount >= Self.maxAutoRetries
+    }
+    
+    /// Whether this session appears to be stuck (uploading for too long)
+    var isStale: Bool {
+        guard status == .uploading,
+              let startedAt = uploadStartedAt,
+              let startDate = ISO8601DateFormatter().date(from: startedAt) else {
+            return false
+        }
+        return Date().timeIntervalSince(startDate) > Self.staleUploadThreshold
+    }
+    
+    /// Human-readable time since upload started
+    var uploadDuration: String? {
+        guard let startedAt = uploadStartedAt,
+              let startDate = ISO8601DateFormatter().date(from: startedAt) else {
+            return nil
+        }
+        let elapsed = Date().timeIntervalSince(startDate)
+        if elapsed < 60 {
+            return "\(Int(elapsed))s"
+        } else if elapsed < 3600 {
+            return "\(Int(elapsed / 60))m"
+        } else {
+            return "\(Int(elapsed / 3600))h \(Int((elapsed.truncatingRemainder(dividingBy: 3600)) / 60))m"
+        }
     }
 
     /// Human-readable progress string

@@ -143,6 +143,28 @@ final class UploadQueueViewModel {
         // Refresh to show updated state
         await refresh()
     }
+    
+    /// Force retries a session (works for stuck uploading sessions too)
+    func forceRetrySession(sessionId: String) async {
+        retryingSessionId = sessionId
+        isRetrying = true
+
+        await worker.forceRetrySession(sessionId: sessionId)
+
+        isRetrying = false
+        retryingSessionId = nil
+
+        // Refresh to show updated state
+        await refresh()
+    }
+    
+    /// Cancels an in-progress upload and resets it to pending
+    func cancelSession(sessionId: String) async {
+        await worker.cancelSession(sessionId: sessionId)
+        
+        // Refresh to show updated state
+        await refresh()
+    }
 
     /// Clears completed upload history
     func clearHistory() async {
