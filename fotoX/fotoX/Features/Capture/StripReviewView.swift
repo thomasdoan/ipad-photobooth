@@ -291,105 +291,277 @@ struct CaptureSummaryView: View {
     let onRetake: (Int) -> Void
     let onFinish: () -> Void
     let aspectRatio: CGFloat
+    @Binding var selectedFrameAssetName: String?
+    let onCompositeRendered: (CompositeStripAssets?) -> Void
     
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
+    @Environment(\.themeAssets) private var themeAssets
+    
+    @State private var isProcessing = false
+    @State private var isRenderingComposite = false
+    @State private var compositePhotoData: Data?
+    @State private var compositeVideoURL: URL?
+    @State private var compositePlayerManager = VideoPlayerManager()
+    @State private var compositePlayer: AVPlayer?
+    @State private var renderTask: Task<Void, Never>?
+    
+    private var compositePlayerID: String { "summary-composite-video" }
     
     var body: some View {
         GeometryReader { geometry in
             ZStack {
                 theme.secondary.ignoresSafeArea()
                 
-                VStack(spacing: 32) {
-                    // Header
-                    VStack(spacing: 8) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 60))
-                            .foregroundStyle(theme.primary)
-                        
-                        Text("All Done!")
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
-                            .foregroundStyle(theme.accent)
-                        
-                    Text("Review your captures before we process them")
-                        .font(.body)
-                        .foregroundStyle(theme.accent.opacity(0.7))
-                }
-                .padding(.top, 40)
-                
-                // Strip composite
-                StripCompositeView(
-                    slots: stripSlots(),
-                    footerText: stripFooterText(),
-                    slotAspectRatio: aspectRatio
-                ) { slot in
-                    stripSlotContent(slot: slot, strips: strips)
-                }
-                .frame(width: stripSize(for: geometry).width, height: stripSize(for: geometry).height)
-
-                HStack(spacing: 12) {
-                    ForEach(stripSlots()) { slot in
-                        Button {
-                            onRetake(slot.id)
-                        } label: {
-                            Text("Retake \(slot.id + 1)")
-                                .font(.caption2.bold())
-                                .foregroundStyle(theme.accent.opacity(0.7))
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(
-                                    Capsule()
-                                        .stroke(theme.accent.opacity(0.3), lineWidth: 1)
-                                )
-                        }
-                    }
-                }
-                
-                Spacer()
+                HStack(alignment: .top, spacing: 0) {
+                    // Left pane - Title + frame selector (50% width)
+                    selectorPane
+                        .frame(width: geometry.size.width * 0.5)
                     
-                    // Finish button
-                    Button(action: onFinish) {
-                        HStack(spacing: 12) {
-                            Image(systemName: "arrow.up.circle.fill")
-                            Text("Process & Upload")
-                        }
-                        .font(.title3.bold())
-                        .foregroundStyle(theme.secondary)
-                        .padding(.horizontal, 48)
-                        .padding(.vertical, 18)
-                        .background(
-                            Capsule()
-                                .fill(theme.primary)
-                        )
-                        .shadow(color: theme.primary.opacity(0.4), radius: 15, y: 5)
-                    }
-                    .padding(.bottom, 60)
+                    // Right pane - Composite preview + upload (50% width)
+                    previewPane(geometry: geometry)
+                        .frame(width: geometry.size.width * 0.5)
                 }
+                .overlay(alignment: .center) {
+                    Rectangle()
+                        .fill(theme.accent.opacity(0.15))
+                        .frame(width: 1)
+                        .padding(.vertical, 32)
+                }
+                .padding(.horizontal, 28)
+                .padding(.vertical, 24)
+                
+                // Interstitial loading overlay
+                if isProcessing {
+                    loadingOverlay
+                }
+            }
+        }
+        .onAppear {
+            if selectedFrameAssetName == nil {
+                // Default to the first loadable local frame option.
+                if let first = FrameOption.availableFrames.first(where: { $0.loadFrameImage() != nil }) {
+                    selectedFrameAssetName = first.frameName
+                }
+            }
+            scheduleCompositeRender()
+        }
+        .onDisappear {
+            renderTask?.cancel()
+            renderTask = nil
+            compositePlayerManager.stop(id: compositePlayerID)
+            compositePlayer = nil
+        }
+        .onChange(of: selectedFrameAssetName) { _, _ in
+            scheduleCompositeRender()
+        }
+    }
+
+    @ViewBuilder
+    private func previewPane(geometry: GeometryProxy) -> some View {
+        let availableSize = CGSize(
+            width: geometry.size.width * 0.5,
+            height: max(geometry.size.height, 1)
+        )
+        let previewSize = compositePreviewSize(availableSize: availableSize)
+
+        VStack(alignment: .center, spacing: 24) {
+            Spacer()
+
+            compositePreview(previewSize: previewSize)
+
+            // Upload button directly under the composite
+            Button(action: handleUpload) {
+                HStack(spacing: 12) {
+                    Image(systemName: "arrow.up.circle.fill")
+                    Text("Process & Upload")
+                }
+                .font(.title3.bold())
+                .foregroundStyle(theme.secondary)
+                .padding(.horizontal, 44)
+                .padding(.vertical, 16)
+                .background(Capsule().fill(theme.primary))
+                .shadow(color: theme.primary.opacity(0.4), radius: 15, y: 5)
+            }
+
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private var selectorPane: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack(spacing: 12) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .font(.system(size: 44))
+                        .foregroundStyle(theme.primary)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Select a frame!")
+                            .font(.system(size: 34, weight: .bold, design: .rounded))
+                            .foregroundStyle(theme.accent)
+
+                        Text("Select a frame for your captures before we process them")
+                            .font(.body)
+                            .foregroundStyle(theme.accent.opacity(0.7))
+                    }
+                }
+            }
+
+            FrameSelectorView(
+                selectedFrame: $selectedFrameAssetName,
+                strips: strips,
+                slotAspectRatio: aspectRatio,
+                footerText: stripFooterText()
+            )
+
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 4)
+    }
+    
+    private var loadingOverlay: some View {
+        ZStack {
+            theme.secondary.opacity(0.95)
+                .ignoresSafeArea()
+            
+            VStack(spacing: 24) {
+                ProgressView()
+                    .progressViewStyle(CircularProgressViewStyle(tint: theme.accent))
+                    .scaleEffect(2)
+                
+                Text("Processing your photos...")
+                    .font(.title2.bold())
+                    .foregroundStyle(theme.accent)
             }
         }
     }
     
-    private func stripSlots() -> [StripSlot] {
-        (0..<3).map { StripSlot(id: $0, isVideo: false) }
+    private func handleUpload() {
+        isProcessing = true
+        
+        // Simulate brief processing delay before calling onFinish
+        Task {
+            try? await Task.sleep(for: .milliseconds(300))
+            onFinish()
+        }
     }
-
+    
     private func stripFooterText() -> String {
         theme.stripFooterText ?? appState.selectedEvent?.name ?? "FotoX"
     }
 
-    private func stripSize(for geometry: GeometryProxy) -> CGSize {
-        let maxWidth = min(geometry.size.width * 0.6, 320)
-        let maxHeight = geometry.size.height * 0.55
-        return StripCompositeMetrics.sizeThatFits(
+    private func compositePreviewSize(availableSize: CGSize) -> CGSize {
+        let maxWidth = min(availableSize.width * 0.92, 720)
+        let maxHeight = availableSize.height * 0.62
+        return CGSize(width: maxWidth, height: maxHeight)
+    }
+
+    @ViewBuilder
+    private func compositePreview(previewSize: CGSize) -> some View {
+        HStack(spacing: 16) {
+            // Photo composite
+            // if let compositePhotoData,
+            //    let image = UIImage(data: compositePhotoData) {
+            //     Image(uiImage: image)
+            //         .resizable()
+            //         .aspectRatio(contentMode: .fit)
+            //         .frame(maxWidth: previewSize.width / 2, maxHeight: previewSize.height)
+            //         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            //         .shadow(color: theme.secondary.opacity(0.3), radius: 8, y: 4)
+            // } else {
+            //     fallbackStripView(maxWidth: previewSize.width / 2, maxHeight: previewSize.height)
+            //         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            //         .shadow(color: theme.secondary.opacity(0.3), radius: 8, y: 4)
+            // }
+
+            // Video composite
+            if let player = compositePlayer {
+                QRLoopingVideoView(player: player)
+                    .frame(maxWidth: previewSize.width / 2, maxHeight: previewSize.height)
+                    .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+                    .shadow(color: theme.secondary.opacity(0.3), radius: 8, y: 4)
+            } else {
+                videoUnavailablePlaceholder(maxWidth: previewSize.width / 2, maxHeight: previewSize.height)
+            }
+        }
+        .overlay(alignment: .topLeading) {
+            if isRenderingComposite {
+                HStack(spacing: 10) {
+                    ProgressView()
+                        .progressViewStyle(CircularProgressViewStyle(tint: theme.primary))
+                    Text("Rendering composite…")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(theme.accent.opacity(0.85))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule()
+                        .fill(theme.secondary.opacity(0.55))
+                        .overlay(
+                            Capsule()
+                                .stroke(theme.accent.opacity(0.18), lineWidth: 1)
+                        )
+                )
+                .padding(10)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func fallbackStripView(maxWidth: CGFloat, maxHeight: CGFloat) -> some View {
+        let size = StripCompositeMetrics.sizeThatFits(
             maxWidth: maxWidth,
             maxHeight: maxHeight,
             slotCount: 3,
             slotAspectRatio: aspectRatio
         )
+        StripCompositeView(
+            slots: (0..<3).map { StripSlot(id: $0, isVideo: false) },
+            footerText: stripFooterText(),
+            slotAspectRatio: aspectRatio
+        ) { slot in
+            stripSlotContent(slot: slot)
+        }
+        .frame(width: size.width, height: size.height)
+        .withTheme(theme, assets: effectiveThemeAssetsForFallback)
     }
 
     @ViewBuilder
-    private func stripSlotContent(slot: StripSlot, strips: [CapturedStrip]) -> some View {
+    private func videoUnavailablePlaceholder(maxWidth: CGFloat, maxHeight: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: 12, style: .continuous)
+            .fill(theme.secondary.opacity(0.2))
+            .frame(maxWidth: maxWidth, maxHeight: maxHeight)
+            .overlay {
+                VStack(spacing: 8) {
+                    Image(systemName: "video.slash")
+                        .font(.title)
+                        .foregroundStyle(theme.accent.opacity(0.5))
+                    Text(isRenderingComposite ? "Rendering video…" : "Video processing…")
+                        .font(.caption)
+                        .foregroundStyle(theme.accent.opacity(0.5))
+                }
+            }
+            .shadow(color: theme.secondary.opacity(0.3), radius: 8, y: 4)
+    }
+
+    private var effectiveThemeAssetsForFallback: ThemeAssets? {
+        guard let selectedFrameAssetName,
+              let frame = FrameImageLoader.loadImage(named: selectedFrameAssetName) else {
+            return themeAssets
+        }
+        return ThemeAssets(
+            logo: themeAssets?.logo,
+            background: themeAssets?.background,
+            photoFrame: themeAssets?.photoFrame,
+            stripFrame: frame
+        )
+    }
+
+    @ViewBuilder
+    private func stripSlotContent(slot: StripSlot) -> some View {
         if let strip = strips.first(where: { $0.stripIndex == slot.id }),
            let uiImage = UIImage(data: strip.photoData) {
             Image(uiImage: uiImage)
@@ -401,6 +573,55 @@ struct CaptureSummaryView: View {
                 Image(systemName: "photo")
                     .foregroundStyle(theme.accent.opacity(0.5))
             }
+        }
+    }
+
+    private func scheduleCompositeRender() {
+        renderTask?.cancel()
+        renderTask = Task { @MainActor in
+            await renderCompositeIfPossible()
+        }
+    }
+
+    private func renderCompositeIfPossible() async {
+        guard !strips.isEmpty else { return }
+
+        isRenderingComposite = true
+        defer { isRenderingComposite = false }
+
+        let footerText = stripFooterText()
+        do {
+            let assets = try await StripCompositeRenderer.renderCompositeAssets(
+                strips: strips,
+                theme: theme,
+                assets: themeAssets,
+                footerText: footerText,
+                customFrameAssetName: selectedFrameAssetName,
+                slotAspectRatio: aspectRatio
+            )
+
+            compositePhotoData = assets.photoData
+            compositeVideoURL = assets.videoURL
+            onCompositeRendered(assets)
+
+            if FileManager.default.fileExists(atPath: assets.videoURL.path) {
+                compositePlayer = compositePlayerManager.play(
+                    id: compositePlayerID,
+                    url: assets.videoURL,
+                    fromStart: true,
+                    loop: true
+                )
+            } else {
+                compositePlayerManager.stop(id: compositePlayerID)
+                compositePlayer = nil
+            }
+        } catch {
+            // If composite fails, fall back to the live StripCompositeView preview.
+            compositePhotoData = nil
+            compositeVideoURL = nil
+            compositePlayerManager.stop(id: compositePlayerID)
+            compositePlayer = nil
+            onCompositeRendered(nil)
         }
     }
 }
