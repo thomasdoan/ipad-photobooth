@@ -20,6 +20,12 @@ actor UploadQueueWorker {
     
     /// Default interval for automatic retry checks (30 seconds)
     static let defaultAutoRetryInterval: TimeInterval = 30
+    
+    /// Minimum interval between auto-retry error logs to prevent spam (60 seconds)
+    private static let autoRetryErrorLogThrottleInterval: TimeInterval = 60
+    
+    /// Timestamp of the last logged auto-retry error for throttling
+    private var lastAutoRetryErrorLogTime: Date?
 
     init(
         store: UploadQueueStore = UploadQueueStore(),
@@ -371,8 +377,31 @@ actor UploadQueueWorker {
                 _ = try await process(session: updatedSession, onProgress: onProgress, onError: onError)
             }
         } catch {
-            // Silently handle errors during auto-retry to avoid spamming
-            // The session will be retried on the next interval
+            // Log with throttling to avoid spam - only log if enough time has passed since last error
+            let now = Date()
+            let shouldLog: Bool
+            if let lastLog = lastAutoRetryErrorLogTime {
+                shouldLog = now.timeIntervalSince(lastLog) >= Self.autoRetryErrorLogThrottleInterval
+            } else {
+                shouldLog = true
+            }
+            
+            if shouldLog {
+                lastAutoRetryErrorLogTime = now
+                print("[UploadQueueWorker] Auto-retry failed: \(error.localizedDescription)")
+                
+                // Also invoke onError callback if provided
+                let apiError: APIError
+                if let err = error as? APIError {
+                    apiError = err
+                } else {
+                    apiError = .unknown(error)
+                }
+                await MainActor.run {
+                    onError?("auto-retry", apiError)
+                }
+            }
+            // The session will be retried on the next interval regardless of logging
         }
     }
     
