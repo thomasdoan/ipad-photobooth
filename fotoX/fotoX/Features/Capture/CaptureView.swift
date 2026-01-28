@@ -18,7 +18,7 @@ struct CaptureView: View {
     @State private var showFlash = false
 
     private var isReviewing: Bool {
-        viewModel.stripState == .complete && viewModel.pendingStrip != nil
+        viewModel.stripState == .complete && (viewModel.pendingStrip != nil || viewModel.isSessionComplete)
     }
     
     var body: some View {
@@ -54,9 +54,9 @@ struct CaptureView: View {
             handleStateChange(from: oldState, to: newState)
         }
         .onChange(of: viewModel.isSessionComplete) { _, isComplete in
-            if isComplete {
-                finishCapture()
-            }
+            // When complete, show the summary review screen so the operator can
+            // pick a strip frame (and optionally retake) before uploading.
+            _ = isComplete
         }
         .alert(
             "Processing Error",
@@ -161,6 +161,21 @@ struct CaptureView: View {
                         showsReviewControls: viewModel.showsReviewControls,
                         showsAutoAdvanceLabel: !viewModel.config.manualAdvanceAfterReview,
                         autoAdvanceSeconds: Int(round(viewModel.reviewDuration))
+                    )
+                } else if viewModel.isSessionComplete {
+                    CaptureSummaryView(
+                        strips: viewModel.getCapturedStrips(),
+                        onRetake: { index in
+                            viewModel.retakeStrip(at: index)
+                        },
+                        onFinish: {
+                            finishCapture()
+                        },
+                        aspectRatio: viewModel.currentAspectRatio.widthToHeight,
+                        selectedFrameAssetName: $viewModel.selectedFrameAssetName,
+                        onCompositeRendered: { assets in
+                            viewModel.compositeAssetsForUpload = assets
+                        }
                     )
                 } else {
                     EmptyView()
@@ -367,18 +382,23 @@ struct CaptureView: View {
                 var compositeAssets: CompositeStripAssets? = nil
 
                 let footerText = theme.stripFooterText ?? appState.selectedEvent?.name ?? "FotoX"
-                do {
-                    compositeAssets = try await StripCompositeRenderer.renderCompositeAssets(
-                        strips: strips,
-                        theme: theme,
-                        assets: themeAssets,
-                        footerText: footerText,
-                        slotAspectRatio: viewModel.currentAspectRatio.widthToHeight
-                    )
-                } catch {
-                    // Log but continue - composite is optional.
-                    print("Composite rendering failed: \(error)")
-                    compositeAssets = nil
+                if let prepared = viewModel.compositeAssetsForUpload {
+                    compositeAssets = prepared
+                } else {
+                    do {
+                        compositeAssets = try await StripCompositeRenderer.renderCompositeAssets(
+                            strips: strips,
+                            theme: theme,
+                            assets: themeAssets,
+                            footerText: footerText,
+                            customFrameAssetName: viewModel.selectedFrameAssetName,
+                            slotAspectRatio: viewModel.currentAspectRatio.widthToHeight
+                        )
+                    } catch {
+                        // Log but continue - composite is optional.
+                        print("Composite rendering failed: \(error)")
+                        compositeAssets = nil
+                    }
                 }
 
                 if compositeAssets != nil {
@@ -401,6 +421,7 @@ struct CaptureView: View {
                         }
                     }
                 )
+                viewModel.compositeAssetsForUpload = nil
             } catch let error as APIError {
                 appState.uploadFailed(error: error)
             } catch {

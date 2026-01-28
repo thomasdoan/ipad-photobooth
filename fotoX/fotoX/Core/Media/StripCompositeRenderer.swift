@@ -97,6 +97,7 @@ enum StripCompositeRenderer {
         theme: AppTheme,
         assets: ThemeAssets?,
         footerText: String,
+        customFrameAssetName: String? = nil,
         outputWidth: CGFloat = defaultOutputWidth,
         slotAspectRatio: CGFloat = StripCompositeMetrics.defaultSlotAspectRatio
     ) async throws -> CompositeStripAssets {
@@ -105,6 +106,19 @@ enum StripCompositeRenderer {
         guard !activeStrips.isEmpty else {
             throw StripCompositeRenderError.exportFailed
         }
+
+        let effectiveAssets: ThemeAssets? = {
+            guard let customFrameAssetName,
+                  let frame = FrameImageLoader.loadImage(named: customFrameAssetName) else {
+                return assets
+            }
+            return ThemeAssets(
+                logo: assets?.logo,
+                background: assets?.background,
+                photoFrame: assets?.photoFrame,
+                stripFrame: frame
+            )
+        }()
 
         let layout = StripCompositeRenderLayout(
             exactSlotSize: exactSlotSize,
@@ -115,14 +129,14 @@ enum StripCompositeRenderer {
             strips: activeStrips,
             layout: layout,
             theme: theme,
-            assets: assets,
+            assets: effectiveAssets,
             footerText: footerText
         )
 
         let (backgroundData, overlayData) = try renderCompositeLayers(
             layout: layout,
             theme: theme,
-            assets: assets,
+            assets: effectiveAssets,
             footerText: footerText
         )
 
@@ -138,6 +152,51 @@ enum StripCompositeRenderer {
         )
 
         return CompositeStripAssets(photoData: photoData, videoURL: videoURL)
+    }
+
+    /// Renders the composite strip photo only (no video export).
+    ///
+    /// Used for lightweight previews (e.g. frame picker thumbnails) where rendering
+    /// the composite video would be unnecessarily expensive.
+    static func renderCompositePhotoData(
+        strips: [CapturedStrip],
+        theme: AppTheme,
+        assets: ThemeAssets?,
+        footerText: String,
+        customFrameAssetName: String? = nil,
+        slotAspectRatio: CGFloat = StripCompositeMetrics.defaultSlotAspectRatio
+    ) throws -> Data {
+        let sortedStrips = strips.sorted { $0.stripIndex < $1.stripIndex }
+        let activeStrips = Array(sortedStrips.prefix(3))
+        guard !activeStrips.isEmpty else {
+            throw StripCompositeRenderError.imageRenderFailed
+        }
+
+        let effectiveAssets: ThemeAssets? = {
+            guard let customFrameAssetName,
+                  let frame = FrameImageLoader.loadImage(named: customFrameAssetName) else {
+                return assets
+            }
+            return ThemeAssets(
+                logo: assets?.logo,
+                background: assets?.background,
+                photoFrame: assets?.photoFrame,
+                stripFrame: frame
+            )
+        }()
+
+        let layout = StripCompositeRenderLayout(
+            exactSlotSize: exactSlotSize,
+            slotCount: activeStrips.count
+        )
+
+        return try renderCompositePhoto(
+            strips: activeStrips,
+            layout: layout,
+            theme: theme,
+            assets: effectiveAssets,
+            footerText: footerText
+        )
     }
 
     private static func renderCompositePhoto(

@@ -25,6 +25,16 @@ final class CaptureViewModel: @unchecked Sendable {
     /// Captured strips
     var capturedStrips: [CapturedStripMedia] = []
 
+    /// Selected local strip frame name for the current session (asset name or bundled resource name).
+    ///
+    /// When nil, the event theme's default strip frame is used.
+    var selectedFrameAssetName: String? = nil
+
+    /// Prepared composite assets rendered during summary review, reused for upload.
+    ///
+    /// This ensures the review preview matches what will be shown on `QRView`.
+    var compositeAssetsForUpload: CompositeStripAssets? = nil
+
     /// Strip captured and pending review
     var pendingStrip: CapturedStripMedia?
 
@@ -257,7 +267,12 @@ final class CaptureViewModel: @unchecked Sendable {
         guard let pendingStrip = pendingStrip else { return }
         cancelReviewTask()
 
+        compositeAssetsForUpload = nil
+
+        // Replace any existing strip with the same index (supports retakes).
+        capturedStrips.removeAll { $0.stripIndex == pendingStrip.stripIndex }
         capturedStrips.append(pendingStrip)
+        capturedStrips.sort { $0.stripIndex < $1.stripIndex }
         self.pendingStrip = nil
 
         if currentStripIndex < config.stripCount - 1 {
@@ -269,12 +284,29 @@ final class CaptureViewModel: @unchecked Sendable {
         }
     }
 
+    /// Retakes a previously accepted strip from the summary screen.
+    ///
+    /// This keeps other strips intact and replaces the selected one when re-captured.
+    @MainActor
+    func retakeStrip(at index: Int) {
+        guard index >= 0 && index < config.stripCount else { return }
+        cancelReviewTask()
+        discardPendingStrip(deleteFile: true)
+        compositeAssetsForUpload = nil
+        capturedStrips.removeAll { $0.stripIndex == index }
+        currentStripIndex = index
+        isSessionComplete = false
+        stripState = .ready
+        startCapture()
+    }
+
     /// Discards the pending strip and restarts capture
     @MainActor
     func retakePendingStrip() {
         guard pendingStrip != nil else { return }
         cancelReviewTask()
         discardPendingStrip(deleteFile: true)
+        compositeAssetsForUpload = nil
         stripState = .ready
         startCapture()
     }
@@ -316,14 +348,16 @@ final class CaptureViewModel: @unchecked Sendable {
     
     /// Converts captured strips to the model format
     func getCapturedStrips() -> [CapturedStrip] {
-        capturedStrips.map { media in
+        capturedStrips
+            .sorted { $0.stripIndex < $1.stripIndex }
+            .map { media in
             CapturedStrip(
                 stripIndex: media.stripIndex,
                 videoURL: media.videoURL,
                 photoData: media.photoData,
                 thumbnailData: media.thumbnailData
             )
-        }
+            }
     }
     
     // MARK: - Timers
