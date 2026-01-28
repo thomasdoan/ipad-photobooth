@@ -169,19 +169,6 @@ struct MyView: View {
 2. Implement `Codable` with `CodingKeys` if needed
 3. Add unit tests for JSON parsing
 
-## Build Commands
-
-```bash
-# Build
-xcodebuild build -scheme fotoX -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)'
-
-# Test
-xcodebuild test -scheme fotoX -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)'
-
-# Unit tests only
-xcodebuild test -scheme fotoX -destination 'platform=iOS Simulator,name=iPad Air 13-inch (M3)' -only-testing:fotoXTests
-```
-
 ## Questions to Ask User
 
 If unclear on a task, ask about:
