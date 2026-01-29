@@ -126,50 +126,38 @@ final class UploadViewModel<SessionService: SessionServicing> {
                 let data: Data
                 let metadata: AssetUploadMetadata
                 
-                if item.kind == .stripVideo {
+                switch item.kind {
+                case .stripVideo:
                     guard let videoURL = appState.compositeVideoURL else {
                         uploadItems[i].state = .failed("Composite video not found")
                         continue
                     }
                     data = try Data(contentsOf: videoURL)
-                    metadata = AssetUploadMetadata(
-                        kind: item.kind,
-                        stripIndex: item.stripIndex,
-                        sequenceIndex: AssetUploadMetadata.videoSequenceIndex
-                    )
-                } else if item.kind == .stripPhoto {
+
+                case .stripPhoto:
                     guard let photoData = appState.compositePhotoData else {
                         uploadItems[i].state = .failed("Composite photo not found")
                         continue
                     }
                     data = photoData
-                    metadata = AssetUploadMetadata(
-                        kind: item.kind,
-                        stripIndex: item.stripIndex,
-                        sequenceIndex: AssetUploadMetadata.photoSequenceIndex
-                    )
-                } else {
-                     guard let strip = strips.first(where: { $0.stripIndex == item.stripIndex }) else {
+
+                case .video, .photo:
+                    guard let strip = strips.first(where: { $0.stripIndex == item.stripIndex }) else {
                         uploadItems[i].state = .failed("Strip not found")
                         continue
                     }
-                    
-                     if item.kind.isVideo {
-                        data = try Data(contentsOf: strip.videoURL)
-                        metadata = AssetUploadMetadata(
-                            kind: item.kind,
-                            stripIndex: item.stripIndex,
-                            sequenceIndex: AssetUploadMetadata.videoSequenceIndex
-                        )
-                    } else {
-                        data = strip.photoData
-                        metadata = AssetUploadMetadata(
-                            kind: item.kind,
-                            stripIndex: item.stripIndex,
-                            sequenceIndex: AssetUploadMetadata.photoSequenceIndex
-                        )
-                    }
+                    data = item.kind.isVideo
+                        ? try Data(contentsOf: strip.videoURL)
+                        : strip.photoData
                 }
+
+                metadata = AssetUploadMetadata(
+                    kind: item.kind,
+                    stripIndex: item.stripIndex,
+                    sequenceIndex: item.kind.isVideo
+                        ? AssetUploadMetadata.videoSequenceIndex
+                        : AssetUploadMetadata.photoSequenceIndex
+                )
                 
                 // Upload using testable services if available
                 if let testable = testableServices {
