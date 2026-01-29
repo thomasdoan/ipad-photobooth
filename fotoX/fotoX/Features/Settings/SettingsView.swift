@@ -249,28 +249,37 @@ struct SettingsView: View {
                 Divider()
                     .padding(.leading, 16)
 
-                // Photo countdown control
-                HStack {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("Photo Countdown")
-                            .font(.subheadline)
-                            .foregroundStyle(.primary)
+                // Countdown control
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Countdown")
+                                .font(.subheadline)
+                                .foregroundStyle(.primary)
 
-                        Text("Countdown before capturing each photo")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                            Text("Countdown shown at the end of recording")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        HStack(spacing: 12) {
+                            Text(viewModel.countdownSeconds == 0 ? "Off" : "\(Int(viewModel.countdownSeconds))s")
+                                .font(.headline.monospacedDigit())
+                                .foregroundStyle(.primary)
+                                .frame(minWidth: 40, alignment: .trailing)
+
+                            Stepper("", value: $viewModel.countdownSeconds, in: 0...viewModel.maxCountdownSeconds, step: 1)
+                                .labelsHidden()
+                        }
                     }
 
-                    Spacer()
-
-                    HStack(spacing: 12) {
-                        Text(viewModel.photoCountdownSeconds == 0 ? "Off" : "\(Int(viewModel.photoCountdownSeconds))s")
-                            .font(.headline.monospacedDigit())
-                            .foregroundStyle(.primary)
-                            .frame(minWidth: 40, alignment: .trailing)
-
-                        Stepper("", value: $viewModel.photoCountdownSeconds, in: 0...5, step: 1)
-                            .labelsHidden()
+                    // Subtle hint when countdown equals full video duration
+                    if viewModel.countdownSeconds > 0 && viewModel.countdownSeconds >= viewModel.videoDuration {
+                        Text("Countdown will show for entire recording")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                 }
                 .padding(.horizontal, 16)
