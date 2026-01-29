@@ -78,7 +78,19 @@ final class UploadViewModel<SessionService: SessionServicing> {
     }
     
     // MARK: - Actions
-    
+
+    /// Asynchronously loads file data without blocking the MainActor
+    private nonisolated func loadFileData(from url: URL) async throws -> Data {
+        let fileHandle = try FileHandle(forReadingFrom: url)
+        defer { try? fileHandle.close() }
+
+        var data = Data()
+        for try await chunk in fileHandle.bytes {
+            data.append(chunk)
+        }
+        return data
+    }
+
     /// Prepares upload items from captured strips
     func prepareUploads(from strips: [CapturedStrip]) {
         var items: [UploadItem] = []
@@ -164,7 +176,7 @@ final class UploadViewModel<SessionService: SessionServicing> {
                         uploadItems[i].state = .failed("Composite video not found")
                         continue
                     }
-                    data = try Data(contentsOf: videoURL)
+                    data = try await loadFileData(from: videoURL)
 
                 case .stripPhoto:
                     guard let photoData = appState.compositePhotoData else {
@@ -179,7 +191,7 @@ final class UploadViewModel<SessionService: SessionServicing> {
                         continue
                     }
                     data = item.kind.isVideo
-                        ? try Data(contentsOf: strip.videoURL)
+                        ? try await loadFileData(from: strip.videoURL)
                         : strip.photoData
                 }
 
