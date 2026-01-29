@@ -56,7 +56,7 @@ enum WorkerConfiguration {
         if duration == 0 {
             return defaultVideoDuration
         }
-        // Clamp to valid range (3-10 seconds)
+        // Clamp to valid range (1-10 seconds)
         return max(1, min(10, duration))
     }
 
