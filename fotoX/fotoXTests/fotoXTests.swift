@@ -729,7 +729,6 @@ struct CaptureStateTests {
 
         #expect(config.videoDuration == 10)
         #expect(config.countdownSeconds == 0)
-        #expect(config.photoCountdownSeconds == 3)
         #expect(config.stripCount == 3)
     }
 
@@ -750,7 +749,7 @@ struct CaptureStateTests {
     func videoDurationClamping() {
         // Test minimum clamp
         WorkerConfiguration.saveVideoDuration(1)
-        #expect(WorkerConfiguration.currentVideoDuration() == 3)
+        #expect(WorkerConfiguration.currentVideoDuration() == 1)
 
         // Test maximum clamp
         WorkerConfiguration.saveVideoDuration(100)
@@ -1698,7 +1697,7 @@ struct CaptureViewModelTests {
         let config = CaptureConfiguration(
             videoDuration: 3,
             countdownSeconds: 0,
-            photoCountdownSeconds: 0,
+            endOfRecordingCountdownSeconds: 0,
             stripCount: 3
         )
         let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
@@ -1717,7 +1716,7 @@ struct CaptureViewModelTests {
         let config = CaptureConfiguration(
             videoDuration: 3,
             countdownSeconds: 0,
-            photoCountdownSeconds: 0,
+            endOfRecordingCountdownSeconds: 0,
             stripCount: 3
         )
         let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
@@ -1738,7 +1737,7 @@ struct CaptureViewModelTests {
         let config = CaptureConfiguration(
             videoDuration: 3,
             countdownSeconds: 0,
-            photoCountdownSeconds: 0,
+            endOfRecordingCountdownSeconds: 0,
             stripCount: 3
         )
         let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
@@ -1760,7 +1759,7 @@ struct CaptureViewModelTests {
         let config = CaptureConfiguration(
             videoDuration: 3,
             countdownSeconds: 0,
-            photoCountdownSeconds: 0,
+            endOfRecordingCountdownSeconds: 0,
             stripCount: 3
         )
         let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
@@ -1775,7 +1774,7 @@ struct CaptureViewModelTests {
         if case .recording = viewModel.stripState {
             #expect(true)
         } else {
-            Issue.record("Expected recording state, got \(viewModel.stripState)")
+            Issue.record("Expected recording state, got \(String(describing: viewModel.stripState))")
         }
     }
 
@@ -1785,7 +1784,7 @@ struct CaptureViewModelTests {
         let config = CaptureConfiguration(
             videoDuration: 3,
             countdownSeconds: 3,
-            photoCountdownSeconds: 0,
+            endOfRecordingCountdownSeconds: 0,
             stripCount: 3
         )
         let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
@@ -1806,7 +1805,7 @@ struct CaptureViewModelTests {
         let config = CaptureConfiguration(
             videoDuration: 3,
             countdownSeconds: 0,
-            photoCountdownSeconds: 0,
+            endOfRecordingCountdownSeconds: 0,
             stripCount: 3
         )
         let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
@@ -1826,7 +1825,7 @@ struct CaptureViewModelTests {
         let config = CaptureConfiguration(
             videoDuration: 3,
             countdownSeconds: 0,
-            photoCountdownSeconds: 0,
+            endOfRecordingCountdownSeconds: 0,
             stripCount: 3
         )
         let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
@@ -1844,7 +1843,7 @@ struct CaptureViewModelTests {
         let config = CaptureConfiguration(
             videoDuration: 3,
             countdownSeconds: 0,
-            photoCountdownSeconds: 0,
+            endOfRecordingCountdownSeconds: 0,
             stripCount: 3
         )
         let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
@@ -1862,7 +1861,7 @@ struct CaptureViewModelTests {
         let config = CaptureConfiguration(
             videoDuration: 3,
             countdownSeconds: 0,
-            photoCountdownSeconds: 0,
+            endOfRecordingCountdownSeconds: 0,
             stripCount: 3
         )
         let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
@@ -1893,7 +1892,7 @@ struct CaptureViewModelTests {
         let config = CaptureConfiguration(
             videoDuration: 0.05,
             countdownSeconds: 0,
-            photoCountdownSeconds: 0,
+            endOfRecordingCountdownSeconds: 0,
             stripCount: 1,
             stripReviewDuration: 1
         )
@@ -1915,7 +1914,7 @@ struct CaptureViewModelTests {
         let config = CaptureConfiguration(
             videoDuration: 0.05,
             countdownSeconds: 0,
-            photoCountdownSeconds: 0,
+            endOfRecordingCountdownSeconds: 0,
             stripCount: 1,
             stripReviewDuration: 0.05
         )
@@ -1936,7 +1935,7 @@ struct CaptureViewModelTests {
         let config = CaptureConfiguration(
             videoDuration: 0.05,
             countdownSeconds: 0,
-            photoCountdownSeconds: 0,
+            endOfRecordingCountdownSeconds: 0,
             stripCount: 1,
             stripReviewDuration: 0.05,
             autoAdvanceWithoutReview: true,
@@ -1963,7 +1962,7 @@ struct CaptureViewModelTests {
         let config = CaptureConfiguration(
             videoDuration: 0.2,
             countdownSeconds: 0,
-            photoCountdownSeconds: 0,
+            endOfRecordingCountdownSeconds: 0,
             stripCount: 1,
             stripReviewDuration: 1
         )
@@ -1995,7 +1994,7 @@ struct CaptureViewModelTests {
         let config = CaptureConfiguration(
             videoDuration: 1,
             countdownSeconds: 0,
-            photoCountdownSeconds: 0,
+            endOfRecordingCountdownSeconds: 0,
             stripCount: 1,
             stripReviewDuration: 3,
             autoAdvanceWithoutReview: true,
@@ -2016,7 +2015,7 @@ struct CaptureViewModelTests {
         let config = CaptureConfiguration(
             videoDuration: 3,
             countdownSeconds: 0,
-            photoCountdownSeconds: 0,
+            endOfRecordingCountdownSeconds: 0,
             stripCount: 3
         )
         let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
@@ -2115,7 +2114,7 @@ struct CaptureFlowIntegrationTests {
         let config = CaptureConfiguration(
             videoDuration: 0.5,
             countdownSeconds: 0,
-            photoCountdownSeconds: 0,
+            endOfRecordingCountdownSeconds: 0,
             stripCount: 1
         )
         let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
@@ -2147,7 +2146,7 @@ struct CaptureFlowIntegrationTests {
         let config = CaptureConfiguration(
             videoDuration: 0.1,
             countdownSeconds: 0,
-            photoCountdownSeconds: 0,
+            endOfRecordingCountdownSeconds: 0,
             stripCount: 2
         )
         let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
@@ -2168,7 +2167,7 @@ struct CaptureFlowIntegrationTests {
         let config = CaptureConfiguration(
             videoDuration: 0.5,
             countdownSeconds: 0,
-            photoCountdownSeconds: 0,
+            endOfRecordingCountdownSeconds: 0,
             stripCount: 1
         )
         let viewModel = CaptureViewModel(config: config, cameraController: mockCamera)
@@ -2185,7 +2184,8 @@ struct CaptureFlowIntegrationTests {
         // Simulate error to test error callback
         mockCamera.simulateError(.cameraUnavailable)
 
-        try await Task.sleep(nanoseconds: 100_000_000)
+        // Give enough time for the Task in the delegate callback to complete
+        try await Task.sleep(nanoseconds: 200_000_000)
 
         if case .error = viewModel.stripState {
             #expect(true)

@@ -21,7 +21,11 @@ final class SettingsViewModel {
     var presignToken: String = ""
 
     /// Video duration in seconds for capture
-    var videoDuration: Double = 10
+    var videoDuration: Double = 10 {
+        didSet {
+            clampCountdownToVideoDuration()
+        }
+    }
 
     /// Review duration in seconds after each strip
     var stripReviewDuration: Double = 5
@@ -38,8 +42,8 @@ final class SettingsViewModel {
     /// Capture aspect ratio setting
     var captureAspectRatioSetting: CaptureAspectRatio = .auto
 
-    /// Photo countdown duration in seconds
-    var photoCountdownSeconds: Double = 3
+    /// Countdown duration in seconds (shown at end of recording)
+    var countdownSeconds: Double = 3
 
     /// Whether testing connection
     var isTestingConnection: Bool = false
@@ -72,7 +76,7 @@ final class SettingsViewModel {
         manualAdvanceAfterReview = WorkerConfiguration.manualAdvanceAfterReview()
         keepFilesAfterUpload = WorkerConfiguration.keepFilesAfterUpload()
         captureAspectRatioSetting = WorkerConfiguration.currentCaptureAspectRatio()
-        photoCountdownSeconds = Double(WorkerConfiguration.currentPhotoCountdownSeconds())
+        countdownSeconds = Double(WorkerConfiguration.currentCountdownSeconds())
     }
     
     /// Validates the URL
@@ -103,7 +107,7 @@ final class SettingsViewModel {
         WorkerConfiguration.saveManualAdvanceAfterReview(manualAdvanceAfterReview)
         WorkerConfiguration.saveKeepFilesAfterUpload(keepFilesAfterUpload)
         WorkerConfiguration.saveCaptureAspectRatio(captureAspectRatioSetting)
-        WorkerConfiguration.savePhotoCountdownSeconds(Int(photoCountdownSeconds))
+        WorkerConfiguration.saveCountdownSeconds(Int(countdownSeconds))
         return true
     }
 
@@ -121,7 +125,7 @@ final class SettingsViewModel {
         manualAdvanceAfterReview = WorkerConfiguration.defaultManualAdvanceAfterReview
         keepFilesAfterUpload = false
         captureAspectRatioSetting = WorkerConfiguration.defaultCaptureAspectRatio
-        photoCountdownSeconds = Double(WorkerConfiguration.defaultPhotoCountdownSeconds)
+        countdownSeconds = Double(WorkerConfiguration.defaultCountdownSeconds)
         _ = saveSettings()
         connectionTestResult = nil
     }
@@ -170,6 +174,18 @@ final class SettingsViewModel {
     /// Clears test result
     func clearTestResult() {
         connectionTestResult = nil
+    }
+
+    /// Clamps countdown to not exceed video duration
+    private func clampCountdownToVideoDuration() {
+        if countdownSeconds > videoDuration {
+            countdownSeconds = videoDuration
+        }
+    }
+
+    /// Maximum allowed countdown seconds (limited by video duration)
+    var maxCountdownSeconds: Double {
+        videoDuration
     }
 }
 

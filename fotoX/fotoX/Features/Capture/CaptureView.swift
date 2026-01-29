@@ -132,14 +132,18 @@ struct CaptureView: View {
                 CountdownView(number: remaining)
                 
             case .recording(let elapsed):
-                recordingOverlay(elapsed: elapsed, geometry: geometry)
-                
+                ZStack {
+                    recordingOverlay(elapsed: elapsed, geometry: geometry)
+
+                    // Show countdown overlay during final seconds of recording
+                    if let countdownRemaining = viewModel.recordingCountdownRemaining {
+                        CountdownView(number: countdownRemaining)
+                    }
+                }
+
             case .processingVideo, .processingPhoto:
                 EmptyView() // Camera preview stays visible during processing
-                
-            case .photoCountdown(let remaining):
-                CountdownView(number: remaining)
-                
+
             case .capturingPhoto:
                 Color.clear // Flash will handle this
                 

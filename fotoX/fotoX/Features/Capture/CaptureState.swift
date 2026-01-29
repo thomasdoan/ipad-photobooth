@@ -20,10 +20,7 @@ enum StripCaptureState: Equatable, Sendable {
     
     /// Processing video, about to capture photo
     case processingVideo
-    
-    /// Short countdown before photo
-    case photoCountdown(remaining: Int)
-    
+
     /// Capturing photo
     case capturingPhoto
     
@@ -41,13 +38,13 @@ enum StripCaptureState: Equatable, Sendable {
 struct CaptureConfiguration: Sendable {
     /// Duration of video recording in seconds
     let videoDuration: TimeInterval
-    
+
     /// Countdown before recording starts
     let countdownSeconds: Int
-    
-    /// Short countdown before photo capture
-    let photoCountdownSeconds: Int
-    
+
+    /// Countdown shown at the end of recording (overlaid on video)
+    let endOfRecordingCountdownSeconds: Int
+
     /// Total number of strips to capture
     let stripCount: Int
 
@@ -66,7 +63,7 @@ struct CaptureConfiguration: Sendable {
     init(
         videoDuration: TimeInterval,
         countdownSeconds: Int,
-        photoCountdownSeconds: Int,
+        endOfRecordingCountdownSeconds: Int,
         stripCount: Int,
         stripReviewDuration: TimeInterval = WorkerConfiguration.defaultStripReviewDuration,
         autoAdvanceWithoutReview: Bool = WorkerConfiguration.defaultAutoAdvanceWithoutReview,
@@ -75,7 +72,7 @@ struct CaptureConfiguration: Sendable {
     ) {
         self.videoDuration = videoDuration
         self.countdownSeconds = countdownSeconds
-        self.photoCountdownSeconds = photoCountdownSeconds
+        self.endOfRecordingCountdownSeconds = endOfRecordingCountdownSeconds
         self.stripCount = stripCount
         self.stripReviewDuration = stripReviewDuration
         self.autoAdvanceWithoutReview = autoAdvanceWithoutReview
@@ -88,7 +85,7 @@ struct CaptureConfiguration: Sendable {
         CaptureConfiguration(
             videoDuration: WorkerConfiguration.currentVideoDuration(),
             countdownSeconds: 0,
-            photoCountdownSeconds: WorkerConfiguration.currentPhotoCountdownSeconds(),
+            endOfRecordingCountdownSeconds: WorkerConfiguration.currentCountdownSeconds(),
             stripCount: 3,
             stripReviewDuration: WorkerConfiguration.currentStripReviewDuration(),
             autoAdvanceWithoutReview: WorkerConfiguration.autoAdvanceWithoutReview(),

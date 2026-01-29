@@ -16,18 +16,17 @@ enum WorkerConfiguration {
     static let autoAdvanceWithoutReviewKey = "autoAdvanceWithoutReview"
     static let manualAdvanceAfterReviewKey = "manualAdvanceAfterReview"
     static let captureAspectRatioKey = "captureAspectRatio"
-    static let photoCountdownSecondsKey = "photoCountdownSeconds"
+    static let countdownSecondsKey = "photoCountdownSeconds" // Keep storage key for backwards compatibility
     static let defaultBaseURL = URL(string: "https://id8.events")!
     static let defaultVideoDuration: TimeInterval = 10
-    static let defaultStripReviewDuration: TimeInterval = 5
+    static let defaultStripReviewDuration: TimeInterval = 10
     static let minStripReviewDuration: TimeInterval = 5
     static let maxStripReviewDuration: TimeInterval = 30
     static let defaultAutoAdvanceWithoutReview = false
     static let defaultManualAdvanceAfterReview = false
     static let defaultCaptureAspectRatio: CaptureAspectRatio = .auto
-    static let defaultPhotoCountdownSeconds: Int = 3
-    static let minPhotoCountdownSeconds: Int = 0
-    static let maxPhotoCountdownSeconds: Int = 5
+    static let defaultCountdownSeconds: Int = 3
+    static let minCountdownSeconds: Int = 0
 
     static func currentBaseURL() -> URL {
         if let urlString = UserDefaults.standard.string(forKey: baseURLKey),
@@ -57,12 +56,12 @@ enum WorkerConfiguration {
         if duration == 0 {
             return defaultVideoDuration
         }
-        // Clamp to valid range (3-10 seconds)
-        return max(3, min(10, duration))
+        // Clamp to valid range (1-10 seconds)
+        return max(1, min(10, duration))
     }
 
     static func saveVideoDuration(_ duration: TimeInterval) {
-        let clamped = max(3, min(10, duration))
+        let clamped = max(1, min(10, duration))
         UserDefaults.standard.set(clamped, forKey: videoDurationKey)
     }
 
@@ -121,17 +120,32 @@ enum WorkerConfiguration {
         UserDefaults.standard.set(keep, forKey: keepFilesAfterUploadKey)
     }
 
-    static func currentPhotoCountdownSeconds() -> Int {
+    /// Returns the current countdown seconds, clamped to the video duration
+    static func currentCountdownSeconds() -> Int {
+        let videoDuration = Int(currentVideoDuration())
         // Check if key exists (integer returns 0 for missing keys, so we need explicit check)
-        if UserDefaults.standard.object(forKey: photoCountdownSecondsKey) == nil {
-            return defaultPhotoCountdownSeconds
+        guard UserDefaults.standard.object(forKey: countdownSecondsKey) != nil else {
+            return max(minCountdownSeconds, min(videoDuration, defaultCountdownSeconds))
         }
-        let value = UserDefaults.standard.integer(forKey: photoCountdownSecondsKey)
-        return max(minPhotoCountdownSeconds, min(maxPhotoCountdownSeconds, value))
+        let value = UserDefaults.standard.integer(forKey: countdownSecondsKey)
+        // Clamp to valid range (0 to videoDuration)
+        return max(minCountdownSeconds, min(videoDuration, value))
     }
 
+    /// Saves the countdown seconds, clamping to valid range
+    static func saveCountdownSeconds(_ seconds: Int) {
+        let videoDuration = Int(currentVideoDuration())
+        let clamped = max(minCountdownSeconds, min(videoDuration, seconds))
+        UserDefaults.standard.set(clamped, forKey: countdownSecondsKey)
+    }
+
+    /// Legacy alias for backwards compatibility
+    static func currentPhotoCountdownSeconds() -> Int {
+        currentCountdownSeconds()
+    }
+
+    /// Legacy alias for backwards compatibility
     static func savePhotoCountdownSeconds(_ seconds: Int) {
-        let clamped = max(minPhotoCountdownSeconds, min(maxPhotoCountdownSeconds, seconds))
-        UserDefaults.standard.set(clamped, forKey: photoCountdownSecondsKey)
+        saveCountdownSeconds(seconds)
     }
 }

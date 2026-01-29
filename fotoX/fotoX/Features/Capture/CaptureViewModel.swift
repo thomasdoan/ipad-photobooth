@@ -183,24 +183,6 @@ final class CaptureViewModel: @unchecked Sendable {
     /// Captures the photo after video
     @MainActor
     func capturePhoto() async {
-        // Run countdown timer if configured
-        if config.photoCountdownSeconds > 0 {
-            var remaining = config.photoCountdownSeconds
-            stripState = .photoCountdown(remaining: remaining)
-
-            while remaining > 1 {
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                if Task.isCancelled { return }
-                if case .error = stripState { return }
-                remaining -= 1
-                stripState = .photoCountdown(remaining: remaining)
-            }
-
-            try? await Task.sleep(nanoseconds: 1_000_000_000)
-            if Task.isCancelled { return }
-            if case .error = stripState { return }
-        }
-
         stripState = .capturingPhoto
 
         do {
@@ -319,6 +301,21 @@ final class CaptureViewModel: @unchecked Sendable {
     /// Whether review controls should be visible
     var showsReviewControls: Bool {
         config.manualAdvanceAfterReview || !config.autoAdvanceWithoutReview
+    }
+
+    /// Countdown remaining during recording (nil if not in countdown phase)
+    ///
+    /// Returns the number of seconds remaining until recording ends,
+    /// but only during the final countdown portion of recording.
+    var recordingCountdownRemaining: Int? {
+        guard case .recording(let elapsed) = stripState else { return nil }
+        guard config.endOfRecordingCountdownSeconds > 0 else { return nil }
+
+        let countdownStartTime = config.videoDuration - TimeInterval(config.endOfRecordingCountdownSeconds)
+        guard elapsed >= countdownStartTime else { return nil }
+
+        let remaining = Int(ceil(config.videoDuration - elapsed))
+        return remaining > 0 ? remaining : nil
     }
 
     @MainActor
