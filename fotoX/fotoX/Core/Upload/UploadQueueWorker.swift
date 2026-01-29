@@ -8,6 +8,17 @@
 import Foundation
 import Sentry
 
+enum UploadError: LocalizedError {
+    case noAssetsToUpload
+
+    var errorDescription: String? {
+        switch self {
+        case .noAssetsToUpload:
+            return "No assets available to upload"
+        }
+    }
+}
+
 actor UploadQueueWorker {
     private let store: UploadQueueStore
     private let historyStore: UploadHistoryStore
@@ -201,6 +212,11 @@ actor UploadQueueWorker {
                 assets.append(videoAsset)
                 assets.append(photoAsset)
             }
+        }
+
+        guard !assets.isEmpty else {
+            try? fileManager.removeItem(at: sessionDir)
+            throw UploadError.noAssetsToUpload
         }
 
         let queueSession = UploadQueueSession(
