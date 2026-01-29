@@ -18,7 +18,7 @@ enum WorkerConfiguration {
     static let captureAspectRatioKey = "captureAspectRatio"
     static let countdownSecondsKey = "photoCountdownSeconds" // Keep storage key for backwards compatibility
     static let defaultBaseURL = URL(string: "https://id8.events")!
-    static let defaultVideoDuration: TimeInterval = 10
+    static let defaultVideoDuration: TimeInterval = 5
     static let defaultStripReviewDuration: TimeInterval = 10
     static let minStripReviewDuration: TimeInterval = 5
     static let maxStripReviewDuration: TimeInterval = 30
