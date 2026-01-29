@@ -9,31 +9,6 @@
 - **Package Manager**: Swift Package Manager
 - **Bundle ID**: `id8.fotoX`
 
-## XcodeBuildMCP Integration
-**IMPORTANT**: This project uses XcodeBuildMCP for all Xcode operations.
-
-### Session Setup (run once per session)
-```
-session-set-defaults:
-  projectPath: fotoX/fotoX.xcodeproj
-  scheme: fotoX
-  simulatorId: 9D388E32-3A3C-4674-9469-DABB2AEF3C5B  # iPad Air 13-inch (M3)
-  useLatestOS: true
-  suppressWarnings: true
-```
-
-### Commands
-| Action | Command |
-|--------|---------|
-| Build | `build_sim` |
-| Build & Run | `build_run_sim` |
-| Run All Tests | `test_sim` |
-| Unit Tests Only | `test_sim` with `extraArgs: ["-only-testing:fotoXTests"]` |
-| UI Tests Only | `test_sim` with `extraArgs: ["-only-testing:fotoXUITests"]` |
-| Clean | `clean` |
-| Screenshot | `screenshot` |
-| UI Hierarchy | `describe_ui` |
-
 ## Coding Standards
 
 ### Swift Style

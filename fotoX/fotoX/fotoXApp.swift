@@ -63,7 +63,7 @@ struct RootView: View {
                     .transition(.opacity)
                 
             case .settings:
-                SettingsView()
+                SettingsView(uploadQueueWorker: services.uploadQueueWorker)
                     .transition(.opacity)
                 
             }
@@ -82,6 +82,7 @@ struct RootView: View {
         .animation(.easeInOut(duration: 0.3), value: appState.currentRoute)
         .fotoXStatusBarHidden()
         .task {
+            // Process any pending uploads on launch
             await services.uploadQueueWorker.startProcessing(
                 onProgress: { sessionId in
                     if appState.currentSession?.sessionId == sessionId {
@@ -94,12 +95,15 @@ struct RootView: View {
                     }
                 }
             )
+            
+            // Start automatic retry for failed uploads (checks every 30 seconds)
+            await services.uploadQueueWorker.startAutoRetry()
         }
         .sheet(isPresented: Binding(
             get: { appState.showSettings },
             set: { appState.showSettings = $0 }
         )) {
-            SettingsView()
+            SettingsView(uploadQueueWorker: services.uploadQueueWorker)
                 .fotoXStatusBarHidden()
         }
         .fullScreenCover(isPresented: Binding(
