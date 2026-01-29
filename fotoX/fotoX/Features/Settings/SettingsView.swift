@@ -14,7 +14,7 @@ struct SettingsView: View {
 
     let uploadQueueWorker: UploadQueueWorker
 
-    @State @Bindable private var viewModel = SettingsViewModel()
+    @State private var viewModel = SettingsViewModel()
     @State private var showResetConfirmation = false
     @State private var queueBadgeCount: Int = 0
     
