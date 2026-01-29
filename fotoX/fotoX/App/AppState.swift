@@ -47,6 +47,12 @@ final class AppState {
     
     /// Current upload error (if any)
     var uploadError: APIError?
+
+    /// Composite photo data for the session
+    var compositePhotoData: Data?
+
+    /// Composite video URL for the session
+    var compositeVideoURL: URL?
     
     // MARK: - QR & Email
     
@@ -140,7 +146,22 @@ final class AppState {
     
     /// Transitions to upload phase
     func beginUpload() {
-        totalAssetsToUpload = capturedStrips.count * 2 // video + photo per strip
+        // Calculate total assets based on upload mode
+        let uploadMode = WorkerConfiguration.currentUploadMode()
+        switch uploadMode {
+        case .all:
+            // Individual photos/videos (2 per strip) + composite photo/video if they exist
+            var count = capturedStrips.count * 2
+            if compositePhotoData != nil { count += 1 }
+            if compositeVideoURL != nil { count += 1 }
+            totalAssetsToUpload = count
+        case .compositeOnly:
+            // Just composite photo + composite video if they exist
+            var count = 0
+            if compositePhotoData != nil { count += 1 }
+            if compositeVideoURL != nil { count += 1 }
+            totalAssetsToUpload = count
+        }
         assetsUploaded = 0
         uploadError = nil
         emailSubmitted = false
@@ -164,6 +185,8 @@ final class AppState {
         totalAssetsToUpload = 0
         assetsUploaded = 0
         uploadError = nil
+        compositePhotoData = nil
+        compositeVideoURL = nil
         emailSubmitted = false
         currentRoute = .idle
     }

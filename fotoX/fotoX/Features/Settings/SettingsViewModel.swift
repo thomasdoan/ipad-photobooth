@@ -45,6 +45,9 @@ final class SettingsViewModel {
     /// Countdown duration in seconds (shown at end of recording)
     var countdownSeconds: Double = 3
 
+    /// Upload mode setting
+    var uploadMode: UploadMode = .compositeOnly
+
     /// Whether testing connection
     var isTestingConnection: Bool = false
     
@@ -80,6 +83,7 @@ final class SettingsViewModel {
         keepFilesAfterUpload = WorkerConfiguration.keepFilesAfterUpload()
         captureAspectRatioSetting = WorkerConfiguration.currentCaptureAspectRatio()
         countdownSeconds = Double(WorkerConfiguration.currentCountdownSeconds())
+        uploadMode = WorkerConfiguration.currentUploadMode()
     }
     
     /// Validates the URL
@@ -111,6 +115,7 @@ final class SettingsViewModel {
         WorkerConfiguration.saveKeepFilesAfterUpload(keepFilesAfterUpload)
         WorkerConfiguration.saveCaptureAspectRatio(captureAspectRatioSetting)
         WorkerConfiguration.saveCountdownSeconds(Int(countdownSeconds))
+        WorkerConfiguration.saveUploadMode(uploadMode)
         return true
     }
 
@@ -129,6 +134,7 @@ final class SettingsViewModel {
         keepFilesAfterUpload = false
         captureAspectRatioSetting = WorkerConfiguration.defaultCaptureAspectRatio
         countdownSeconds = Double(WorkerConfiguration.defaultCountdownSeconds)
+        uploadMode = WorkerConfiguration.defaultUploadMode
         _ = saveSettings()
         connectionTestResult = nil
     }

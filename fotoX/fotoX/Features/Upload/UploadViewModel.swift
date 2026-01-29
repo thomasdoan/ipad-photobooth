@@ -78,29 +78,71 @@ final class UploadViewModel<SessionService: SessionServicing> {
     }
     
     // MARK: - Actions
-    
+
+    /// Asynchronously loads file data without blocking the MainActor
+    private nonisolated func loadFileData(from url: URL) async throws -> Data {
+        let fileHandle = try FileHandle(forReadingFrom: url)
+        defer { try? fileHandle.close() }
+
+        var data = Data()
+        for try await chunk in fileHandle.bytes {
+            data.append(chunk)
+        }
+        return data
+    }
+
     /// Prepares upload items from captured strips
     func prepareUploads(from strips: [CapturedStrip]) {
-        uploadItems = strips.flatMap { strip -> [UploadItem] in
-            [
-                UploadItem(
-                    id: UUID(),
-                    stripIndex: strip.stripIndex,
-                    kind: .video,
-                    fileName: "strip_\(strip.stripIndex)_video.mov",
-                    mimeType: "video/quicktime",
-                    state: .pending
-                ),
-                UploadItem(
-                    id: UUID(),
-                    stripIndex: strip.stripIndex,
-                    kind: .photo,
-                    fileName: "strip_\(strip.stripIndex)_photo.jpg",
-                    mimeType: "image/jpeg",
-                    state: .pending
-                )
-            ]
+        var items: [UploadItem] = []
+
+        let uploadMode = WorkerConfiguration.currentUploadMode()
+
+        // Always include composite assets
+        items.append(contentsOf: [
+            UploadItem(
+                id: UUID(),
+                stripIndex: 0,
+                kind: .stripVideo,
+                fileName: "strip_video.mp4",
+                mimeType: "video/mp4",
+                state: .pending
+            ),
+            UploadItem(
+                id: UUID(),
+                stripIndex: 0,
+                kind: .stripPhoto,
+                fileName: "strip_photo.jpg",
+                mimeType: "image/jpeg",
+                state: .pending
+            )
+        ])
+
+        // Include individual strip assets when upload mode is "all"
+        if uploadMode == .all {
+            let stripItems = strips.flatMap { strip -> [UploadItem] in
+                [
+                    UploadItem(
+                        id: UUID(),
+                        stripIndex: strip.stripIndex,
+                        kind: .video,
+                        fileName: "video_\(strip.stripIndex).mov",
+                        mimeType: "video/quicktime",
+                        state: .pending
+                    ),
+                    UploadItem(
+                        id: UUID(),
+                        stripIndex: strip.stripIndex,
+                        kind: .photo,
+                        fileName: "photo_\(strip.stripIndex).jpg",
+                        mimeType: "image/jpeg",
+                        state: .pending
+                    )
+                ]
+            }
+            items.append(contentsOf: stripItems)
         }
+
+        uploadItems = items
         progress = 0
         isComplete = false
         errorMessage = nil
@@ -124,31 +166,42 @@ final class UploadViewModel<SessionService: SessionServicing> {
             uploadItems[i].state = .uploading
             
             do {
-                // Find the corresponding strip
-                guard let strip = strips.first(where: { $0.stripIndex == item.stripIndex }) else {
-                    uploadItems[i].state = .failed("Strip not found")
-                    continue
-                }
-                
                 // Get the data to upload
                 let data: Data
                 let metadata: AssetUploadMetadata
                 
-                if item.kind.isVideo {
-                    data = try Data(contentsOf: strip.videoURL)
-                    metadata = AssetUploadMetadata(
-                        kind: item.kind,
-                        stripIndex: item.stripIndex,
-                        sequenceIndex: AssetUploadMetadata.videoSequenceIndex
-                    )
-                } else {
-                    data = strip.photoData
-                    metadata = AssetUploadMetadata(
-                        kind: item.kind,
-                        stripIndex: item.stripIndex,
-                        sequenceIndex: AssetUploadMetadata.photoSequenceIndex
-                    )
+                switch item.kind {
+                case .stripVideo:
+                    guard let videoURL = appState.compositeVideoURL else {
+                        uploadItems[i].state = .failed("Composite video not found")
+                        continue
+                    }
+                    data = try await loadFileData(from: videoURL)
+
+                case .stripPhoto:
+                    guard let photoData = appState.compositePhotoData else {
+                        uploadItems[i].state = .failed("Composite photo not found")
+                        continue
+                    }
+                    data = photoData
+
+                case .video, .photo:
+                    guard let strip = strips.first(where: { $0.stripIndex == item.stripIndex }) else {
+                        uploadItems[i].state = .failed("Strip not found")
+                        continue
+                    }
+                    data = item.kind.isVideo
+                        ? try await loadFileData(from: strip.videoURL)
+                        : strip.photoData
                 }
+
+                metadata = AssetUploadMetadata(
+                    kind: item.kind,
+                    stripIndex: item.stripIndex,
+                    sequenceIndex: item.kind.isVideo
+                        ? AssetUploadMetadata.videoSequenceIndex
+                        : AssetUploadMetadata.photoSequenceIndex
+                )
                 
                 // Upload using testable services if available
                 if let testable = testableServices {

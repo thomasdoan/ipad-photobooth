@@ -411,6 +411,30 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
+
+                Divider()
+                    .padding(.leading, 16)
+
+                // Upload mode picker
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Upload Mode")
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+
+                    Picker("Upload Mode", selection: $viewModel.uploadMode) {
+                        ForEach(UploadMode.allCases) { mode in
+                            Text(mode.displayName).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("uploadModePicker")
+
+                    Text(viewModel.uploadMode.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
             }
             .background(
                 RoundedRectangle(cornerRadius: 12)

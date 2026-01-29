@@ -18,7 +18,7 @@ enum WorkerConfiguration {
     static let captureAspectRatioKey = "captureAspectRatio"
     static let countdownSecondsKey = "photoCountdownSeconds" // Keep storage key for backwards compatibility
     static let defaultBaseURL = URL(string: "https://id8.events")!
-    static let defaultVideoDuration: TimeInterval = 10
+    static let defaultVideoDuration: TimeInterval = 5
     static let defaultStripReviewDuration: TimeInterval = 10
     static let minStripReviewDuration: TimeInterval = 5
     static let maxStripReviewDuration: TimeInterval = 30
@@ -113,7 +113,10 @@ enum WorkerConfiguration {
     }
 
     static func keepFilesAfterUpload() -> Bool {
-        UserDefaults.standard.bool(forKey: keepFilesAfterUploadKey)
+        if UserDefaults.standard.object(forKey: keepFilesAfterUploadKey) == nil {
+            return true // Default to keeping files
+        }
+        return UserDefaults.standard.bool(forKey: keepFilesAfterUploadKey)
     }
 
     static func saveKeepFilesAfterUpload(_ keep: Bool) {
@@ -147,5 +150,48 @@ enum WorkerConfiguration {
     /// Legacy alias for backwards compatibility
     static func savePhotoCountdownSeconds(_ seconds: Int) {
         saveCountdownSeconds(seconds)
+    }
+
+    // MARK: - Upload Mode
+
+    static let uploadModeKey = "uploadMode"
+    static let defaultUploadMode: UploadMode = .compositeOnly
+
+    static func currentUploadMode() -> UploadMode {
+        guard let rawValue = UserDefaults.standard.string(forKey: uploadModeKey),
+              let mode = UploadMode(rawValue: rawValue) else {
+            return defaultUploadMode
+        }
+        return mode
+    }
+
+    static func saveUploadMode(_ mode: UploadMode) {
+        UserDefaults.standard.set(mode.rawValue, forKey: uploadModeKey)
+    }
+}
+
+/// Upload mode determines which assets are uploaded
+enum UploadMode: String, CaseIterable, Identifiable {
+    case all = "all"
+    case compositeOnly = "compositeOnly"
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .all:
+            return "All Assets"
+        case .compositeOnly:
+            return "Composite Only"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .all:
+            return "Individual photos/videos + composite strips"
+        case .compositeOnly:
+            return "Only the final composite photo and video strips"
+        }
     }
 }
