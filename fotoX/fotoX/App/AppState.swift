@@ -150,11 +150,17 @@ final class AppState {
         let uploadMode = WorkerConfiguration.currentUploadMode()
         switch uploadMode {
         case .all:
-            // Individual photos/videos (2 per strip) + composite photo + composite video
-            totalAssetsToUpload = (capturedStrips.count * 2) + 2
+            // Individual photos/videos (2 per strip) + composite photo/video if they exist
+            var count = capturedStrips.count * 2
+            if compositePhotoData != nil { count += 1 }
+            if compositeVideoURL != nil { count += 1 }
+            totalAssetsToUpload = count
         case .compositeOnly:
-            // Just composite photo + composite video
-            totalAssetsToUpload = 2
+            // Just composite photo + composite video if they exist
+            var count = 0
+            if compositePhotoData != nil { count += 1 }
+            if compositeVideoURL != nil { count += 1 }
+            totalAssetsToUpload = count
         }
         assetsUploaded = 0
         uploadError = nil
