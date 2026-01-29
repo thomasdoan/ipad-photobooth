@@ -164,6 +164,16 @@ extension UploadQueueSession {
         }
     }
 
+    /// Number of uploadable (composite/strip) assets
+    var uploadableAssetCount: Int {
+        assets.filter { $0.kind.isComposite }.count
+    }
+
+    /// Number of successfully uploaded strip assets
+    var uploadedStripAssetCount: Int {
+        assets.filter { $0.kind.isComposite && $0.state == .uploaded }.count
+    }
+
     /// Human-readable progress string
     var progressSummary: String {
         if status == .completed {
@@ -179,7 +189,7 @@ extension UploadQueueSession {
             let totalFailed = failedCount + manifestFailed + completeFailed
             return "\(totalFailed) failed"
         }
-        return "\(uploadedAssetCount)/\(totalAssetCount) assets"
+        return "\(uploadedStripAssetCount)/\(uploadableAssetCount) assets"
     }
 }
 

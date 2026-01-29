@@ -583,7 +583,7 @@ actor UploadQueueWorker {
         workingSession.uploadStartedAt = ISO8601DateFormatter().string(from: Date())
         try await store.updateSession(workingSession)
 
-        let pendingAssets = workingSession.assets.filter { $0.state != .uploaded }
+        let pendingAssets = workingSession.assets.filter { $0.state != .uploaded && $0.kind.isComposite}
         if !pendingAssets.isEmpty {
             let presignRequest = PresignRequest(
                 eventId: workingSession.eventId,
@@ -640,7 +640,10 @@ actor UploadQueueWorker {
             }
         }
 
-        guard workingSession.assets.allSatisfy({ $0.state == .uploaded }) else {
+        // Session is complete when all strip assets are uploaded
+        // Non-strip assets remain pending locally
+        let stripAssets = workingSession.assets.filter { $0.kind.isComposite }
+        guard stripAssets.allSatisfy({ $0.state == .uploaded }) else {
             return workingSession
         }
 
@@ -736,7 +739,7 @@ actor UploadQueueWorker {
             eventId: workingSession.eventId,
             createdAt: workingSession.createdAt,
             completedAt: ISO8601DateFormatter().string(from: Date()),
-            assetCount: workingSession.assets.count,
+            assetCount: workingSession.assets.filter { $0.kind.isComposite }.count,
             publicGalleryURL: workingSession.publicGalleryURL
         )
         do {
@@ -800,7 +803,8 @@ actor UploadQueueWorker {
     }
 
     private func buildManifestData(from session: UploadQueueSession) throws -> Data {
-        let assets = session.assets.map { asset in
+        // Only include uploaded assets in manifest (strip assets only)
+        let assets = session.assets.filter { $0.state == .uploaded }.map { asset in
             let assetId: String
             switch asset.kind {
             case .stripPhoto:
