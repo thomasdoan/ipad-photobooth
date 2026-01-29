@@ -621,6 +621,8 @@ struct CaptureSummaryView: View {
             // If composite fails, fall back to the live StripCompositeView preview.
             compositePhotoData = nil
             compositeVideoURL = nil
+            appState.compositePhotoData = nil
+            appState.compositeVideoURL = nil
             compositePlayerManager.stop(id: compositePlayerID)
             compositePlayer = nil
             onCompositeRendered(nil)
