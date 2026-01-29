@@ -81,26 +81,24 @@ final class UploadViewModel<SessionService: SessionServicing> {
     
     /// Prepares upload items from captured strips
     func prepareUploads(from strips: [CapturedStrip]) {
-        uploadItems = strips.flatMap { strip -> [UploadItem] in
-            [
-                UploadItem(
-                    id: UUID(),
-                    stripIndex: strip.stripIndex,
-                    kind: .video,
-                    fileName: "strip_\(strip.stripIndex)_video.mov",
-                    mimeType: "video/quicktime",
-                    state: .pending
-                ),
-                UploadItem(
-                    id: UUID(),
-                    stripIndex: strip.stripIndex,
-                    kind: .photo,
-                    fileName: "strip_\(strip.stripIndex)_photo.jpg",
-                    mimeType: "image/jpeg",
-                    state: .pending
-                )
-            ]
-        }
+        uploadItems = [
+            UploadItem(
+                id: UUID(),
+                stripIndex: 0,
+                kind: .stripVideo,
+                fileName: "composite_video.mov",
+                mimeType: "video/quicktime",
+                state: .pending
+            ),
+            UploadItem(
+                id: UUID(),
+                stripIndex: 0,
+                kind: .stripPhoto,
+                fileName: "composite_photo.jpg",
+                mimeType: "image/jpeg",
+                state: .pending
+            )
+        ]
         progress = 0
         isComplete = false
         errorMessage = nil
@@ -124,30 +122,53 @@ final class UploadViewModel<SessionService: SessionServicing> {
             uploadItems[i].state = .uploading
             
             do {
-                // Find the corresponding strip
-                guard let strip = strips.first(where: { $0.stripIndex == item.stripIndex }) else {
-                    uploadItems[i].state = .failed("Strip not found")
-                    continue
-                }
-                
                 // Get the data to upload
                 let data: Data
                 let metadata: AssetUploadMetadata
                 
-                if item.kind.isVideo {
-                    data = try Data(contentsOf: strip.videoURL)
+                if item.kind == .stripVideo {
+                    guard let videoURL = appState.compositeVideoURL else {
+                        uploadItems[i].state = .failed("Composite video not found")
+                        continue
+                    }
+                    data = try Data(contentsOf: videoURL)
                     metadata = AssetUploadMetadata(
                         kind: item.kind,
                         stripIndex: item.stripIndex,
                         sequenceIndex: AssetUploadMetadata.videoSequenceIndex
                     )
-                } else {
-                    data = strip.photoData
+                } else if item.kind == .stripPhoto {
+                    guard let photoData = appState.compositePhotoData else {
+                        uploadItems[i].state = .failed("Composite photo not found")
+                        continue
+                    }
+                    data = photoData
                     metadata = AssetUploadMetadata(
                         kind: item.kind,
                         stripIndex: item.stripIndex,
                         sequenceIndex: AssetUploadMetadata.photoSequenceIndex
                     )
+                } else {
+                     guard let strip = strips.first(where: { $0.stripIndex == item.stripIndex }) else {
+                        uploadItems[i].state = .failed("Strip not found")
+                        continue
+                    }
+                    
+                     if item.kind.isVideo {
+                        data = try Data(contentsOf: strip.videoURL)
+                        metadata = AssetUploadMetadata(
+                            kind: item.kind,
+                            stripIndex: item.stripIndex,
+                            sequenceIndex: AssetUploadMetadata.videoSequenceIndex
+                        )
+                    } else {
+                        data = strip.photoData
+                        metadata = AssetUploadMetadata(
+                            kind: item.kind,
+                            stripIndex: item.stripIndex,
+                            sequenceIndex: AssetUploadMetadata.photoSequenceIndex
+                        )
+                    }
                 }
                 
                 // Upload using testable services if available

@@ -602,6 +602,8 @@ struct CaptureSummaryView: View {
 
             compositePhotoData = assets.photoData
             compositeVideoURL = assets.videoURL
+            appState.compositePhotoData = assets.photoData
+            appState.compositeVideoURL = assets.videoURL
             onCompositeRendered(assets)
 
             if FileManager.default.fileExists(atPath: assets.videoURL.path) {

@@ -404,11 +404,7 @@ struct CaptureView: View {
                         compositeAssets = nil
                     }
                 }
-
-                if compositeAssets != nil {
-                    appState.totalAssetsToUpload += 2
-                }
-
+                
                 try await services.uploadQueueWorker.enqueueAndStart(
                     eventId: eventId,
                     session: session,

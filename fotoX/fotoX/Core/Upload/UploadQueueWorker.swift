@@ -142,62 +142,65 @@ actor UploadQueueWorker {
             }
         }
 
-        for strip in strips {
-            let photoFileName = "photo_\(strip.stripIndex).jpg"
-            let photoPath = sessionDir.appendingPathComponent(photoFileName)
-            try strip.photoData.write(to: photoPath, options: .atomic)
+        // Also enqueue individual strips when upload mode is "all"
+        if WorkerConfiguration.currentUploadMode() == .all {
+            for strip in strips {
+                let photoFileName = "photo_\(strip.stripIndex).jpg"
+                let photoPath = sessionDir.appendingPathComponent(photoFileName)
+                try strip.photoData.write(to: photoPath, options: .atomic)
 
-            let photoRemotePath = remotePath(
-                eventId: eventId,
-                sessionId: session.sessionId,
-                fileName: photoFileName
-            )
+                let photoRemotePath = remotePath(
+                    eventId: eventId,
+                    sessionId: session.sessionId,
+                    fileName: photoFileName
+                )
 
-            let photoAsset = UploadQueueAsset(
-                id: UUID(),
-                kind: .photo,
-                stripIndex: strip.stripIndex,
-                sequenceIndex: AssetUploadMetadata.photoSequenceIndex,
-                fileName: photoFileName,
-                mimeType: "image/jpeg",
-                localURL: photoPath,
-                remotePath: photoRemotePath,
-                sizeBytes: strip.photoData.count,
-                durationSeconds: nil,
-                posterPath: nil,
-                state: .pending
-            )
+                let photoAsset = UploadQueueAsset(
+                    id: UUID(),
+                    kind: .photo,
+                    stripIndex: strip.stripIndex,
+                    sequenceIndex: AssetUploadMetadata.photoSequenceIndex,
+                    fileName: photoFileName,
+                    mimeType: "image/jpeg",
+                    localURL: photoPath,
+                    remotePath: photoRemotePath,
+                    sizeBytes: strip.photoData.count,
+                    durationSeconds: nil,
+                    posterPath: nil,
+                    state: .pending
+                )
 
-            let videoFileName = "video_\(strip.stripIndex).mov"
-            let videoPath = sessionDir.appendingPathComponent(videoFileName)
-            if fileManager.fileExists(atPath: videoPath.path) {
-                try fileManager.removeItem(at: videoPath)
+                let videoFileName = "video_\(strip.stripIndex).mov"
+                let videoPath = sessionDir.appendingPathComponent(videoFileName)
+                if fileManager.fileExists(atPath: videoPath.path) {
+                    try fileManager.removeItem(at: videoPath)
+                }
+                try fileManager.moveItem(at: strip.videoURL, to: videoPath)
+                let videoRemotePath = remotePath(
+                    eventId: eventId,
+                    sessionId: session.sessionId,
+                    fileName: videoFileName
+                )
+                let videoSize = try fileSize(at: videoPath)
+
+                let videoAsset = UploadQueueAsset(
+                    id: UUID(),
+                    kind: .video,
+                    stripIndex: strip.stripIndex,
+                    sequenceIndex: AssetUploadMetadata.videoSequenceIndex,
+                    fileName: videoFileName,
+                    mimeType: "video/quicktime",
+                    localURL: videoPath,
+                    remotePath: videoRemotePath,
+                    sizeBytes: videoSize,
+                    durationSeconds: nil,
+                    posterPath: photoRemotePath,
+                    state: .pending
+                )
+
+                assets.append(videoAsset)
+                assets.append(photoAsset)
             }
-            try fileManager.moveItem(at: strip.videoURL, to: videoPath)
-            let videoRemotePath = remotePath(
-                eventId: eventId,
-                sessionId: session.sessionId,
-                fileName: videoFileName
-            )
-            let videoSize = try fileSize(at: videoPath)
-
-            let videoAsset = UploadQueueAsset(
-                id: UUID(),
-                kind: .video,
-                stripIndex: strip.stripIndex,
-                sequenceIndex: AssetUploadMetadata.videoSequenceIndex,
-                fileName: videoFileName,
-                mimeType: "video/quicktime",
-                localURL: videoPath,
-                remotePath: videoRemotePath,
-                sizeBytes: videoSize,
-                durationSeconds: nil,
-                posterPath: photoRemotePath,
-                state: .pending
-            )
-
-            assets.append(videoAsset)
-            assets.append(photoAsset)
         }
 
         let queueSession = UploadQueueSession(
@@ -583,7 +586,7 @@ actor UploadQueueWorker {
         workingSession.uploadStartedAt = ISO8601DateFormatter().string(from: Date())
         try await store.updateSession(workingSession)
 
-        let pendingAssets = workingSession.assets.filter { $0.state != .uploaded && $0.kind.isComposite}
+        let pendingAssets = workingSession.assets.filter { $0.state != .uploaded }
         if !pendingAssets.isEmpty {
             let presignRequest = PresignRequest(
                 eventId: workingSession.eventId,
@@ -640,10 +643,8 @@ actor UploadQueueWorker {
             }
         }
 
-        // Session is complete when all strip assets are uploaded
-        // Non-strip assets remain pending locally
-        let stripAssets = workingSession.assets.filter { $0.kind.isComposite }
-        guard stripAssets.allSatisfy({ $0.state == .uploaded }) else {
+        // Session is complete when all assets are uploaded
+        guard workingSession.assets.allSatisfy({ $0.state == .uploaded }) else {
             return workingSession
         }
 
@@ -739,7 +740,7 @@ actor UploadQueueWorker {
             eventId: workingSession.eventId,
             createdAt: workingSession.createdAt,
             completedAt: ISO8601DateFormatter().string(from: Date()),
-            assetCount: workingSession.assets.filter { $0.kind.isComposite }.count,
+            assetCount: workingSession.assets.count,
             publicGalleryURL: workingSession.publicGalleryURL
         )
         do {
