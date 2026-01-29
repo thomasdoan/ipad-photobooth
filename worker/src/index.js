@@ -1,10 +1,16 @@
 import { GALLERY_CSS, CSS_HASH } from './gallery.css.js'
 import { GALLERY_JS, JS_HASH } from './gallery.js.js'
+import * as Sentry from '@sentry/cloudflare'
 
 const encoder = new TextEncoder()
 
-export default {
-  async fetch(request, env) {
+export default Sentry.withSentry(
+  (env) => ({
+    dsn: env.SENTRY_DSN,
+    tracesSampleRate: 1.0,
+  }),
+  {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url)
     const baseURL = env.PUBLIC_BASE_URL || `${url.protocol}//${url.host}`
 
@@ -119,6 +125,7 @@ export default {
     return new Response("Not found", { status: 404 })
   },
 }
+)
 
 async function handlePresign(request, env, baseURL) {
   const authError = requirePresignAuth(request, env)
@@ -136,6 +143,16 @@ async function handlePresign(request, env, baseURL) {
   if (!body.files || !Array.isArray(body.files)) {
     return json({ error: "Invalid request format: files array required" }, 400)
   }
+
+  Sentry.addBreadcrumb({
+    category: "upload",
+    message: "Presign requested",
+    data: {
+      event_id: body.event_id,
+      session_id: body.session_id,
+      file_count: body.files.length
+    }
+  })
 
   const secret = env.UPLOAD_SECRET
   if (!secret) {
@@ -188,14 +205,58 @@ async function handleUpload(request, env, url) {
   }
 
   const contentType = request.headers.get("content-type") || "application/octet-stream"
+  const sizeBytes = parseInt(request.headers.get("content-length")) || 0
+
+  // Track upload start time
+  const uploadStart = Date.now()
+
   await env.R2_BUCKET.put(path, request.body, {
     httpMetadata: { contentType },
+  })
+
+  // Calculate upload duration
+  const uploadDuration = Date.now() - uploadStart
+
+  Sentry.addBreadcrumb({
+    category: "upload",
+    message: "Asset uploaded",
+    data: { path, size: sizeBytes }
+  })
+
+  // Extract event_id from path (format: events/{eventId}/sessions/{sessionId}/...)
+  const pathMatch = path.match(/^events\/(\d+)\//)
+  const eventId = pathMatch ? pathMatch[1] : 'unknown'
+
+  // Track file size
+  Sentry.metrics.distribution('asset_size_bytes', sizeBytes, {
+    attributes: {
+      event_id: eventId,
+      content_type: contentType
+    }
+  })
+
+  // Track upload duration
+  Sentry.metrics.distribution('upload_duration_ms', uploadDuration, {
+    attributes: {
+      event_id: eventId,
+      content_type: contentType
+    }
+  })
+
+  // Count successful uploads
+  Sentry.metrics.count('asset_uploaded', 1, {
+    attributes: {
+      event_id: eventId,
+      content_type: contentType
+    }
   })
 
   return new Response(null, { status: 200 })
 }
 
 async function handleComplete(request, env) {
+  const completeStart = Date.now()
+
   const authError = requirePresignAuth(request, env)
   if (authError) {
     return authError
@@ -253,6 +314,27 @@ async function handleComplete(request, env) {
 
   await env.R2_BUCKET.put(indexPath, JSON.stringify(index), {
     httpMetadata: { contentType: "application/json" },
+  })
+
+  Sentry.addBreadcrumb({
+    category: "upload",
+    message: "Session completed",
+    data: { event_id: eventId, session_id: sessionId }
+  })
+
+  // Track session completion duration
+  const completeDuration = Date.now() - completeStart
+  Sentry.metrics.distribution('session_complete_duration_ms', completeDuration, {
+    attributes: {
+      event_id: eventId
+    }
+  })
+
+  // Count completed sessions
+  Sentry.metrics.count('session_completed', 1, {
+    attributes: {
+      event_id: eventId
+    }
   })
 
   return json({ status: "ok" })

@@ -17,3 +17,4 @@ bucket_name = "fotox"
 [vars]
 PUBLIC_BASE_URL = "https://id8.events"
 R2_PUBLIC_BASE_URL = ""
+

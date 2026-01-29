@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import Sentry
 
 actor UploadQueueWorker {
     private let store: UploadQueueStore
@@ -211,6 +212,15 @@ actor UploadQueueWorker {
         )
 
         try await store.addSession(queueSession)
+
+        let breadcrumb = Breadcrumb(level: .info, category: "upload")
+        breadcrumb.message = "Session enqueued"
+        breadcrumb.data = [
+            "session_id": session.sessionId,
+            "event_id": eventId,
+            "asset_count": assets.count
+        ]
+        SentrySDK.addBreadcrumb(breadcrumb)
     }
 
     func startProcessing(
@@ -613,6 +623,13 @@ actor UploadQueueWorker {
                         onProgress?(workingSession.sessionId)
                     }
                 } catch {
+                    SentrySDK.capture(error: error) { scope in
+                        scope.setContext(value: [
+                            "session_id": workingSession.sessionId,
+                            "event_id": workingSession.eventId,
+                            "asset": asset.fileName
+                        ], key: "upload")
+                    }
                     workingSession.assets[index].state = .failed
                     try await store.updateSession(workingSession)
                     await MainActor.run {
@@ -666,6 +683,13 @@ actor UploadQueueWorker {
                 workingSession.manifestState = .uploaded
                 try await store.updateSession(workingSession)
             } catch {
+                SentrySDK.capture(error: error) { scope in
+                    scope.setContext(value: [
+                        "session_id": workingSession.sessionId,
+                        "event_id": workingSession.eventId,
+                        "asset": "manifest.json"
+                    ], key: "upload")
+                }
                 workingSession.manifestState = .failed
                 try await store.updateSession(workingSession)
                 await MainActor.run {
@@ -689,6 +713,13 @@ actor UploadQueueWorker {
                 workingSession.completeState = .uploaded
                 try await store.updateSession(workingSession)
             } catch {
+                SentrySDK.capture(error: error) { scope in
+                    scope.setContext(value: [
+                        "session_id": workingSession.sessionId,
+                        "event_id": workingSession.eventId,
+                        "asset": "complete"
+                    ], key: "upload")
+                }
                 workingSession.completeState = .failed
                 try await store.updateSession(workingSession)
                 await MainActor.run {
@@ -715,6 +746,15 @@ actor UploadQueueWorker {
             // The session completed successfully, history is non-critical
             print("[UploadQueueWorker] Failed to record CompletedUploadRecord in historyStore.addRecord for sessionId=\(workingSession.sessionId), eventId=\(workingSession.eventId): \(error)")
         }
+
+        let completeBreadcrumb = Breadcrumb(level: .info, category: "upload")
+        completeBreadcrumb.message = "Session upload complete"
+        completeBreadcrumb.data = [
+            "session_id": workingSession.sessionId,
+            "event_id": workingSession.eventId,
+            "asset_count": workingSession.assets.count
+        ]
+        SentrySDK.addBreadcrumb(completeBreadcrumb)
 
         try cleanupFiles(for: workingSession)
         try await store.removeSession(sessionId: workingSession.sessionId)

@@ -6,14 +6,41 @@
 //
 
 import SwiftUI
+import Sentry
+
 
 @main
 struct fotoXApp: App {
     @State private var appState = AppState()
     @State private var services: ServiceContainer
     @State private var testableServices: TestableServiceContainer
-    
+
     init() {
+        SentrySDK.start { options in
+            options.dsn = "https://2aa3d859a1f0b1fe245e46d5589d65bd@o4510791751041024.ingest.us.sentry.io/4510792228601856"
+
+            // Adds IP for users.
+            // For more information, visit: https://docs.sentry.io/platforms/apple/data-management/data-collected/
+            options.sendDefaultPii = true
+
+            // Set tracesSampleRate to 1.0 to capture 100% of transactions for performance monitoring.
+            // We recommend adjusting this value in production.
+            options.tracesSampleRate = 1.0
+
+            // Configure profiling. Visit https://docs.sentry.io/platforms/apple/profiling/ to learn more.
+            options.configureProfiling = {
+                $0.sessionSampleRate = 1.0 // We recommend adjusting this value in production.
+                $0.lifecycle = .trace
+            }
+
+            // Uncomment the following lines to add more data to your events
+            // options.attachScreenshot = true // This adds a screenshot to the error events
+            // options.attachViewHierarchy = true // This adds the view hierarchy to the error events
+            
+            // Enable experimental logging features
+            options.experimental.enableLogs = true
+        }
+
         let useMocks = MockDataProvider.useMockData
         _services = State(initialValue: ServiceContainer())
         _testableServices = State(initialValue: TestableServiceContainer(useMocks: useMocks))
