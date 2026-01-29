@@ -164,14 +164,14 @@ extension UploadQueueSession {
         }
     }
 
-    /// Number of uploadable (composite/strip) assets
+    /// Number of uploadable assets (queue is pre-filtered by upload mode)
     var uploadableAssetCount: Int {
-        assets.filter { $0.kind.isComposite }.count
+        assets.count
     }
 
-    /// Number of successfully uploaded strip assets
+    /// Number of successfully uploaded assets
     var uploadedStripAssetCount: Int {
-        assets.filter { $0.kind.isComposite && $0.state == .uploaded }.count
+        assets.filter { $0.state == .uploaded }.count
     }
 
     /// Human-readable progress string
