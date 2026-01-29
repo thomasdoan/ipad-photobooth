@@ -122,12 +122,12 @@ enum WorkerConfiguration {
 
     /// Returns the current countdown seconds, clamped to the video duration
     static func currentCountdownSeconds() -> Int {
+        let videoDuration = Int(currentVideoDuration())
         // Check if key exists (integer returns 0 for missing keys, so we need explicit check)
-        if UserDefaults.standard.object(forKey: countdownSecondsKey) == nil {
-            return defaultCountdownSeconds
+        guard UserDefaults.standard.object(forKey: countdownSecondsKey) != nil else {
+            return max(minCountdownSeconds, min(videoDuration, defaultCountdownSeconds))
         }
         let value = UserDefaults.standard.integer(forKey: countdownSecondsKey)
-        let videoDuration = Int(currentVideoDuration())
         // Clamp to valid range (0 to videoDuration)
         return max(minCountdownSeconds, min(videoDuration, value))
     }
