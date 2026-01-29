@@ -365,6 +365,13 @@ final class CameraController: NSObject, CameraControlling, @unchecked Sendable {
     /// Generates a thumbnail from a video URL
     static func generateThumbnail(from videoURL: URL) async -> Data? {
         let asset = AVAsset(url: videoURL)
+        
+        // Check if the asset has valid video tracks before attempting to generate thumbnail
+        // This prevents hanging on empty/invalid video files (e.g., in tests)
+        guard !asset.tracks(withMediaType: .video).isEmpty else {
+            return nil
+        }
+        
         let generator = AVAssetImageGenerator(asset: asset)
         generator.appliesPreferredTrackTransform = true
         generator.maximumSize = CGSize(width: 400, height: 400)

@@ -11,9 +11,12 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.dismiss) private var dismiss
-    
+
+    let uploadQueueWorker: UploadQueueWorker
+
     @State private var viewModel = SettingsViewModel()
     @State private var showResetConfirmation = false
+    @State private var queueBadgeCount: Int = 0
     
     var body: some View {
         NavigationStack {
@@ -42,6 +45,14 @@ struct SettingsView: View {
             }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.large)
+            .task {
+                do {
+                    let sessions = try await uploadQueueWorker.getQueueSessions()
+                    queueBadgeCount = sessions.count
+                } catch {
+                    queueBadgeCount = 0
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancel") {
@@ -433,6 +444,30 @@ struct SettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                 }
+
+                Divider().padding(.leading, 16)
+                NavigationLink {
+                    UploadQueueView(worker: uploadQueueWorker)
+                } label: {
+                    HStack {
+                        Text("Upload Queue")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        // Show badge if there are pending/failed items
+                        if queueBadgeCount > 0 {
+                            Text("\(queueBadgeCount)")
+                                .font(.caption2.bold())
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 2)
+                                .background(Capsule().fill(.red))
+                        }
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                }
             }
             .background(
                 RoundedRectangle(cornerRadius: 12)
@@ -532,6 +567,6 @@ struct SettingsView: View {
 }
 
 #Preview {
-    SettingsView()
+    SettingsView(uploadQueueWorker: UploadQueueWorker())
         .environment(AppState())
 }

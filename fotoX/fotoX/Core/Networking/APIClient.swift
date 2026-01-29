@@ -48,10 +48,13 @@ actor APIClient: APIClientProtocol {
         self.maxRetries = maxRetries
         self.retryDelay = retryDelay
         
+        // Note: waitsForConnectivity is false so requests fail fast when offline.
+        // This allows retry logic to handle reconnection rather than waiting indefinitely,
+        // since timeouts don't apply while waiting for connectivity.
         let config = URLSessionConfiguration.default
         config.timeoutIntervalForRequest = timeoutInterval
         config.timeoutIntervalForResource = timeoutInterval * 2
-        config.waitsForConnectivity = true
+        config.waitsForConnectivity = false
         self.session = URLSession(configuration: config)
         
         self.decoder = JSONDecoder()
