@@ -113,7 +113,10 @@ enum WorkerConfiguration {
     }
 
     static func keepFilesAfterUpload() -> Bool {
-        UserDefaults.standard.bool(forKey: keepFilesAfterUploadKey)
+        if UserDefaults.standard.object(forKey: keepFilesAfterUploadKey) == nil {
+            return true // Default to keeping files
+        }
+        return UserDefaults.standard.bool(forKey: keepFilesAfterUploadKey)
     }
 
     static func saveKeepFilesAfterUpload(_ keep: Bool) {
