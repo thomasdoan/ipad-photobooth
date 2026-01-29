@@ -239,7 +239,7 @@ struct SettingsView: View {
                             .foregroundStyle(.primary)
                             .frame(minWidth: 40, alignment: .trailing)
 
-                        Stepper("", value: $viewModel.videoDuration, in: 3...10, step: 1)
+                        Stepper("", value: $viewModel.videoDuration, in: 1...10, step: 1)
                             .labelsHidden()
                     }
                 }
