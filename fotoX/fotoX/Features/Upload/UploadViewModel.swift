@@ -81,24 +81,56 @@ final class UploadViewModel<SessionService: SessionServicing> {
     
     /// Prepares upload items from captured strips
     func prepareUploads(from strips: [CapturedStrip]) {
-        uploadItems = [
+        var items: [UploadItem] = []
+
+        let uploadMode = WorkerConfiguration.currentUploadMode()
+
+        // Always include composite assets
+        items.append(contentsOf: [
             UploadItem(
                 id: UUID(),
                 stripIndex: 0,
                 kind: .stripVideo,
-                fileName: "composite_video.mov",
-                mimeType: "video/quicktime",
+                fileName: "strip_video.mp4",
+                mimeType: "video/mp4",
                 state: .pending
             ),
             UploadItem(
                 id: UUID(),
                 stripIndex: 0,
                 kind: .stripPhoto,
-                fileName: "composite_photo.jpg",
+                fileName: "strip_photo.jpg",
                 mimeType: "image/jpeg",
                 state: .pending
             )
-        ]
+        ])
+
+        // Include individual strip assets when upload mode is "all"
+        if uploadMode == .all {
+            let stripItems = strips.flatMap { strip -> [UploadItem] in
+                [
+                    UploadItem(
+                        id: UUID(),
+                        stripIndex: strip.stripIndex,
+                        kind: .video,
+                        fileName: "video_\(strip.stripIndex).mov",
+                        mimeType: "video/quicktime",
+                        state: .pending
+                    ),
+                    UploadItem(
+                        id: UUID(),
+                        stripIndex: strip.stripIndex,
+                        kind: .photo,
+                        fileName: "photo_\(strip.stripIndex).jpg",
+                        mimeType: "image/jpeg",
+                        state: .pending
+                    )
+                ]
+            }
+            items.append(contentsOf: stripItems)
+        }
+
+        uploadItems = items
         progress = 0
         isComplete = false
         errorMessage = nil
