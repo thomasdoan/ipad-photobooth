@@ -80,6 +80,14 @@ struct SettingsView: View {
             } message: {
                 Text("This will cancel the current session and return to the idle screen.")
             }
+            .alert("Test Crash", isPresented: $viewModel.showCrashConfirmation) {
+                Button("Cancel", role: .cancel) { }
+                Button("Crash Now", role: .destructive) {
+                    fatalError("🔥 Test crash for Sentry")
+                }
+            } message: {
+                Text("This will crash the app to test Sentry reporting. The app will close immediately.")
+            }
         }
     }
     
@@ -468,6 +476,22 @@ struct SettingsView: View {
                     .padding(.horizontal, 16)
                     .padding(.vertical, 12)
                 }
+
+                Divider().padding(.leading, 16)
+                Button {
+                    viewModel.showCrashConfirmation = true
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text("Test Crash (Sentry)")
+                            .foregroundStyle(.primary)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 12)
+                }
+                .buttonStyle(.plain)
             }
             .background(
                 RoundedRectangle(cornerRadius: 12)

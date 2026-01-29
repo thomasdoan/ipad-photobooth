@@ -53,7 +53,10 @@ final class SettingsViewModel {
     
     /// Validation error
     var urlError: String?
-    
+
+    /// Show crash confirmation alert
+    var showCrashConfirmation = false
+
     // MARK: - Initialization
     private let healthCheck: @Sendable (URL) async throws -> Bool
        

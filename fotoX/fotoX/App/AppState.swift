@@ -8,6 +8,7 @@
 import Foundation
 import SwiftUI
 import Observation
+import Sentry
 
 /// Central observable state for the app
 @Observable
@@ -122,6 +123,14 @@ final class AppState {
         capturedStrips = []
         emailSubmitted = false
         currentRoute = .capture(.capturingStrip(index: 0))
+
+        let breadcrumb = Breadcrumb(level: .info, category: "session")
+        breadcrumb.message = "Session started"
+        breadcrumb.data = [
+            "session_id": session.sessionId,
+            "event_id": selectedEvent?.id ?? 0
+        ]
+        SentrySDK.addBreadcrumb(breadcrumb)
     }
     
     /// Adds a captured strip
