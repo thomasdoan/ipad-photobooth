@@ -27,9 +27,26 @@ struct FrameOption: Identifiable, Hashable, Sendable {
     ///
     /// If a frame cannot be loaded at runtime, the UI will silently omit it.
     static let availableFrames: [FrameOption] = [
+        FrameOption(id: "manilla-forever", displayName: "Manilla Forever", frameName: "Manilla Forever"),
+        FrameOption(id: "queen-of-hearts", displayName: "Queen of Hearts", frameName: "Queen of Hearts"),
+        FrameOption(id: "jackzeu", displayName: "JackZeu", frameName: "JackZeu"),
+        FrameOption(id: "hong-kong", displayName: "Hong Kong", frameName: "Hong Kong"),
+        FrameOption(id: "kindred-characters", displayName: "Kindred Characters", frameName: "Kindred Characters"),
+        FrameOption(id: "we-found-love", displayName: "We Found Love", frameName: "We Found Love"),
         FrameOption(id: "innerbloom", displayName: "Innerbloom", frameName: "Innerbloom"),
-        FrameOption(id: "wefoundlove", displayName: "We Found Love", frameName: "WeFoundLoveFrame"),
+        FrameOption(id: "calendar", displayName: "Calendar", frameName: "Calendar"),
+        FrameOption(id: "all-in", displayName: "All In", frameName: "All In"),
+        FrameOption(id: "best-map-app", displayName: "Best Map App", frameName: "Best Map App"),
+        FrameOption(id: "your-queen-and-king", displayName: "Your Queen and King", frameName: "Your Queen and King"),
+        FrameOption(id: "dicey", displayName: "Dicey", frameName: "Dicey"),
+        FrameOption(id: "let-me-take-you-out", displayName: "Let Me Take You Out", frameName: "Let Me Take You Out"),
+        FrameOption(id: "its-a-deal", displayName: "It's A Deal", frameName: "Its A Deal"),
+        FrameOption(id: "orientation", displayName: "Orientation", frameName: "Orientation"),
+        FrameOption(id: "post-game", displayName: "Post Game", frameName: "Post Game"),
         FrameOption(id: "movieticket", displayName: "Movie Ticket", frameName: "MovieTicket"),
+        FrameOption(id: "take-you-out-again", displayName: "Take You Out Again", frameName: "Take You Out Again"),
+        // FrameOption(id: "engaged", displayName: "Engaged", frameName: "Engaged"),
+        // FrameOption(id: "jackpot", displayName: "JackPot", frameName: "JackPot"),
     ]
 
     /// Attempts to load the frame image for use as a themed strip overlay.
