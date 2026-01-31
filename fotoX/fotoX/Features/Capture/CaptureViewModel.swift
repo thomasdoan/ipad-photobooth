@@ -343,6 +343,28 @@ final class CaptureViewModel: @unchecked Sendable {
         cameraController.updateCaptureAspectRatio(currentAspectRatio, orientation: layoutOrientation)
     }
     
+    // MARK: - Volume Button Handling
+
+    /// Handles a volume button press from Bluetooth remote
+    /// - Returns: true if the press was handled, false if ignored
+    @MainActor
+    func handleVolumeButtonPress() -> Bool {
+        switch stripState {
+        case .ready:
+            startCapture()
+            return true
+        case .complete:
+            if pendingStrip != nil {
+                acceptPendingStripAndAdvance()
+                return true
+            }
+            return false
+        default:
+            // Ignore during countdown, recording, processing, error states
+            return false
+        }
+    }
+
     /// Converts captured strips to the model format
     func getCapturedStrips() -> [CapturedStrip] {
         capturedStrips
