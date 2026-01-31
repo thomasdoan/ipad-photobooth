@@ -340,6 +340,7 @@ struct AppThemeTests {
     func appThemeCreatesFromTheme() {
         let theme = Theme(
             id: 1,
+            themeStyle: .standard,
             primaryColor: "#FF4081",
             secondaryColor: "#212121",
             accentColor: "#FFFFFF",
@@ -388,6 +389,7 @@ struct AppStateTests {
         let state = AppState()
         let theme = Theme(
             id: 1,
+            themeStyle: .standard,
             primaryColor: "#FF0000",
             secondaryColor: "#000000",
             accentColor: "#FFFFFF",
@@ -453,6 +455,7 @@ struct AppStateTests {
         let state = AppState()
         let theme = Theme(
             id: 1,
+            themeStyle: .standard,
             primaryColor: "#FF0000",
             secondaryColor: "#000000",
             accentColor: "#FFFFFF",

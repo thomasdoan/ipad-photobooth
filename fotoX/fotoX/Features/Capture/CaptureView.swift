@@ -12,6 +12,7 @@ struct CaptureView: View {
     @Environment(AppState.self) private var appState
     @Environment(\.appTheme) private var theme
     @Environment(\.themeAssets) private var themeAssets
+    @Environment(\.themeComponents) private var themeComponents: any ThemeComponentProvider
     let services: ServiceContainer
     
     @State private var viewModel = CaptureViewModel()
@@ -145,7 +146,7 @@ struct CaptureView: View {
                 readyOverlay
                 
             case .countdown(let remaining):
-                CountdownView(number: remaining)
+                ThemedCountdownOverlay(number: remaining)
                 
             case .recording(let elapsed):
                 ZStack {
@@ -153,7 +154,7 @@ struct CaptureView: View {
 
                     // Show countdown overlay during final seconds of recording
                     if let countdownRemaining = viewModel.recordingCountdownRemaining {
-                        CountdownView(number: countdownRemaining)
+                        ThemedCountdownOverlay(number: countdownRemaining)
                     }
                 }
 
@@ -245,7 +246,7 @@ struct CaptureView: View {
             
             // Recording badge when recording
             if case .recording = viewModel.stripState {
-                RecordingBadge()
+                ThemedRecordingIndicator()
             }
         }
         .padding(.horizontal, 24)
@@ -257,27 +258,11 @@ struct CaptureView: View {
     private var readyOverlay: some View {
         VStack {
             Spacer()
-            
-            Button {
+
+            ThemedActionButton("Tap to\nStart", icon: "camera.fill") {
                 viewModel.startCapture()
-            } label: {
-                VStack(spacing: 16) {
-                    ZStack {
-                        Circle()
-                            .stroke(theme.primary, lineWidth: 4)
-                            .frame(width: 100, height: 100)
-                        
-                        Circle()
-                            .fill(theme.primary)
-                            .frame(width: 80, height: 80)
-                    }
-                    
-                    Text("Tap to Start")
-                        .font(.headline)
-                        .foregroundStyle(.white)
-                }
             }
-            
+
             Spacer()
                 .frame(height: 150)
         }
@@ -291,16 +276,13 @@ struct CaptureView: View {
 
             // Hide small countdown when big countdown is showing
             if viewModel.recordingCountdownRemaining == nil {
-                RecordingProgressView(
+                ThemedRecordingProgress(
                     progress: elapsed / viewModel.config.videoDuration,
                     duration: viewModel.config.videoDuration,
                     elapsed: elapsed
                 )
 
-                Text("Keep going!")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .padding(.top, 16)
+                ThemedRecordingEncouragement()
             }
 
             Spacer()
@@ -312,31 +294,22 @@ struct CaptureView: View {
     
     private func errorOverlay(message: String) -> some View {
         ZStack {
-            Color.black.opacity(0.7)
-            
+            themeComponents.makeErrorOverlayBackground()
+
             VStack(spacing: 24) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 50))
-                    .foregroundStyle(.yellow)
-                
+                ThemedErrorIcon()
+
                 Text("Something went wrong")
                     .font(.title2.bold())
-                    .foregroundStyle(.white)
-                
+                    .foregroundStyle(theme.accent)
+
                 Text(message)
                     .font(.body)
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(theme.accent.opacity(0.8))
                     .multilineTextAlignment(.center)
-                
-                Button {
+
+                ThemedSecondaryActionButton("Try Again", icon: "arrow.counterclockwise") {
                     viewModel.retryCurrentStrip()
-                } label: {
-                    Text("Try Again")
-                        .font(.headline)
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 32)
-                        .padding(.vertical, 14)
-                        .background(Capsule().fill(.white))
                 }
             }
             .padding(32)

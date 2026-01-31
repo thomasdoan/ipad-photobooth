@@ -17,17 +17,29 @@ private struct ThemeAssetsKey: EnvironmentKey {
     static let defaultValue: ThemeAssets? = nil
 }
 
+private struct ThemeComponentProviderKey: EnvironmentKey {
+    @MainActor static var defaultValue: any ThemeComponentProvider {
+        StandardThemeProvider()
+    }
+}
+
 extension EnvironmentValues {
     /// The current app theme
     var appTheme: AppTheme {
         get { self[AppThemeKey.self] }
         set { self[AppThemeKey.self] = newValue }
     }
-    
+
     /// The current theme assets (cached images)
     var themeAssets: ThemeAssets? {
         get { self[ThemeAssetsKey.self] }
         set { self[ThemeAssetsKey.self] = newValue }
+    }
+
+    /// The current theme component provider
+    var themeComponents: any ThemeComponentProvider {
+        get { self[ThemeComponentProviderKey.self] }
+        set { self[ThemeComponentProviderKey.self] = newValue }
     }
 }
 
@@ -35,10 +47,13 @@ extension EnvironmentValues {
 
 extension View {
     /// Applies the current theme to this view and its descendants
+    @MainActor
     func withTheme(_ theme: AppTheme, assets: ThemeAssets? = nil) -> some View {
-        self
+        let provider = ThemeRegistry.shared.provider(for: theme.style)
+        return self
             .environment(\.appTheme, theme)
             .environment(\.themeAssets, assets)
+            .environment(\.themeComponents, provider)
     }
 }
 

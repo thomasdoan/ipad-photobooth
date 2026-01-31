@@ -8,9 +8,33 @@
 import Foundation
 import SwiftUI
 
+/// Available theme styles for customized UI experiences
+enum ThemeStyle: String, Codable, Sendable, CaseIterable {
+    case standard
+    case casino
+    case balatro
+    case mahjong
+}
+
+extension ThemeStyle {
+    var defaultColors: (primary: String, secondary: String, accent: String) {
+        switch self {
+        case .standard:
+            return ("#FF4081", "#212121", "#FFFFFF")
+        case .casino:
+            return ("#DC143C", "#000000", "#FFD700")
+        case .balatro:
+            return ("#FF2D6A", "#1a1a2e", "#4DEEEA")
+        case .mahjong:
+            return ("#B22222", "#1D4E3E", "#F5F5DC")  // Red primary, jade secondary, ivory accent
+        }
+    }
+}
+
 /// Theme configuration for customizing the photobooth UI per event
 struct Theme: Equatable, Sendable {
     let id: Int
+    let themeStyle: ThemeStyle
     let primaryColor: String
     let secondaryColor: String
     let accentColor: String
@@ -25,6 +49,7 @@ struct Theme: Equatable, Sendable {
 extension Theme: Codable {
     nonisolated enum CodingKeys: String, CodingKey {
         case id
+        case themeStyle = "theme_style"
         case primaryColor = "primary_color"
         case secondaryColor = "secondary_color"
         case accentColor = "accent_color"
@@ -35,11 +60,27 @@ extension Theme: Codable {
         case stripFrameURL = "strip_frame_url"
         case stripFooterText = "strip_footer_text"
     }
+    
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        themeStyle = try container.decodeIfPresent(ThemeStyle.self, forKey: .themeStyle) ?? .standard
+        primaryColor = try container.decode(String.self, forKey: .primaryColor)
+        secondaryColor = try container.decode(String.self, forKey: .secondaryColor)
+        accentColor = try container.decode(String.self, forKey: .accentColor)
+        fontFamily = try container.decode(String.self, forKey: .fontFamily)
+        logoURL = try container.decodeIfPresent(String.self, forKey: .logoURL)
+        backgroundURL = try container.decodeIfPresent(String.self, forKey: .backgroundURL)
+        photoFrameURL = try container.decodeIfPresent(String.self, forKey: .photoFrameURL)
+        stripFrameURL = try container.decodeIfPresent(String.self, forKey: .stripFrameURL)
+        stripFooterText = try container.decodeIfPresent(String.self, forKey: .stripFooterText)
+    }
 }
 
 /// Resolved theme with parsed colors and URLs for use in SwiftUI views
 struct AppTheme: Equatable, Sendable {
     let id: Int
+    let style: ThemeStyle
     let primary: Color
     let secondary: Color
     let accent: Color
@@ -50,13 +91,15 @@ struct AppTheme: Equatable, Sendable {
     let stripFrameURL: URL?
     let stripFrameAssetName: String?
     let stripFooterText: String?
-    
+
     /// Creates an AppTheme from a raw Theme model
     init(from theme: Theme) {
         self.id = theme.id
-        self.primary = Color(hex: theme.primaryColor) ?? .pink
-        self.secondary = Color(hex: theme.secondaryColor) ?? .black
-        self.accent = Color(hex: theme.accentColor) ?? .white
+        self.style = theme.themeStyle
+        let colors = theme.themeStyle.defaultColors
+        self.primary = Color(hex: colors.primary) ?? .pink
+        self.secondary = Color(hex: colors.secondary) ?? .black
+        self.accent = Color(hex: colors.accent) ?? .white
         self.fontFamily = theme.fontFamily
         self.logoURL = theme.logoURL.flatMap { URL(string: $0) }
         self.backgroundURL = theme.backgroundURL.flatMap { URL(string: $0) }
@@ -77,6 +120,7 @@ struct AppTheme: Equatable, Sendable {
     /// Default theme for when no event is selected
     static let `default` = AppTheme(
         id: 0,
+        style: .standard,
         primary: Color(hex: "#FF4081") ?? .pink,
         secondary: Color(hex: "#212121") ?? .black,
         accent: .white,
@@ -91,6 +135,7 @@ struct AppTheme: Equatable, Sendable {
     
     private init(
         id: Int,
+        style: ThemeStyle,
         primary: Color,
         secondary: Color,
         accent: Color,
@@ -103,6 +148,7 @@ struct AppTheme: Equatable, Sendable {
         stripFooterText: String?
     ) {
         self.id = id
+        self.style = style
         self.primary = primary
         self.secondary = secondary
         self.accent = accent
