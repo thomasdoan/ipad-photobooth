@@ -104,7 +104,7 @@ final class EmailCollectionService {
         let presignResponse = try await workerAPIClient.presign(request: presignRequest)
 
         guard let upload = presignResponse.uploads.first else {
-            throw APIError.invalidResponse
+            throw APIError.invalidURL
         }
 
         // Upload file
