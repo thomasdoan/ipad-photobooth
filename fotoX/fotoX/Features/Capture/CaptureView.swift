@@ -253,7 +253,11 @@ struct CaptureView: View {
             
             // Recording badge when recording
             if case .recording = viewModel.stripState {
-                RecordingBadge()
+                if theme.isCasino {
+                    CasinoRecordingBadge()
+                } else {
+                    RecordingBadge()
+                }
             }
         }
         .padding(.horizontal, 24)
@@ -305,11 +309,19 @@ struct CaptureView: View {
 
             // Hide small countdown when big countdown is showing
             if viewModel.recordingCountdownRemaining == nil {
-                RecordingProgressView(
-                    progress: elapsed / viewModel.config.videoDuration,
-                    duration: viewModel.config.videoDuration,
-                    elapsed: elapsed
-                )
+                if theme.isCasino {
+                    CasinoRecordingProgressView(
+                        progress: elapsed / viewModel.config.videoDuration,
+                        duration: viewModel.config.videoDuration,
+                        elapsed: elapsed
+                    )
+                } else {
+                    RecordingProgressView(
+                        progress: elapsed / viewModel.config.videoDuration,
+                        duration: viewModel.config.videoDuration,
+                        elapsed: elapsed
+                    )
+                }
 
                 if theme.isCasino {
                     // Casino-styled "Keep going!" with poker theme
