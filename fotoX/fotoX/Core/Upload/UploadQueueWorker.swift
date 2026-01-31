@@ -232,6 +232,27 @@ actor UploadQueueWorker {
 
         try await store.addSession(queueSession)
 
+        // When mode != "all", move source strip files to session dir for local backup
+        // These won't be uploaded (not in assets array) but are preserved locally
+        if WorkerConfiguration.currentUploadMode() != .all {
+            for strip in strips {
+                // Move video to session directory
+                if fileManager.fileExists(atPath: strip.videoURL.path) {
+                    let videoFileName = "video_\(strip.stripIndex).mov"
+                    let videoDestination = sessionDir.appendingPathComponent(videoFileName)
+                    if fileManager.fileExists(atPath: videoDestination.path) {
+                        try? fileManager.removeItem(at: videoDestination)
+                    }
+                    try? fileManager.moveItem(at: strip.videoURL, to: videoDestination)
+                }
+                
+                // Save photo to session directory
+                let photoFileName = "photo_\(strip.stripIndex).jpg"
+                let photoDestination = sessionDir.appendingPathComponent(photoFileName)
+                try? strip.photoData.write(to: photoDestination, options: .atomic)
+            }
+        }
+
         let breadcrumb = Breadcrumb(level: .info, category: "upload")
         breadcrumb.message = "Session enqueued"
         breadcrumb.data = [
