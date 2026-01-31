@@ -83,35 +83,10 @@ struct MahjongRecordingProgressView: View {
     // MARK: - Progress Ring
 
     private var progressRing: some View {
-        ZStack {
-            // Background track
-            Circle()
-                .stroke(jadeGreen.opacity(0.5), lineWidth: 8)
-                .frame(width: 130, height: 130)
-
-            // Progress arc
-            Circle()
-                .trim(from: 0, to: progress)
-                .stroke(
-                    AngularGradient(
-                        colors: [gold, dragonRed, gold],
-                        center: .center
-                    ),
-                    style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                )
-                .frame(width: 130, height: 130)
-                .rotationEffect(.degrees(-90))
-                .animation(.linear(duration: 0.1), value: progress)
-
-            // Progress indicator dot
-            Circle()
-                .fill(ivory)
-                .frame(width: 10, height: 10)
-                .shadow(color: gold.opacity(0.5), radius: 4)
-                .offset(y: -65)
-                .rotationEffect(.degrees(-90 + (progress * 360)))
-                .opacity(progress > 0 ? 1 : 0)
-        }
+        // Background track
+        Circle()
+            .stroke(jadeGreen.opacity(0.5), lineWidth: 8)
+            .frame(width: 130, height: 130)
     }
 
     // MARK: - Dragon Indicators
@@ -183,7 +158,7 @@ struct MahjongRecordingProgressView: View {
 
     private var timeString: String {
         let remaining = max(0, duration - elapsed)
-        return String(format: "%.1f", remaining)
+        return "\(Int(ceil(remaining)))"
     }
 
     private func startAnimations() {
