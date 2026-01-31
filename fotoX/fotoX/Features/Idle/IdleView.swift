@@ -28,7 +28,11 @@ struct IdleView: View {
                 
                 // Floating particles
                 if showParticles {
-                    ParticlesView(theme: theme)
+                    if theme.isCasino {
+                        CasinoParticlesView(theme: theme)
+                    } else {
+                        ParticlesView(theme: theme)
+                    }
                 }
                 
                 // Main content
@@ -104,6 +108,16 @@ struct IdleView: View {
     // MARK: - Background
     
     private var backgroundLayer: some View {
+        Group {
+            if theme.isCasino {
+                CasinoBackgroundView()
+            } else {
+                standardBackground
+            }
+        }
+    }
+    
+    private var standardBackground: some View {
         ZStack {
             // Base gradient using theme colors
             LinearGradient(
@@ -186,6 +200,22 @@ struct IdleView: View {
     // MARK: - Start Button
     
     private var startButton: some View {
+        Group {
+            if theme.isCasino {
+                CasinoChipButton("Tap to\nStart", icon: "camera.fill") {
+                    Task {
+                        await viewModel?.startSession(appState: appState)
+                    }
+                }
+                .disabled(viewModel?.isCreatingSession == true)
+                .accessibilityIdentifier("startButton")
+            } else {
+                standardStartButton
+            }
+        }
+    }
+    
+    private var standardStartButton: some View {
         Button {
             Task {
                 await viewModel?.startSession(appState: appState)

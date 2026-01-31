@@ -145,7 +145,11 @@ struct CaptureView: View {
                 readyOverlay
                 
             case .countdown(let remaining):
-                CountdownView(number: remaining)
+                if theme.isCasino {
+                    CasinoCountdownView(number: remaining)
+                } else {
+                    CountdownView(number: remaining)
+                }
                 
             case .recording(let elapsed):
                 ZStack {
@@ -153,7 +157,11 @@ struct CaptureView: View {
 
                     // Show countdown overlay during final seconds of recording
                     if let countdownRemaining = viewModel.recordingCountdownRemaining {
-                        CountdownView(number: countdownRemaining)
+                        if theme.isCasino {
+                            CasinoCountdownView(number: countdownRemaining)
+                        } else {
+                            CountdownView(number: countdownRemaining)
+                        }
                     }
                 }
 

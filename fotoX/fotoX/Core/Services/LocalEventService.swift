@@ -29,9 +29,10 @@ private enum BundledEventStore {
             date: "2026-01-31",
             theme: Theme(
                 id: 1,
-                primaryColor: "#FF4081",
-                secondaryColor: "#212121",
-                accentColor: "#FFFFFF",
+                themeStyle: .casino,
+                primaryColor: "#DC143C",        // Casino red
+                secondaryColor: "#000000",       // Pure black
+                accentColor: "#FFD700",          // Gold
                 fontFamily: "system",
                 logoURL: nil,
                 backgroundURL: nil,

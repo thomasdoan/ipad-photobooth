@@ -32,6 +32,7 @@ enum MockDataProvider {
             date: "2025-12-31",
             theme: Theme(
                 id: 1,
+                themeStyle: .standard,
                 primaryColor: "#FF4081",
                 secondaryColor: "#212121",
                 accentColor: "#FFFFFF",
@@ -49,6 +50,7 @@ enum MockDataProvider {
             date: "2025-12-20",
             theme: Theme(
                 id: 2,
+                themeStyle: .standard,
                 primaryColor: "#0066CC",
                 secondaryColor: "#1A1A2E",
                 accentColor: "#FFFFFF",
@@ -66,6 +68,7 @@ enum MockDataProvider {
             date: "2025-06-15",
             theme: Theme(
                 id: 3,
+                themeStyle: .standard,
                 primaryColor: "#FFD700",
                 secondaryColor: "#2D1B4E",
                 accentColor: "#FFFFFF",
