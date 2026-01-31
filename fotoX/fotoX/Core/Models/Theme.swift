@@ -14,6 +14,17 @@ enum ThemeStyle: String, Codable, Sendable, CaseIterable {
     case casino
 }
 
+extension ThemeStyle {
+    var defaultColors: (primary: String, secondary: String, accent: String) {
+        switch self {
+        case .standard:
+            return ("#FF4081", "#212121", "#FFFFFF")
+        case .casino:
+            return ("#DC143C", "#000000", "#FFD700")
+        }
+    }
+}
+
 /// Theme configuration for customizing the photobooth UI per event
 struct Theme: Equatable, Sendable {
     let id: Int
@@ -79,9 +90,10 @@ struct AppTheme: Equatable, Sendable {
     init(from theme: Theme) {
         self.id = theme.id
         self.style = theme.themeStyle
-        self.primary = Color(hex: theme.primaryColor) ?? .pink
-        self.secondary = Color(hex: theme.secondaryColor) ?? .black
-        self.accent = Color(hex: theme.accentColor) ?? .white
+        let colors = theme.themeStyle.defaultColors
+        self.primary = Color(hex: colors.primary) ?? .pink
+        self.secondary = Color(hex: colors.secondary) ?? .black
+        self.accent = Color(hex: colors.accent) ?? .white
         self.fontFamily = theme.fontFamily
         self.logoURL = theme.logoURL.flatMap { URL(string: $0) }
         self.backgroundURL = theme.backgroundURL.flatMap { URL(string: $0) }
