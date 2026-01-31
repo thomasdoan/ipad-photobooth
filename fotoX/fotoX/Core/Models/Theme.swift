@@ -13,6 +13,7 @@ enum ThemeStyle: String, Codable, Sendable, CaseIterable {
     case standard
     case casino
     case balatro
+    case mahjong
 }
 
 extension ThemeStyle {
@@ -24,6 +25,8 @@ extension ThemeStyle {
             return ("#DC143C", "#000000", "#FFD700")
         case .balatro:
             return ("#FF2D6A", "#1a1a2e", "#4DEEEA")
+        case .mahjong:
+            return ("#B22222", "#1D4E3E", "#F5F5DC")  // Red primary, jade secondary, ivory accent
         }
     }
 }

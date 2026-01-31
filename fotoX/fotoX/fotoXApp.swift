@@ -62,6 +62,7 @@ struct fotoXApp: App {
         registry.setDefaultProvider(standardProvider)
         registry.register(CasinoThemeProvider())
         registry.register(BalatroThemeProvider())
+        registry.register(MahjongThemeProvider())
     }
 
     var body: some Scene {
