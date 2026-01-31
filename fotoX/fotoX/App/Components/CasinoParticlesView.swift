@@ -8,6 +8,7 @@
 import SwiftUI
 
 /// Casino-themed floating particles with cards, chips, and dice
+@MainActor
 struct CasinoParticlesView: View {
     let theme: AppTheme
     
@@ -29,14 +30,23 @@ struct CasinoParticlesView: View {
     
     private func generateParticles(in size: CGSize) {
         let count = 20
+
+        // Safe bounds for X: ensure maxX >= minX
+        let minX: CGFloat = 30
+        let maxX: CGFloat = max(minX, size.width - 30)
+
+        // Safe bounds for Y: ensure maxY >= minY
+        let minY: CGFloat = 50
+        let maxY: CGFloat = max(minY, size.height - 50)
+
         particles = (0..<count).map { index in
             let symbolType = CasinoSymbolType.allCases[index % CasinoSymbolType.allCases.count]
             return CasinoParticle(
                 id: UUID(),
                 symbolType: symbolType,
                 basePosition: CGPoint(
-                    x: CGFloat.random(in: 30...(size.width - 30)),
-                    y: CGFloat.random(in: 50...(size.height - 50))
+                    x: CGFloat.random(in: minX...maxX),
+                    y: CGFloat.random(in: minY...maxY)
                 ),
                 baseRotation: Double.random(in: -45...45),
                 phase: Double.random(in: 0...(2 * .pi)),
@@ -49,6 +59,7 @@ struct CasinoParticlesView: View {
 }
 
 /// Individual animated particle
+@MainActor
 struct CasinoParticleView: View {
     let particle: CasinoParticle
     let theme: AppTheme
