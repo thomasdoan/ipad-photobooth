@@ -56,6 +56,14 @@ extension EmailSubmissionResponse: Codable {}
 /// Request body for email submission
 struct EmailSubmissionRequest: Sendable {
     let email: String
+    let frameId: String?
+    let eventId: Int?
 }
 
-extension EmailSubmissionRequest: Codable {}
+extension EmailSubmissionRequest: Codable {
+    nonisolated enum CodingKeys: String, CodingKey {
+        case email
+        case frameId = "frame_id"
+        case eventId = "event_id"
+    }
+}

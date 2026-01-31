@@ -11,9 +11,14 @@ import UIKit
 @MainActor
 final class LocalSessionService: SessionServicing {
     private let galleryBaseURLProvider: @Sendable () -> URL
+    private let emailCollectionService: EmailCollectionService?
 
-    init(galleryBaseURLProvider: @escaping @Sendable () -> URL = WorkerConfiguration.currentBaseURL) {
+    init(
+        galleryBaseURLProvider: @escaping @Sendable () -> URL = WorkerConfiguration.currentBaseURL,
+        emailCollectionService: EmailCollectionService? = nil
+    ) {
         self.galleryBaseURLProvider = galleryBaseURLProvider
+        self.emailCollectionService = emailCollectionService
     }
 
     func createSession(eventId: Int) async throws -> Session {
@@ -40,7 +45,16 @@ final class LocalSessionService: SessionServicing {
         return qrData
     }
 
-    func submitEmail(sessionId: String, email: String) async throws -> EmailSubmissionResponse {
+    func submitEmail(sessionId: String, email: String, frameId: String?, eventId: Int?) async throws -> EmailSubmissionResponse {
+        // Save email entry if collection service is available
+        if let emailCollectionService = emailCollectionService {
+            try await emailCollectionService.submitEmail(
+                sessionId: sessionId,
+                email: email,
+                frameId: frameId,
+                eventId: eventId
+            )
+        }
         return EmailSubmissionResponse(status: "ok")
     }
 

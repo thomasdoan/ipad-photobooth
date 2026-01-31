@@ -372,6 +372,13 @@ struct CaptureView: View {
             appState.addCapturedStrip(strip)
         }
 
+        // Store selected frame ID for email collection
+        if let frameName = viewModel.selectedFrameAssetName {
+            appState.selectedFrameId = FrameOption.availableFrames.first { $0.frameName == frameName }?.id
+        } else {
+            appState.selectedFrameId = nil
+        }
+
         guard let eventId = appState.selectedEvent?.id,
               let session = appState.currentSession else {
             appState.currentError = APIError.invalidResponse

@@ -94,26 +94,26 @@ final class QRViewModel<SessionService: SessionServicing> {
     
     /// Submits the email
     @MainActor
-    func submitEmail(sessionId: String) async {
+    func submitEmail(sessionId: String, frameId: String?, eventId: Int?) async {
         // Validate email
         guard !email.isEmpty else {
             emailError = "Please enter your email"
             return
         }
-        
+
         guard isEmailValid else {
             emailError = "Please enter a valid email address"
             return
         }
-        
+
         emailError = nil
         isSubmittingEmail = true
-        
+
         do {
             if let testable = testableServices {
-                _ = try await testable.submitEmail(sessionId: sessionId, email: email)
+                _ = try await testable.submitEmail(sessionId: sessionId, email: email, frameId: frameId, eventId: eventId)
             } else {
-                _ = try await sessionService.submitEmail(sessionId: sessionId, email: email)
+                _ = try await sessionService.submitEmail(sessionId: sessionId, email: email, frameId: frameId, eventId: eventId)
             }
             emailSubmitted = true
         } catch let error as APIError {
@@ -121,7 +121,7 @@ final class QRViewModel<SessionService: SessionServicing> {
         } catch {
             emailError = "Failed to submit email"
         }
-        
+
         isSubmittingEmail = false
     }
     

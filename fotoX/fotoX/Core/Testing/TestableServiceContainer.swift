@@ -13,13 +13,14 @@ import Foundation
 final class TestableServiceContainer: Sendable {
     
     // MARK: - Service Access
-    
+
     /// Local services used when mocks are not enabled
     let eventService: LocalEventService
     let sessionService: LocalSessionService
     let themeService: ThemeService
+    let emailCollectionService: EmailCollectionService
     let apiClient: APIClient?
-    
+
     // Mock services (available when testing)
     private(set) var mockEventService: MockEventService?
     private(set) var mockSessionService: MockSessionService?
@@ -31,10 +32,11 @@ final class TestableServiceContainer: Sendable {
     
     init(useMocks: Bool = MockDataProvider.useMockData) {
         self.isMocking = useMocks
-        
+
         self.themeService = ThemeService()
         self.eventService = LocalEventService()
-        self.sessionService = LocalSessionService()
+        self.emailCollectionService = EmailCollectionService()
+        self.sessionService = LocalSessionService(emailCollectionService: emailCollectionService)
         self.apiClient = nil
 
         if useMocks {
@@ -107,10 +109,10 @@ final class TestableServiceContainer: Sendable {
     }
     
     /// Submits email
-    func submitEmail(sessionId: String, email: String) async throws -> EmailSubmissionResponse {
+    func submitEmail(sessionId: String, email: String, frameId: String?, eventId: Int?) async throws -> EmailSubmissionResponse {
         if let mock = mockSessionService {
-            return try await mock.submitEmail(sessionId: sessionId, email: email)
+            return try await mock.submitEmail(sessionId: sessionId, email: email, frameId: frameId, eventId: eventId)
         }
-        return try await sessionService.submitEmail(sessionId: sessionId, email: email)
+        return try await sessionService.submitEmail(sessionId: sessionId, email: email, frameId: frameId, eventId: eventId)
     }
 }
