@@ -12,6 +12,7 @@ import SwiftUI
 enum ThemeStyle: String, Codable, Sendable, CaseIterable {
     case standard
     case casino
+    case balatro
 }
 
 extension ThemeStyle {
@@ -21,6 +22,8 @@ extension ThemeStyle {
             return ("#FF4081", "#212121", "#FFFFFF")
         case .casino:
             return ("#DC143C", "#000000", "#FFD700")
+        case .balatro:
+            return ("#FF2D6A", "#1a1a2e", "#4DEEEA")
         }
     }
 }

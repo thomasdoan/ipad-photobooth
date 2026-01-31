@@ -29,7 +29,7 @@ private enum BundledEventStore {
             date: "2026-01-31",
             theme: Theme(
                 id: 1,
-                themeStyle: .casino,
+                themeStyle: .balatro,
                 primaryColor: "#DC143C",        // Casino red
                 secondaryColor: "#000000",       // Pure black
                 accentColor: "#FFD700",          // Gold
