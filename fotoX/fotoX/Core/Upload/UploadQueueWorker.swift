@@ -36,11 +36,11 @@ actor UploadQueueWorker {
     /// Default interval for automatic retry checks (30 seconds)
     static let defaultAutoRetryInterval: TimeInterval = 30
     
-    /// Timeout for individual upload requests (30 seconds)
-    static let uploadRequestTimeout: TimeInterval = 30
+    /// Timeout for individual upload requests (2 minutes)
+    static let uploadRequestTimeout: TimeInterval = 120
     
-    /// Timeout for the entire upload resource - (1 minute)
-    static let uploadResourceTimeout: TimeInterval = 60
+    /// Timeout for the entire upload resource - (5 minutes)
+    static let uploadResourceTimeout: TimeInterval = 300
     
     /// Minimum interval between auto-retry error logs to prevent spam (60 seconds)
     private static let autoRetryErrorLogThrottleInterval: TimeInterval = 60
