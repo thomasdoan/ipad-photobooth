@@ -27,6 +27,8 @@ enum WorkerConfiguration {
     static let defaultCaptureAspectRatio: CaptureAspectRatio = .auto
     static let defaultCountdownSeconds: Int = 3
     static let minCountdownSeconds: Int = 0
+    static let bluetoothButtonEnabledKey = "bluetoothButtonEnabled"
+    static let defaultBluetoothButtonEnabled = true
 
     static func currentBaseURL() -> URL {
         if let urlString = UserDefaults.standard.string(forKey: baseURLKey),
@@ -167,6 +169,18 @@ enum WorkerConfiguration {
 
     static func saveUploadMode(_ mode: UploadMode) {
         UserDefaults.standard.set(mode.rawValue, forKey: uploadModeKey)
+    }
+
+    // MARK: - Bluetooth Button
+    static func bluetoothButtonEnabled() -> Bool {
+        if UserDefaults.standard.object(forKey: bluetoothButtonEnabledKey) == nil {
+            return defaultBluetoothButtonEnabled
+        }
+        return UserDefaults.standard.bool(forKey: bluetoothButtonEnabledKey)
+    }
+
+    static func saveBluetoothButtonEnabled(_ enabled: Bool) {
+        UserDefaults.standard.set(enabled, forKey: bluetoothButtonEnabledKey)
     }
 }
 

@@ -435,6 +435,24 @@ struct SettingsView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
+
+                Divider()
+                    .padding(.leading, 16)
+
+                // Bluetooth remote toggle
+                Toggle(isOn: $viewModel.bluetoothButtonEnabled) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Bluetooth Remote")
+                            .font(.subheadline)
+                            .foregroundStyle(.primary)
+
+                        Text("Use volume-up button to start capture / continue")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
             }
             .background(
                 RoundedRectangle(cornerRadius: 12)

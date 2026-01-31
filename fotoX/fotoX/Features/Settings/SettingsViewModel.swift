@@ -48,6 +48,9 @@ final class SettingsViewModel {
     /// Upload mode setting
     var uploadMode: UploadMode = .compositeOnly
 
+    /// Whether Bluetooth button (volume-up) is enabled for triggering actions
+    var bluetoothButtonEnabled: Bool = false
+
     /// Whether testing connection
     var isTestingConnection: Bool = false
     
@@ -84,6 +87,7 @@ final class SettingsViewModel {
         captureAspectRatioSetting = WorkerConfiguration.currentCaptureAspectRatio()
         countdownSeconds = Double(WorkerConfiguration.currentCountdownSeconds())
         uploadMode = WorkerConfiguration.currentUploadMode()
+        bluetoothButtonEnabled = WorkerConfiguration.bluetoothButtonEnabled()
     }
     
     /// Validates the URL
@@ -116,6 +120,7 @@ final class SettingsViewModel {
         WorkerConfiguration.saveCaptureAspectRatio(captureAspectRatioSetting)
         WorkerConfiguration.saveCountdownSeconds(Int(countdownSeconds))
         WorkerConfiguration.saveUploadMode(uploadMode)
+        WorkerConfiguration.saveBluetoothButtonEnabled(bluetoothButtonEnabled)
         return true
     }
 
@@ -135,6 +140,7 @@ final class SettingsViewModel {
         captureAspectRatioSetting = WorkerConfiguration.defaultCaptureAspectRatio
         countdownSeconds = Double(WorkerConfiguration.defaultCountdownSeconds)
         uploadMode = WorkerConfiguration.defaultUploadMode
+        bluetoothButtonEnabled = WorkerConfiguration.defaultBluetoothButtonEnabled
         _ = saveSettings()
         connectionTestResult = nil
     }
