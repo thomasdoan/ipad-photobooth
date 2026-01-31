@@ -131,6 +131,7 @@ struct CasinoParticleView: View {
                     .fill(theme.secondary)
                     .frame(width: 6, height: 6)
             }
+        }
     }
     
     private func startAnimation() {
