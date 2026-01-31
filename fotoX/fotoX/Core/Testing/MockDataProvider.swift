@@ -208,13 +208,13 @@ final class MockSessionService: SessionServicing {
         return MockDataProvider.mockQRCodeData
     }
     
-    func submitEmail(sessionId: String, email: String) async throws -> EmailSubmissionResponse {
+    func submitEmail(sessionId: String, email: String, frameId: String?, eventId: Int?) async throws -> EmailSubmissionResponse {
         try await Task.sleep(nanoseconds: 300_000_000) // 0.3s
-        
+
         if shouldFailEmail {
             throw APIError.httpError(statusCode: 400, message: "Invalid email")
         }
-        
+
         return MockDataProvider.mockEmailResponse
     }
 }

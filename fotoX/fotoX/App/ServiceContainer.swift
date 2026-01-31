@@ -14,10 +14,12 @@ final class ServiceContainer: Sendable {
     let sessionService: LocalSessionService
     let themeService: ThemeService
     let uploadQueueWorker: UploadQueueWorker
-    
+    let emailCollectionService: EmailCollectionService
+
     init() {
         self.eventService = LocalEventService()
-        self.sessionService = LocalSessionService()
+        self.emailCollectionService = EmailCollectionService()
+        self.sessionService = LocalSessionService(emailCollectionService: emailCollectionService)
         self.themeService = ThemeService()
         self.uploadQueueWorker = UploadQueueWorker()
     }

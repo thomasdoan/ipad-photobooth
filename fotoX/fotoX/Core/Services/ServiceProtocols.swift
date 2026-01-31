@@ -24,5 +24,5 @@ protocol SessionServicing: Sendable {
         metadata: AssetUploadMetadata
     ) async throws -> AssetUploadResponse
     func fetchQRCode(sessionId: String) async throws -> Data
-    func submitEmail(sessionId: String, email: String) async throws -> EmailSubmissionResponse
+    func submitEmail(sessionId: String, email: String, frameId: String?, eventId: Int?) async throws -> EmailSubmissionResponse
 }

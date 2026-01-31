@@ -588,6 +588,14 @@ async function handleAsset(env, url, request) {
     return new Response("Missing path", { status: 400 })
   }
 
+  // Block access to private paths unless authenticated
+  if (path.startsWith("private/")) {
+    const token = request.headers.get("X-FotoX-Key")
+    if (!token || token !== env.PRESIGN_TOKEN) {
+      return new Response("Forbidden", { status: 403 })
+    }
+  }
+
   const rangeHeader = request.headers.get("Range")
 
   // Handle Range requests for video streaming

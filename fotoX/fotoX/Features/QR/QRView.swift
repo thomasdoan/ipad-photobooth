@@ -358,7 +358,7 @@ struct QRView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.green)
-                    Text("Email sent! Check your inbox soon.")
+                    Text("Check your inbox soon!")
                         .font(.subheadline)
                         .foregroundStyle(theme.accent)
                 }
@@ -404,7 +404,11 @@ struct QRView: View {
                         Button {
                             Task {
                                 if let sessionId = appState.currentSession?.sessionId {
-                                    await viewModel.submitEmail(sessionId: sessionId)
+                                    await viewModel.submitEmail(
+                                        sessionId: sessionId,
+                                        frameId: appState.selectedFrameId,
+                                        eventId: appState.selectedEvent?.id
+                                    )
                                 }
                             }
                         } label: {

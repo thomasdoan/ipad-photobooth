@@ -36,7 +36,10 @@ final class AppState {
     
     /// Captured strips for current session
     var capturedStrips: [CapturedStrip] = []
-    
+
+    /// Selected frame ID for current session
+    var selectedFrameId: String?
+
     // MARK: - Upload Progress
     
     /// Total assets to upload
@@ -182,6 +185,7 @@ final class AppState {
     func resetSession() {
         currentSession = nil
         capturedStrips = []
+        selectedFrameId = nil
         totalAssetsToUpload = 0
         assetsUploaded = 0
         uploadError = nil

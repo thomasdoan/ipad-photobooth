@@ -61,17 +61,15 @@ final class SessionService: SessionServicing {
     }
     
     /// Submits guest email for a session
-    func submitEmail(sessionId: String, email: String) async throws -> EmailSubmissionResponse {
+    func submitEmail(sessionId: String, email: String, frameId: String?, eventId: Int?) async throws -> EmailSubmissionResponse {
         let request = EmailSubmissionRequest(email: email)
         let encoder = JSONEncoder()
         let decoder = JSONDecoder()
-        
         let baseURL = await apiClient.baseURL
         guard var urlRequest = Endpoints.submitEmail(sessionId: sessionId).makeRequest(baseURL: baseURL) else {
             throw APIError.invalidURL
         }
         urlRequest.httpBody = try encoder.encode(request)
-        
         let data = try await performRequest(urlRequest)
         return try decoder.decode(EmailSubmissionResponse.self, from: data)
     }
