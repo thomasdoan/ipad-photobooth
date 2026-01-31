@@ -288,18 +288,21 @@ struct CaptureView: View {
     private func recordingOverlay(elapsed: TimeInterval, geometry: GeometryProxy) -> some View {
         VStack {
             Spacer()
-            
-            RecordingProgressView(
-                progress: elapsed / viewModel.config.videoDuration,
-                duration: viewModel.config.videoDuration,
-                elapsed: elapsed
-            )
-            
-            Text("Keep going!")
-                .font(.headline)
-                .foregroundStyle(.white)
-                .padding(.top, 16)
-            
+
+            // Hide small countdown when big countdown is showing
+            if viewModel.recordingCountdownRemaining == nil {
+                RecordingProgressView(
+                    progress: elapsed / viewModel.config.videoDuration,
+                    duration: viewModel.config.videoDuration,
+                    elapsed: elapsed
+                )
+
+                Text("Keep going!")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .padding(.top, 16)
+            }
+
             Spacer()
                 .frame(height: 150)
         }
