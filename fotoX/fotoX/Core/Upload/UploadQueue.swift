@@ -48,8 +48,8 @@ struct UploadQueueSession: Identifiable, Codable, Sendable {
     /// Maximum number of automatic retry attempts before requiring manual intervention
     static let maxAutoRetries = 5
     
-    /// Timeout threshold for considering an upload as stale/stuck (1 minutes)
-    static let staleUploadThreshold: TimeInterval = 60
+    /// Timeout threshold for considering an upload as stale/stuck (6 minutes)
+    static let staleUploadThreshold: TimeInterval = 360
     
     // Custom init with defaults for backward compatibility
     init(
