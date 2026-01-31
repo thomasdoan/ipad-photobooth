@@ -365,7 +365,7 @@ struct CaptureSummaryView: View {
         )
         let previewSize = compositePreviewSize(availableSize: availableSize)
 
-        VStack(alignment: .center, spacing: 24) {
+        VStack(alignment: .center, spacing: 40) {
             Spacer()
 
             compositePreview(previewSize: previewSize)
@@ -391,7 +391,7 @@ struct CaptureSummaryView: View {
 
     private var selectorPane: some View {
         VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 24) {
                 HStack(spacing: 12) {
                     Image(systemName: "checkmark.circle.fill")
                         .font(.system(size: 44))
@@ -461,21 +461,6 @@ struct CaptureSummaryView: View {
     @ViewBuilder
     private func compositePreview(previewSize: CGSize) -> some View {
         HStack(spacing: 16) {
-            // Photo composite
-            // if let compositePhotoData,
-            //    let image = UIImage(data: compositePhotoData) {
-            //     Image(uiImage: image)
-            //         .resizable()
-            //         .aspectRatio(contentMode: .fit)
-            //         .frame(maxWidth: previewSize.width / 2, maxHeight: previewSize.height)
-            //         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            //         .shadow(color: theme.secondary.opacity(0.3), radius: 8, y: 4)
-            // } else {
-            //     fallbackStripView(maxWidth: previewSize.width / 2, maxHeight: previewSize.height)
-            //         .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            //         .shadow(color: theme.secondary.opacity(0.3), radius: 8, y: 4)
-            // }
-
             // Video composite
             if let player = compositePlayer {
                 QRLoopingVideoView(player: player)

@@ -38,15 +38,11 @@ struct FrameSelectorView: View {
     var body: some View {
         let usableFrames = frames.filter { $0.loadFrameImage() != nil }
         let columns = [
-            GridItem(.flexible(), spacing: 14),
-            GridItem(.flexible(), spacing: 14),
+            GridItem(.flexible(), spacing: 28),
+            GridItem(.flexible(), spacing: 28),
         ]
 
         VStack(alignment: .leading, spacing: 12) {
-            Text("Frame")
-                .font(.headline)
-                .foregroundStyle(theme.accent)
-
             ScrollView(.vertical, showsIndicators: true) {
                 LazyVGrid(columns: columns, spacing: 14) {
                     ForEach(usableFrames) { option in
