@@ -78,14 +78,19 @@ final class EmailCollectionService {
             return
         }
 
-        let data = try Data(contentsOf: emailsFileURL)
-        let eventIdString = eventId.map(String.init) ?? "unknown"
-        let fileName = "emails_\(eventIdString).json"
+        // Read file data with synchronization to prevent race with appendEntry
+        let data = try fileQueue.sync {
+            try Data(contentsOf: emailsFileURL)
+        }
+
+        // Use sentinel value of 0 when eventId is nil (consistent with PresignRequest)
+        let eventIdValue = eventId ?? 0
+        let fileName = "emails_\(eventIdValue).json"
         let remotePath = "private/emails/\(fileName)"
 
         // Use presign flow to upload
         let presignRequest = PresignRequest(
-            eventId: eventId ?? 0,
+            eventId: eventIdValue,
             sessionId: "email-collection",
             files: [
                 PresignFile(
