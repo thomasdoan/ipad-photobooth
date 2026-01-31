@@ -197,6 +197,7 @@ struct MahjongSecondaryButton: View {
             }
             .shadow(color: jadeGreen.opacity(0.4), radius: 6)
             .scaleEffect(isPressed ? 0.95 : 1.0)
+            .animation(.spring(response: 0.3, dampingFraction: 0.6), value: isPressed)
         }
         .buttonStyle(.plain)
         .simultaneousGesture(

@@ -19,7 +19,7 @@ private struct ThemeAssetsKey: EnvironmentKey {
 
 private struct ThemeComponentProviderKey: EnvironmentKey {
     @MainActor static var defaultValue: any ThemeComponentProvider {
-        ThemeRegistry.shared.provider(for: .standard)
+        StandardThemeProvider()
     }
 }
 

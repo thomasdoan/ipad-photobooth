@@ -8,6 +8,7 @@
 import SwiftUI
 
 /// Casino-themed countdown with card flip animation
+@MainActor
 struct CasinoCountdownView: View {
     let number: Int
     

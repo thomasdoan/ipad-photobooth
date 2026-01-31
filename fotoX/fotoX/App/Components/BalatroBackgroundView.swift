@@ -8,6 +8,7 @@
 import SwiftUI
 
 /// Balatro-themed background with deep purple gradient, CRT scanlines, and neon edge glow
+@MainActor
 struct BalatroBackgroundView: View {
     @Environment(\.appTheme) private var theme
     @Environment(\.themeAssets) private var themeAssets
@@ -159,6 +160,7 @@ struct BalatroBackgroundView: View {
 }
 
 /// Simplified Balatro background for performance-critical areas
+@MainActor
 struct BalatroBackgroundSimple: View {
     private let deepPurple = Color(hex: "#1a1a2e") ?? .purple
     private let voidBlack = Color(hex: "#0f0f1a") ?? .black
