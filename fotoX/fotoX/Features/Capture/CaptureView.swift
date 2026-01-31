@@ -266,23 +266,29 @@ struct CaptureView: View {
         VStack {
             Spacer()
             
-            Button {
-                viewModel.startCapture()
-            } label: {
-                VStack(spacing: 16) {
-                    ZStack {
-                        Circle()
-                            .stroke(theme.primary, lineWidth: 4)
-                            .frame(width: 100, height: 100)
+            if theme.isCasino {
+                CasinoChipButton("Tap to\nStart", icon: "camera.fill") {
+                    viewModel.startCapture()
+                }
+            } else {
+                Button {
+                    viewModel.startCapture()
+                } label: {
+                    VStack(spacing: 16) {
+                        ZStack {
+                            Circle()
+                                .stroke(theme.primary, lineWidth: 4)
+                                .frame(width: 100, height: 100)
+                            
+                            Circle()
+                                .fill(theme.primary)
+                                .frame(width: 80, height: 80)
+                        }
                         
-                        Circle()
-                            .fill(theme.primary)
-                            .frame(width: 80, height: 80)
+                        Text("Tap to Start")
+                            .font(.headline)
+                            .foregroundStyle(.white)
                     }
-                    
-                    Text("Tap to Start")
-                        .font(.headline)
-                        .foregroundStyle(.white)
                 }
             }
             
@@ -305,10 +311,35 @@ struct CaptureView: View {
                     elapsed: elapsed
                 )
 
-                Text("Keep going!")
-                    .font(.headline)
-                    .foregroundStyle(.white)
+                if theme.isCasino {
+                    // Casino-styled "Keep going!" with poker theme
+                    HStack(spacing: 12) {
+                        Image(systemName: "suit.heart.fill")
+                            .foregroundStyle(theme.primary)
+                        Text("Keep going!")
+                            .font(.headline.bold())
+                            .foregroundStyle(theme.accent)
+                        Image(systemName: "suit.spade.fill")
+                            .foregroundStyle(theme.accent)
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.vertical, 12)
+                    .background(
+                        Capsule()
+                            .fill(Color(hex: "#0D4D2B")?.opacity(0.9) ?? theme.secondary.opacity(0.9))
+                            .overlay(
+                                Capsule()
+                                    .strokeBorder(theme.accent.opacity(0.3), lineWidth: 1)
+                            )
+                    )
+                    .shadow(color: .black.opacity(0.3), radius: 8, y: 4)
                     .padding(.top, 16)
+                } else {
+                    Text("Keep going!")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                        .padding(.top, 16)
+                }
             }
 
             Spacer()
@@ -320,31 +351,53 @@ struct CaptureView: View {
     
     private func errorOverlay(message: String) -> some View {
         ZStack {
-            Color.black.opacity(0.7)
+            if theme.isCasino {
+                Color(hex: "#0A3D22")?.opacity(0.95) ?? Color.black.opacity(0.7)
+            } else {
+                Color.black.opacity(0.7)
+            }
             
             VStack(spacing: 24) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.system(size: 50))
-                    .foregroundStyle(.yellow)
+                if theme.isCasino {
+                    // Casino-themed error icon
+                    ZStack {
+                        Circle()
+                            .fill(theme.primary.opacity(0.2))
+                            .frame(width: 80, height: 80)
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 40))
+                            .foregroundStyle(theme.accent)
+                    }
+                } else {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 50))
+                        .foregroundStyle(.yellow)
+                }
                 
                 Text("Something went wrong")
                     .font(.title2.bold())
-                    .foregroundStyle(.white)
+                    .foregroundStyle(theme.isCasino ? theme.accent : .white)
                 
                 Text(message)
                     .font(.body)
-                    .foregroundStyle(.white.opacity(0.8))
+                    .foregroundStyle(theme.isCasino ? theme.accent.opacity(0.8) : .white.opacity(0.8))
                     .multilineTextAlignment(.center)
                 
-                Button {
-                    viewModel.retryCurrentStrip()
-                } label: {
-                    Text("Try Again")
-                        .font(.headline)
-                        .foregroundStyle(.black)
-                        .padding(.horizontal, 32)
-                        .padding(.vertical, 14)
-                        .background(Capsule().fill(.white))
+                if theme.isCasino {
+                    CasinoSecondaryButton("Try Again", icon: "arrow.counterclockwise") {
+                        viewModel.retryCurrentStrip()
+                    }
+                } else {
+                    Button {
+                        viewModel.retryCurrentStrip()
+                    } label: {
+                        Text("Try Again")
+                            .font(.headline)
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 32)
+                            .padding(.vertical, 14)
+                            .background(Capsule().fill(.white))
+                    }
                 }
             }
             .padding(32)

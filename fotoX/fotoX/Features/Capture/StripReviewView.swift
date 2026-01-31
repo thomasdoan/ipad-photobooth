@@ -311,7 +311,12 @@ struct CaptureSummaryView: View {
     var body: some View {
         GeometryReader { geometry in
             ZStack {
-                theme.secondary.ignoresSafeArea()
+                // Background - use casino felt for casino theme
+                if theme.isCasino {
+                    CasinoBackgroundView()
+                } else {
+                    theme.secondary.ignoresSafeArea()
+                }
                 
                 HStack(alignment: .top, spacing: 0) {
                     // Left pane - Title + frame selector (50% width)

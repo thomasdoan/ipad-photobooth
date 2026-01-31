@@ -217,6 +217,16 @@ struct QRView: View {
     // MARK: - Background
     
     private var backgroundLayer: some View {
+        Group {
+            if theme.isCasino {
+                CasinoBackgroundView()
+            } else {
+                standardBackground
+            }
+        }
+    }
+    
+    private var standardBackground: some View {
         ZStack {
             LinearGradient(
                 colors: [theme.secondary, theme.secondary.opacity(0.95)],
