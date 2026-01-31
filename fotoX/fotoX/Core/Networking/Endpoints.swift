@@ -94,11 +94,4 @@ enum Endpoints {
             headers: ["Content-Type": "application/json"]
         )
     }
-
-    /// POST /api/presign - Get presigned URLs for file upload
-    static let presign = Endpoint(
-        path: "api/presign",
-        method: .POST,
-        headers: ["Content-Type": "application/json"]
-    )
 }

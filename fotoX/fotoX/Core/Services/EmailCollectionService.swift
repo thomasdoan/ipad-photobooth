@@ -12,6 +12,7 @@ import Foundation
 final class EmailCollectionService {
     private let workerAPIClient: WorkerAPIClient
     private let fileManager = FileManager.default
+    private let fileQueue = DispatchQueue(label: "id8.fotoX.emailCollectionService", qos: .userInitiated)
 
     /// Local JSON file path
     private var emailsFileURL: URL {
@@ -48,25 +49,27 @@ final class EmailCollectionService {
 
     /// Appends entry to local JSON file
     private func appendEntry(_ entry: EmailEntry) throws {
-        var entries: [EmailEntry] = []
+        try fileQueue.sync {
+            var entries: [EmailEntry] = []
 
-        // Read existing entries if file exists
-        if fileManager.fileExists(atPath: emailsFileURL.path) {
-            let data = try Data(contentsOf: emailsFileURL)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            entries = try decoder.decode([EmailEntry].self, from: data)
+            // Read existing entries if file exists
+            if fileManager.fileExists(atPath: emailsFileURL.path) {
+                let data = try Data(contentsOf: emailsFileURL)
+                let decoder = JSONDecoder()
+                decoder.dateDecodingStrategy = .iso8601
+                entries = try decoder.decode([EmailEntry].self, from: data)
+            }
+
+            // Append new entry
+            entries.append(entry)
+
+            // Write back
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = .prettyPrinted
+            let data = try encoder.encode(entries)
+            try data.write(to: emailsFileURL)
         }
-
-        // Append new entry
-        entries.append(entry)
-
-        // Write back
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        encoder.outputFormatting = .prettyPrinted
-        let data = try encoder.encode(entries)
-        try data.write(to: emailsFileURL)
     }
 
     /// Uploads the emails JSON file to R2
@@ -76,7 +79,8 @@ final class EmailCollectionService {
         }
 
         let data = try Data(contentsOf: emailsFileURL)
-        let fileName = "emails_\(eventId ?? 0).json"
+        let eventIdString = eventId.map(String.init) ?? "unknown"
+        let fileName = "emails_\(eventIdString).json"
         let remotePath = "private/emails/\(fileName)"
 
         // Use presign flow to upload
@@ -99,8 +103,12 @@ final class EmailCollectionService {
         }
 
         // Upload file
+        guard let uploadURL = URL(string: upload.url) else {
+            throw APIError.invalidResponse
+        }
+
         let session = URLSession.shared
-        var uploadRequest = URLRequest(url: URL(string: upload.url)!)
+        var uploadRequest = URLRequest(url: uploadURL)
         uploadRequest.httpMethod = upload.method
         uploadRequest.httpBody = data
         uploadRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
