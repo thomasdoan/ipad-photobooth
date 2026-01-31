@@ -59,6 +59,8 @@ struct GallerySession: Identifiable, Equatable, Sendable {
     let localThumbURL: URL?
     /// Gallery path for the session (e.g., "s/{sessionId}")
     let galleryPath: String
+    /// Public gallery path for the session (e.g., "session/{sessionId}")
+    let publicGalleryPath: String
     /// All assets in this session
     var assets: [GalleryAsset]
 
@@ -72,6 +74,7 @@ struct GallerySession: Identifiable, Equatable, Sendable {
         thumbPath: String?,
         localThumbURL: URL?,
         galleryPath: String,
+        publicGalleryPath: String,
         assets: [GalleryAsset]
     ) {
         self.id = id
@@ -83,6 +86,7 @@ struct GallerySession: Identifiable, Equatable, Sendable {
         self.thumbPath = thumbPath
         self.localThumbURL = localThumbURL
         self.galleryPath = galleryPath
+        self.publicGalleryPath = publicGalleryPath
         self.assets = assets
     }
 
@@ -133,11 +137,13 @@ struct EventIndexSession: Codable, Sendable {
     let createdAt: String
     let thumbPath: String
     let galleryPath: String
+    let publicGalleryPath: String?
     
     enum CodingKeys: String, CodingKey {
         case sessionId = "session_id"
         case createdAt = "created_at"
         case thumbPath = "thumb_path"
         case galleryPath = "gallery_path"
+        case publicGalleryPath = "public_gallery_path"
     }
 }

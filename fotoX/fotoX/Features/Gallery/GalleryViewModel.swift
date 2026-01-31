@@ -88,6 +88,7 @@ final class GalleryViewModel {
                     thumbPath: indexSession.thumbPath,
                     localThumbURL: nil,
                     galleryPath: indexSession.galleryPath,
+                    publicGalleryPath: indexSession.publicGalleryPath ?? "session/\(indexSession.sessionId)",
                     assets: [] // Assets loaded on demand in detail view
                 ))
             }
@@ -122,6 +123,7 @@ final class GalleryViewModel {
                     thumbPath: existing.thumbPath,
                     localThumbURL: localSession.localThumbURL,
                     galleryPath: existing.galleryPath,
+                    publicGalleryPath: existing.publicGalleryPath,
                     assets: localSession.assets // Use local assets with file URLs
                 )
                 sessionMap[localSession.sessionId] = existing

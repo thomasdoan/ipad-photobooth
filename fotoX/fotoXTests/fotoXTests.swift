@@ -1428,6 +1428,7 @@ struct GallerySessionDateFormattingTests {
             thumbPath: nil,
             localThumbURL: nil,
             galleryPath: "s/test-1",
+            publicGalleryPath: "session/test-1",
             assets: []
         )
 
@@ -1447,6 +1448,7 @@ struct GallerySessionDateFormattingTests {
             thumbPath: nil,
             localThumbURL: nil,
             galleryPath: "s/test-2",
+            publicGalleryPath: "session/test-2",
             assets: []
         )
 
@@ -1466,6 +1468,7 @@ struct GallerySessionDateFormattingTests {
             thumbPath: nil,
             localThumbURL: nil,
             galleryPath: "s/test-3",
+            publicGalleryPath: "session/test-3",
             assets: []
         )
 
@@ -1485,6 +1488,7 @@ struct GallerySessionDateFormattingTests {
             thumbPath: nil,
             localThumbURL: nil,
             galleryPath: "s/test-4",
+            publicGalleryPath: "session/test-4",
             assets: []
         )
 
@@ -1514,6 +1518,7 @@ struct GallerySessionDateFormattingTests {
             thumbPath: nil,
             localThumbURL: nil,
             galleryPath: "s/test-5",
+            publicGalleryPath: "session/test-5",
             assets: []
         )
 
@@ -1526,6 +1531,7 @@ struct GallerySessionDateFormattingTests {
             thumbPath: nil,
             localThumbURL: nil,
             galleryPath: "s/test-6",
+            publicGalleryPath: "session/test-6",
             assets: []
         )
 
@@ -1545,6 +1551,7 @@ struct GallerySessionDateFormattingTests {
             thumbPath: nil,
             localThumbURL: nil,
             galleryPath: "s/test-7",
+            publicGalleryPath: "session/test-7",
             assets: []
         )
 
@@ -1565,6 +1572,7 @@ struct GallerySessionDateFormattingTests {
             thumbPath: nil,
             localThumbURL: nil,
             galleryPath: "s/test-8",
+            publicGalleryPath: "session/test-8",
             assets: []
         )
 
@@ -1577,6 +1585,7 @@ struct GallerySessionDateFormattingTests {
             thumbPath: nil,
             localThumbURL: nil,
             galleryPath: "s/test-8",
+            publicGalleryPath: "session/test-8",
             assets: []
         )
 

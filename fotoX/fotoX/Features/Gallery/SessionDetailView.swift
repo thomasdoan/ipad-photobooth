@@ -240,7 +240,7 @@ struct SessionDetailView: View {
     // MARK: - QR Code Panel
     
     private var qrCodePanel: some View {
-        let galleryURL = QRCodeGenerator.galleryURL(from: viewModel.session.galleryPath)
+        let galleryURL = QRCodeGenerator.galleryURL(from: viewModel.session.publicGalleryPath)
         
         return VStack(spacing: 20) {
             Spacer()
@@ -875,7 +875,7 @@ struct SessionQRCodeView: View {
     @Environment(\.appTheme) private var theme
     
     private var galleryURL: String {
-        QRCodeGenerator.galleryURL(from: session.galleryPath)
+        QRCodeGenerator.galleryURL(from: session.publicGalleryPath)
     }
     
     var body: some View {
@@ -946,6 +946,7 @@ struct SessionQRCodeView: View {
         thumbPath: nil,
         localThumbURL: nil,
         galleryPath: "s/test",
+        publicGalleryPath: "session/test",
         assets: []
     ))
 }
@@ -960,6 +961,7 @@ struct SessionQRCodeView: View {
         thumbPath: nil,
         localThumbURL: nil,
         galleryPath: "s/test-session",
+        publicGalleryPath: "session/test-session",
         assets: []
     ))
 }

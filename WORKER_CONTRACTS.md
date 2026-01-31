@@ -30,7 +30,7 @@ events/{event_id}/index.json
   "event_id": 42,
   "session_id": "8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B",
   "created_at": "2025-02-01T18:20:15Z",
-  "public_gallery_url": "https://<worker>.workers.dev/s/8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B",
+  "public_gallery_url": "https://<worker>.workers.dev/session/8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B",
   "assets": [
     {
       "id": "strip_photo",
@@ -95,7 +95,7 @@ Notes:
       "session_id": "8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B",
       "created_at": "2025-02-01T18:20:15Z",
       "thumb_path": "events/42/sessions/8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B/photo_0.jpg",
-      "gallery_path": "s/8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B"
+      "gallery_path": "session/8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B"
     }
   ]
 }
@@ -178,7 +178,7 @@ Response:
       "session_id": "8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B",
       "created_at": "2025-02-01T18:20:15Z",
       "thumb_path": "events/42/sessions/.../photo_0.jpg",
-      "gallery_path": "s/8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B"
+      "gallery_path": "session/8D9E2D3D-9A6A-4F20-9C5D-2F6C2B6A8F7B"
     }
   ]
 }

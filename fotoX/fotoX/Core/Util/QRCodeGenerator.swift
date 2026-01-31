@@ -49,7 +49,7 @@ enum QRCodeGenerator {
     }
     
     /// Generates a gallery URL from a gallery path
-    /// - Parameter galleryPath: The gallery path (e.g., "s/{sessionId}")
+    /// - Parameter galleryPath: The gallery path (e.g., "session/{sessionId}")
     /// - Returns: The full gallery URL string
     static func galleryURL(from galleryPath: String) -> String {
         WorkerConfiguration.currentBaseURL()

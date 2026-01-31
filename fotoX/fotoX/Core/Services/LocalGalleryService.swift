@@ -86,6 +86,7 @@ struct LocalGalleryService: Sendable {
                     thumbPath: nil,
                     localThumbURL: thumbURL,
                     galleryPath: "s/\(queueSession.sessionId)",
+                    publicGalleryPath: "session/\(queueSession.sessionId)",
                     assets: assets
                 ))
             }
@@ -139,6 +140,7 @@ struct LocalGalleryService: Sendable {
                         thumbPath: nil,
                         localThumbURL: thumbURL,
                         galleryPath: "s/\(sessionId)",
+                        publicGalleryPath: "session/\(sessionId)",
                         assets: assets
                     ))
                 } else {
@@ -165,6 +167,7 @@ struct LocalGalleryService: Sendable {
                         thumbPath: nil,
                         localThumbURL: thumbURL,
                         galleryPath: "s/\(sessionId)",
+                        publicGalleryPath: "session/\(sessionId)",
                         assets: assets
                     ))
                 }
