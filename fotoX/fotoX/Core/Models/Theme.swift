@@ -9,7 +9,7 @@ import Foundation
 import SwiftUI
 
 /// Available theme styles for customized UI experiences
-enum ThemeStyle: String, Codable, Sendable {
+enum ThemeStyle: String, Codable, Sendable, CaseIterable {
     case standard
     case casino
 }
@@ -74,10 +74,7 @@ struct AppTheme: Equatable, Sendable {
     let stripFrameURL: URL?
     let stripFrameAssetName: String?
     let stripFooterText: String?
-    
-    /// Whether this theme uses casino-style UI components
-    var isCasino: Bool { style == .casino }
-    
+
     /// Creates an AppTheme from a raw Theme model
     init(from theme: Theme) {
         self.id = theme.id

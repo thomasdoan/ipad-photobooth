@@ -15,7 +15,11 @@ struct fotoXApp: App {
     @State private var services: ServiceContainer
     @State private var testableServices: TestableServiceContainer
 
+    @MainActor
     init() {
+        // Register theme providers
+        Self.registerThemeProviders()
+
         SentrySDK.start { options in
             options.dsn = "https://2aa3d859a1f0b1fe245e46d5589d65bd@o4510791751041024.ingest.us.sentry.io/4510792228601856"
 
@@ -46,10 +50,19 @@ struct fotoXApp: App {
         _testableServices = State(initialValue: TestableServiceContainer(useMocks: useMocks))
         
         if useMocks {
-            print("🧪 Running with mock data")
+            print("Running with mock data")
         }
     }
-    
+
+    @MainActor
+    private static func registerThemeProviders() {
+        let registry = ThemeRegistry.shared
+        let standardProvider = StandardThemeProvider()
+        registry.register(standardProvider)
+        registry.setDefaultProvider(standardProvider)
+        registry.register(CasinoThemeProvider())
+    }
+
     var body: some Scene {
         WindowGroup {
             RootView(services: services, testableServices: testableServices)

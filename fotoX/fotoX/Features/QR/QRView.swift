@@ -217,45 +217,7 @@ struct QRView: View {
     // MARK: - Background
     
     private var backgroundLayer: some View {
-        Group {
-            if theme.isCasino {
-                CasinoBackgroundView()
-            } else {
-                standardBackground
-            }
-        }
-    }
-    
-    private var standardBackground: some View {
-        ZStack {
-            LinearGradient(
-                colors: [theme.secondary, theme.secondary.opacity(0.95)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-            
-            if let background = themeAssets?.background {
-                background
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .ignoresSafeArea()
-                    .opacity(0.3)
-            }
-            
-            // Decorative circles
-            Circle()
-                .fill(theme.primary.opacity(0.1))
-                .frame(width: 300, height: 300)
-                .blur(radius: 50)
-                .offset(x: -150, y: -100)
-            
-            Circle()
-                .fill(theme.accent.opacity(0.05))
-                .frame(width: 250, height: 250)
-                .blur(radius: 40)
-                .offset(x: 150, y: 200)
-        }
+        ThemedBackgroundView()
     }
     
     // MARK: - Logo Section

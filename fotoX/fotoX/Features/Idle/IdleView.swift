@@ -16,7 +16,6 @@ struct IdleView: View {
     let testableServices: TestableServiceContainer
     
     @State private var viewModel: IdleViewModel<LocalSessionService>?
-    @State private var isPulsing = false
     @State private var showParticles = true
     @State private var volumeButtonHandler = VolumeButtonHandler()
     
@@ -28,11 +27,7 @@ struct IdleView: View {
                 
                 // Floating particles
                 if showParticles {
-                    if theme.isCasino {
-                        CasinoParticlesView(theme: theme)
-                    } else {
-                        ParticlesView(theme: theme)
-                    }
+                    ThemedParticlesView()
                 }
                 
                 // Main content
@@ -71,9 +66,6 @@ struct IdleView: View {
             if viewModel == nil {
                 viewModel = IdleViewModel(sessionService: services.sessionService, testableServices: testableServices)
             }
-            withAnimation(.easeInOut(duration: 1.5).repeatForever(autoreverses: true)) {
-                isPulsing = true
-            }
 
             // Start volume button listening if enabled
             if WorkerConfiguration.bluetoothButtonEnabled() {
@@ -108,51 +100,7 @@ struct IdleView: View {
     // MARK: - Background
     
     private var backgroundLayer: some View {
-        Group {
-            if theme.isCasino {
-                CasinoBackgroundView()
-            } else {
-                standardBackground
-            }
-        }
-    }
-    
-    private var standardBackground: some View {
-        ZStack {
-            // Base gradient using theme colors
-            LinearGradient(
-                colors: [
-                    theme.secondary,
-                    theme.secondary.opacity(0.9),
-                    theme.primary.opacity(0.2)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-            
-            // Theme background image if available
-            if let background = themeAssets?.background {
-                background
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .ignoresSafeArea()
-                    .opacity(0.6)
-            }
-            
-            // Decorative gradient orbs
-            Circle()
-                .fill(theme.primary.opacity(0.15))
-                .frame(width: 500, height: 500)
-                .blur(radius: 80)
-                .offset(x: -100, y: -300)
-            
-            Circle()
-                .fill(theme.accent.opacity(0.1))
-                .frame(width: 400, height: 400)
-                .blur(radius: 60)
-                .offset(x: 200, y: 200)
-        }
+        ThemedBackgroundView()
     }
     
     // MARK: - Event Header
@@ -200,43 +148,10 @@ struct IdleView: View {
     // MARK: - Start Button
     
     private var startButton: some View {
-        Group {
-            if theme.isCasino {
-                CasinoChipButton("Tap to\nStart", icon: "camera.fill") {
-                    Task {
-                        await viewModel?.startSession(appState: appState)
-                    }
-                }
-                .disabled(viewModel?.isCreatingSession == true)
-                .accessibilityIdentifier("startButton")
-            } else {
-                standardStartButton
-            }
-        }
-    }
-    
-    private var standardStartButton: some View {
-        Button {
+        ThemedActionButton("Tap to\nStart", icon: "camera.fill") {
             Task {
                 await viewModel?.startSession(appState: appState)
             }
-        } label: {
-            HStack(spacing: 16) {
-                Image(systemName: "camera.fill")
-                    .font(.title)
-                
-                Text("Tap to Start")
-                    .font(.system(size: 32, weight: .bold, design: .rounded))
-            }
-            .foregroundStyle(theme.secondary)
-            .padding(.horizontal, 64)
-            .padding(.vertical, 24)
-            .background(
-                Capsule()
-                    .fill(theme.primary)
-                    .shadow(color: theme.primary.opacity(0.5), radius: isPulsing ? 30 : 15, y: 5)
-            )
-            .scaleEffect(isPulsing ? 1.02 : 1.0)
         }
         .disabled(viewModel?.isCreatingSession == true)
         .accessibilityIdentifier("startButton")
