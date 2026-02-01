@@ -17,7 +17,6 @@ struct CaptureView: View {
     
     @State private var viewModel = CaptureViewModel()
     @State private var showFlash = false
-    @State private var volumeButtonHandler = VolumeButtonHandler()
 
     private var isReviewing: Bool {
         viewModel.stripState == .complete && (viewModel.pendingStrip != nil || viewModel.isSessionComplete)
@@ -34,12 +33,6 @@ struct CaptureView: View {
                 
                 // Flash effect
                 PhotoFlashView(isFlashing: $showFlash)
-
-                // Volume HUD suppressor when Bluetooth button is enabled
-                if WorkerConfiguration.bluetoothButtonEnabled() {
-                    VolumeHUDSuppressor()
-                        .frame(width: 1, height: 1)
-                }
             }
         }
         .task {
@@ -48,18 +41,13 @@ struct CaptureView: View {
                 orientation: appState.layoutOrientation
             )
             await viewModel.setupCamera()
-
-            // Start volume button listening if enabled
-            if WorkerConfiguration.bluetoothButtonEnabled() {
-                volumeButtonHandler.onVolumeButtonPressed = {
-                    _ = viewModel.handleVolumeButtonPress()
-                }
-                volumeButtonHandler.startListening()
-            }
         }
         .onDisappear {
-            volumeButtonHandler.stopListening()
             viewModel.cleanup(deleteTemporaryFiles: false)
+        }
+        .onChange(of: appState.volumeButtonTrigger) { _, _ in
+            guard appState.volumeButtonTrigger != nil else { return }
+            _ = viewModel.handleVolumeButtonPress()
         }
         .onChange(of: appState.captureAspectRatioSetting) { _, newValue in
             viewModel.updateAspectRatioSetting(newValue, orientation: appState.layoutOrientation)

@@ -80,7 +80,9 @@ struct RootView: View {
     @Environment(AppState.self) private var appState
     let services: ServiceContainer
     let testableServices: TestableServiceContainer
-    
+
+    @State private var volumeButtonHandler = VolumeButtonHandler()
+
     var body: some View {
         ZStack {
             // Background
@@ -123,6 +125,21 @@ struct RootView: View {
         }
         .animation(.easeInOut(duration: 0.3), value: appState.currentRoute)
         .fotoXStatusBarHidden()
+        .overlay {
+            // Volume HUD suppressor when Bluetooth button is enabled (global)
+            if WorkerConfiguration.bluetoothButtonEnabled() {
+                VolumeHUDSuppressor { slider in
+                    volumeButtonHandler.setVolumeSlider(slider)
+                }
+                .frame(width: 1, height: 1)
+            }
+        }
+        .onAppear {
+            setupVolumeButtonHandler()
+        }
+        .onChange(of: appState.currentRoute) { _, newRoute in
+            updateVolumeButtonCallback(for: newRoute)
+        }
         .task {
             // Process any pending uploads on launch
             await services.uploadQueueWorker.startProcessing(
@@ -171,6 +188,30 @@ struct RootView: View {
             }
         } message: { error in
             Text(error.userMessage)
+        }
+    }
+
+    // MARK: - Volume Button Handling
+
+    private func setupVolumeButtonHandler() {
+        guard WorkerConfiguration.bluetoothButtonEnabled() else { return }
+        updateVolumeButtonCallback(for: appState.currentRoute)
+        volumeButtonHandler.startListening()
+    }
+
+    private func updateVolumeButtonCallback(for route: AppRoute) {
+        switch route {
+        case .idle:
+            volumeButtonHandler.onVolumeButtonPressed = { [weak appState] in
+                appState?.triggerVolumeButtonAction()
+            }
+        case .capture:
+            volumeButtonHandler.onVolumeButtonPressed = { [weak appState] in
+                appState?.triggerVolumeButtonAction()
+            }
+        case .eventSelection, .qrDisplay, .settings:
+            // No action on these screens
+            volumeButtonHandler.onVolumeButtonPressed = nil
         }
     }
 }

@@ -23,7 +23,7 @@ struct QRView: View {
     @State private var videoPlayer: AVPlayer?
     
     /// Auto-return delay in seconds
-    private let autoReturnDelay: TimeInterval = 60
+    private let autoReturnDelay: TimeInterval = 120
     
     var body: some View {
         GeometryReader { geometry in

@@ -17,7 +17,6 @@ struct IdleView: View {
     
     @State private var viewModel: IdleViewModel<LocalSessionService>?
     @State private var showParticles = true
-    @State private var volumeButtonHandler = VolumeButtonHandler()
     
     var body: some View {
         GeometryReader { geometry in
@@ -54,32 +53,18 @@ struct IdleView: View {
                 if viewModel?.isCreatingSession == true {
                     loadingOverlay
                 }
-
-                // Volume HUD suppressor when Bluetooth button is enabled
-                if WorkerConfiguration.bluetoothButtonEnabled() {
-                    VolumeHUDSuppressor()
-                        .frame(width: 1, height: 1)
-                }
             }
         }
         .onAppear {
             if viewModel == nil {
                 viewModel = IdleViewModel(sessionService: services.sessionService, testableServices: testableServices)
             }
-
-            // Start volume button listening if enabled
-            if WorkerConfiguration.bluetoothButtonEnabled() {
-                volumeButtonHandler.onVolumeButtonPressed = { [weak viewModel] in
-                    guard let viewModel = viewModel else { return }
-                    Task {
-                        await viewModel.startSession(appState: appState)
-                    }
-                }
-                volumeButtonHandler.startListening()
-            }
         }
-        .onDisappear {
-            volumeButtonHandler.stopListening()
+        .onChange(of: appState.volumeButtonTrigger) { _, _ in
+            guard appState.volumeButtonTrigger != nil else { return }
+            Task {
+                await viewModel?.startSession(appState: appState)
+            }
         }
         .alert(
             "Error",
