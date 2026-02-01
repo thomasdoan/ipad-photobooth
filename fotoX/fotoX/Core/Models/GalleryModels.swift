@@ -108,6 +108,13 @@ struct GallerySession: Identifiable, Equatable, Sendable {
     var formattedDateTime: String {
         createdAt.formatted(date: .abbreviated, time: .shortened)
     }
+
+    /// Full public gallery URL for this session
+    var publicGalleryURL: String {
+        WorkerConfiguration.currentBaseURL()
+            .appendingPathComponent(galleryPath)
+            .absoluteString
+    }
 }
 
 // MARK: - API Response Models
