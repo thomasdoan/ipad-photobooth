@@ -240,7 +240,7 @@ struct SessionDetailView: View {
     // MARK: - QR Code Panel
     
     private var qrCodePanel: some View {
-        let galleryURL = QRCodeGenerator.galleryURL(from: viewModel.session.galleryPath)
+        let galleryURL = QRCodeGenerator.galleryURL(from: viewModel.session.publicGalleryPath)
         
         return VStack(spacing: 20) {
             Spacer()
