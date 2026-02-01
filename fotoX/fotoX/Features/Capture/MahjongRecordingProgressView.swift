@@ -65,18 +65,18 @@ struct MahjongRecordingProgressView: View {
         ZStack {
             // Jade base
             Circle()
-                .fill(jadeGreen)
-                .frame(width: 140, height: 140)
+                .fill(jadeGreen.opacity(0.35))
+                .frame(width: 280, height: 280)
 
             // Inner darker circle
             Circle()
-                .fill(darkJade)
-                .frame(width: 110, height: 110)
+                .fill(darkJade.opacity(0.35))
+                .frame(width: 220, height: 220)
 
             // Gold accent ring
             Circle()
-                .strokeBorder(gold.opacity(0.4), lineWidth: 2)
-                .frame(width: 105, height: 105)
+                .strokeBorder(gold.opacity(0.2), lineWidth: 4)
+                .frame(width: 210, height: 210)
         }
     }
 
@@ -130,28 +130,10 @@ struct MahjongRecordingProgressView: View {
     // MARK: - Center Content
 
     private var centerContent: some View {
-        VStack(spacing: 4) {
-            // Time label
-            Text("TIME")
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .foregroundStyle(gold.opacity(0.7))
-
-            // Time remaining
-            Text(timeString)
-                .font(.system(size: 24, weight: .black, design: .rounded))
-                .foregroundStyle(ivory)
-                .contentTransition(.numericText())
-
-            // Progress percentage as tile count
-            HStack(spacing: 2) {
-                Text("\(Int(progress * 100))")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-                    .foregroundStyle(gold)
-                Text("%")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(gold.opacity(0.7))
-            }
-        }
+        Text(timeString)
+            .font(.system(size: 96, weight: .black, design: .rounded))
+            .foregroundStyle(ivory.opacity(0.35))
+            .contentTransition(.numericText())
     }
 
     // MARK: - Helpers
