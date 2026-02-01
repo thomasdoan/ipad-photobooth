@@ -240,9 +240,7 @@ struct SessionDetailView: View {
     // MARK: - QR Code Panel
     
     private var qrCodePanel: some View {
-        let galleryURL = QRCodeGenerator.galleryURL(from: viewModel.session.publicGalleryPath)
-        
-        return VStack(spacing: 20) {
+        VStack(spacing: 20) {
             Spacer()
             
             // Title
@@ -258,7 +256,7 @@ struct SessionDetailView: View {
             
             // QR Code
             QRCodeDisplayView(
-                urlString: galleryURL,
+                urlString: viewModel.session.publicGalleryURL,
                 config: QRCodeDisplayConfig(
                     maxSize: 160,
                     padding: 16,
@@ -874,10 +872,6 @@ struct SessionQRCodeView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.appTheme) private var theme
     
-    private var galleryURL: String {
-        QRCodeGenerator.galleryURL(from: session.galleryPath)
-    }
-    
     var body: some View {
         NavigationStack {
             ZStack {
@@ -906,10 +900,10 @@ struct SessionQRCodeView: View {
                     }
                     
                     // QR Code (using modular component)
-                    QRCodeDisplayView(urlString: galleryURL)
+                    QRCodeDisplayView(urlString: session.publicGalleryURL)
                     
                     // URL display (using modular component)
-                    QRCodeURLView(urlString: galleryURL)
+                    QRCodeURLView(urlString: session.publicGalleryURL)
                     
                     // Session info
                     Text(session.formattedDateTime)
