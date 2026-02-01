@@ -63,21 +63,24 @@ final class AppState {
     var emailSubmitted: Bool = false
     
     // MARK: - UI State
-    
     /// Whether an API operation is in progress
     var isLoading: Bool = false
-    
     /// Current error to display
     var currentError: APIError?
-    
     /// Whether to show the settings sheet
     var showSettings: Bool = false
-    
     /// Whether to show the gallery sheet
     var showGallery: Bool = false
 
     /// Current layout orientation (updated from root view)
     var layoutOrientation: LayoutOrientation = .portrait
+    // MARK: - Volume Button
+    /// Trigger for volume button press events (changes UUID to signal a press)
+    var volumeButtonTrigger: UUID?
+    /// Triggers a volume button action for the current route
+    func triggerVolumeButtonAction() {
+        volumeButtonTrigger = UUID()
+    }
     
     // MARK: - Configuration
     
