@@ -26,7 +26,7 @@ extension ThemeStyle {
         case .balatro:
             return ("#FF2D6A", "#1a1a2e", "#4DEEEA")
         case .mahjong:
-            return ("#F5F5DC", "#1D4E3E", "#B22222")  // irvory primary, jade secondary, red accent
+            return ("#F5F5DC", "#1D4E3E", "#B22222")  // ivory primary, jade secondary, red accent
         }
     }
 }
